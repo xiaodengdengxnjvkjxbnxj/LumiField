@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#05070b">
+  <meta name="description" content="LumiField 是面向 Windows 的沉浸式 GPLv3 开源音乐播放器。">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>LumiField · 听见，也进入声音</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <canvas id="signal-field" aria-hidden="true"></canvas>
+
+  <header class="site-header" data-header>
+    <a class="brand" href="#top" aria-label="LumiField 首页">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>LumiField</span>
+    </a>
+    <button class="nav-toggle icon-button" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+      <span></span><span></span>
+    </button>
+    <nav id="site-nav" class="site-nav" aria-label="主导航" data-nav>
+      <a href="#experience">体验</a>
+      <a href="#gallery">界面</a>
+      <a href="#open-source">开源</a>
+      <a href="#faq">问答</a>
+    </nav>
+    <div class="header-actions">
+      <a class="text-link" href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="button button-small" href="#download">下载 v1.1.43</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="live-dot"></span> Windows 10 / 11 · GPL-3.0-only</p>
+        <h1 id="hero-title">让音乐不只<br><span>被听见。</span></h1>
+        <p class="hero-lede">LumiField 把本地播放、动态歌词、音频频谱、粒子舞台与 3D 歌单连成一个可以触碰、旋转和沉浸其中的空间。</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#download">免费下载 Windows 版 <span aria-hidden="true">↓</span></a>
+          <a class="button button-ghost" href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField" target="_blank" rel="noopener noreferrer">查看完整源码</a>
+        </div>
+        <ul class="hero-facts" aria-label="发布信息">
+          <li><strong>1.1.43</strong><span>当前版本</span></li>
+          <li><strong>x64</strong><span>系统架构</span></li>
+          <li><strong>¥0</strong><span>免费下载</span></li>
+        </ul>
+      </div>
+
+      <div class="hero-stage reveal" data-tilt>
+        <div class="stage-aura" aria-hidden="true"></div>
+        <div class="app-window">
+          <div class="window-bar">
+            <span class="window-brand"><i></i> LUMIFIELD</span>
+            <span class="window-controls" aria-hidden="true">—　□　×</span>
+          </div>
+          <figure class="media-frame media-frame-hero" data-media>
+            <img src="assets/screenshots/immersive-stage.png" alt="LumiField 沉浸式音乐舞台界面" loading="eager" decoding="async">
+            <figcaption class="media-fallback">
+              <span class="fallback-orbit" aria-hidden="true"></span>
+              <strong>沉浸式音乐舞台</strong>
+              <small>最终产品截图加载后将在此显示</small>
+            </figcaption>
+          </figure>
+          <div class="now-playing" aria-hidden="true">
+            <span class="album-chip"></span>
+            <span><b>声音正在发生</b><small>LumiField Visual Stage</small></span>
+            <span class="equalizer"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+        </div>
+        <div class="stage-note stage-note-one"><span>360°</span> 自由旋转</div>
+        <div class="stage-note stage-note-two"><span>LIVE</span> 音频响应</div>
+      </div>
+      <a class="scroll-cue" href="#experience"><span>向下探索</span><i aria-hidden="true"></i></a>
+    </section>
+
+    <section class="section intro" id="experience" aria-labelledby="experience-title">
+      <div class="section-heading reveal">
+        <p class="eyebrow">ONE CONTINUOUS SPACE</p>
+        <h2 id="experience-title">从播放到可视化，<br>不再切断情绪。</h2>
+        <p>每一层都围绕正在播放的声音展开。选择一个视角，让界面跟随你的聆听方式改变。</p>
+      </div>
+
+      <div class="experience-shell reveal">
+        <div class="experience-tabs" role="tablist" aria-label="LumiField 核心体验">
+          <button id="tab-stage" role="tab" aria-selected="true" aria-controls="panel-stage" data-tab="stage"><span>01</span>视觉舞台</button>
+          <button id="tab-library" role="tab" aria-selected="false" aria-controls="panel-library" tabindex="-1" data-tab="library"><span>02</span>音乐空间</button>
+          <button id="tab-control" role="tab" aria-selected="false" aria-controls="panel-control" tabindex="-1" data-tab="control"><span>03</span>精细控制</button>
+        </div>
+
+        <div class="experience-panels">
+          <article id="panel-stage" role="tabpanel" aria-labelledby="tab-stage" data-panel="stage">
+            <div class="panel-copy">
+              <p class="panel-kicker">AUDIO REACTIVE</p>
+              <h3>频谱、粒子与歌词，在同一片景深中呼吸。</h3>
+              <p>音频频谱跟随节奏变化，歌词与 3D 歌单保持清晰层级；多套粒子预设可以即时切换。</p>
+              <ul class="check-list"><li>两种音域回响</li><li>空间化舞台歌词</li><li>实时音频频谱</li></ul>
+            </div>
+            <figure class="media-frame panel-media" data-media>
+              <img src="assets/screenshots/audio-reactive-stage.png" alt="音频响应频谱、舞台歌词与粒子效果" loading="lazy" decoding="async">
+              <figcaption class="media-fallback"><span class="fallback-wave" aria-hidden="true"></span><strong>音频响应舞台</strong><small>截图资源待就绪</small></figcaption>
+            </figure>
+          </article>
+          <article id="panel-library" role="tabpanel" aria-labelledby="tab-library" data-panel="library" hidden>
+            <div class="panel-copy">
+              <p class="panel-kicker">MUSIC IN MOTION</p>
+              <h3>搜索、歌单与继续听，进入同一条动线。</h3>
+              <p>从主页进入搜索、本地音乐、天气电台与歌单；副界面的 3D 歌单把切歌变成可见的空间动作。</p>
+              <ul class="check-list"><li>本地音乐播放</li><li>天气电台与搜索</li><li>3D 歌单交互</li></ul>
+            </div>
+            <figure class="media-frame panel-media" data-media>
+              <img src="assets/screenshots/music-library.png" alt="LumiField 首页与音乐资料库界面" loading="lazy" decoding="async">
+              <figcaption class="media-fallback"><span class="fallback-grid" aria-hidden="true"></span><strong>音乐空间</strong><small>截图资源待就绪</small></figcaption>
+            </figure>
+          </article>
+          <article id="panel-control" role="tabpanel" aria-labelledby="tab-control" data-panel="control" hidden>
+            <div class="panel-copy">
+              <p class="panel-kicker">YOUR OWN FIELD</p>
+              <h3>粒子、镜头与视觉参数，都由你决定。</h3>
+              <p>视觉控制台支持调整舞台表现并保存预设；动态壁纸、桌面歌词和伴唱分离继续延伸桌面体验。</p>
+              <ul class="check-list"><li>预设保存与切换</li><li>动态壁纸导入</li><li>降低动态效果模式</li></ul>
+            </div>
+            <figure class="media-frame panel-media" data-media>
+              <img src="assets/screenshots/visual-console.png" alt="LumiField 视觉控制台与粒子预设" loading="lazy" decoding="async">
+              <figcaption class="media-fallback"><span class="fallback-sliders" aria-hidden="true"></span><strong>视觉控制台</strong><small>截图资源待就绪</small></figcaption>
+            </figure>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section feature-grid" aria-labelledby="feature-title">
+      <div class="section-heading compact reveal">
+        <p class="eyebrow">BUILT AROUND LISTENING</p>
+        <h2 id="feature-title">看得见的节奏，<br>也有安静的一面。</h2>
+      </div>
+      <div class="feature-cards">
+        <article class="feature-card feature-wide reveal">
+          <span class="feature-index">01</span><div><h3>可交互视觉舞台</h3><p>自由移动视角，让频谱与粒子对鼠标和音乐同时响应。</p></div>
+          <div class="mini-stage" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><span></span></div>
+        </article>
+        <article class="feature-card reveal"><span class="feature-index">02</span><div><h3>歌词与 3D 歌单</h3><p>信息保持清晰层级，播放操作始终触手可及。</p></div><div class="lyric-lines" aria-hidden="true"><i></i><i></i><i></i></div></article>
+        <article class="feature-card reveal"><span class="feature-index">03</span><div><h3>天气与电台</h3><p>动态天气、每日入口和电台一起进入主页。</p></div><div class="weather-mark" aria-hidden="true"><i></i></div></article>
+        <article class="feature-card reveal"><span class="feature-index">04</span><div><h3>本地优先</h3><p>队列、历史与自定义内容保存在你的设备中。</p></div><div class="local-mark" aria-hidden="true"><i></i><i></i><i></i></div></article>
+        <article class="feature-card feature-wide reveal"><span class="feature-index">05</span><div><h3>从开屏到播放的连续体验</h3><p>可交互开屏、分层性能策略和降低动态效果支持，让进入舞台更自然。</p></div><div class="motion-track" aria-hidden="true"><i></i></div></article>
+      </div>
+    </section>
+
+    <section class="section gallery" id="gallery" aria-labelledby="gallery-title">
+      <div class="gallery-head reveal">
+        <div><p class="eyebrow">THE REAL INTERFACE</p><h2 id="gallery-title">LumiField，正在播放。</h2></div>
+        <div class="carousel-controls">
+          <button class="icon-button" type="button" aria-label="上一张截图" data-carousel-prev>←</button>
+          <span aria-live="polite"><b data-slide-current>01</b> / <span data-slide-total>04</span></span>
+          <button class="icon-button" type="button" aria-label="下一张截图" data-carousel-next>→</button>
+        </div>
+      </div>
+      <div class="carousel reveal" tabindex="0" aria-label="产品截图轮播" data-carousel>
+        <figure class="gallery-slide is-current" data-slide>
+          <div class="media-frame" data-media><img src="assets/screenshots/home.png" alt="LumiField 主界面" loading="lazy" decoding="async"><figcaption class="media-fallback"><span class="fallback-grid" aria-hidden="true"></span><strong>主界面</strong><small>最终截图待就绪</small></figcaption></div>
+          <figcaption><span>01 / HOME</span><strong>打开，就有安排。</strong><p>天气、电台、搜索、继续听与歌单入口集中在一处。</p></figcaption>
+        </figure>
+        <figure class="gallery-slide" data-slide>
+          <div class="media-frame" data-media><img src="assets/screenshots/secondary-stage.png" alt="LumiField 副界面" loading="lazy" decoding="async"><figcaption class="media-fallback"><span class="fallback-orbit" aria-hidden="true"></span><strong>副界面</strong><small>最终截图待就绪</small></figcaption></div>
+          <figcaption><span>02 / STAGE</span><strong>让声音进入景深。</strong><p>音频频谱、歌词、3D 歌单与粒子预设按照明确层级共同呈现。</p></figcaption>
+        </figure>
+        <figure class="gallery-slide" data-slide>
+          <div class="media-frame" data-media><img src="assets/screenshots/my-panel.png" alt="LumiField 我的面板" loading="lazy" decoding="async"><figcaption class="media-fallback"><span class="fallback-wave" aria-hidden="true"></span><strong>我的面板</strong><small>最终截图待就绪</small></figcaption></div>
+          <figcaption><span>03 / PERSONAL</span><strong>属于你的声音档案。</strong><p>账号、反馈、设置与个人内容在独立面板中保持清楚。</p></figcaption>
+        </figure>
+        <figure class="gallery-slide" data-slide>
+          <div class="media-frame" data-media><img src="assets/screenshots/preset-console.png" alt="LumiField 粒子预设控制台" loading="lazy" decoding="async"><figcaption class="media-fallback"><span class="fallback-sliders" aria-hidden="true"></span><strong>粒子预设</strong><small>最终截图待就绪</small></figcaption></div>
+          <figcaption><span>04 / CONTROL</span><strong>把舞台调成你的样子。</strong><p>预览、调整并保存视觉预设，不中断正在播放的音乐。</p></figcaption>
+        </figure>
+      </div>
+      <div class="carousel-dots" role="tablist" aria-label="选择截图">
+        <button type="button" class="is-current" aria-label="显示第 1 张截图" aria-selected="true" data-slide-dot="0"></button>
+        <button type="button" aria-label="显示第 2 张截图" aria-selected="false" data-slide-dot="1"></button>
+        <button type="button" aria-label="显示第 3 张截图" aria-selected="false" data-slide-dot="2"></button>
+        <button type="button" aria-label="显示第 4 张截图" aria-selected="false" data-slide-dot="3"></button>
+      </div>
+    </section>
+
+    <section class="section open-source" id="open-source" aria-labelledby="source-title">
+      <div class="source-copy reveal">
+        <p class="eyebrow">OPEN BY DESIGN</p>
+        <h2 id="source-title">开源不是口号，<br>而是一条可核验的链。</h2>
+        <p>LumiField 以 GPL-3.0-only 发布。源码、第三方归属、修改记录、构建说明与发布哈希都保持公开。</p>
+        <a class="arrow-link" href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField" target="_blank" rel="noopener noreferrer">在 GitHub 检查源码 <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="transparency-list reveal">
+        <a href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"><span>01</span><div><strong>GPL-3.0 许可证</strong><small>完整许可证文本</small></div><i>↗</i></a>
+        <a href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/blob/main/THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener noreferrer"><span>02</span><div><strong>第三方声明</strong><small>来源、版本与分发义务</small></div><i>↗</i></a>
+        <a href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/blob/main/BUILD.md" target="_blank" rel="noopener noreferrer"><span>03</span><div><strong>可复现构建说明</strong><small>源码到 Windows 安装包</small></div><i>↗</i></a>
+        <a href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/tag/v1.1.43" target="_blank" rel="noopener noreferrer"><span>04</span><div><strong>发布清单与哈希</strong><small>版本、文件与 SHA-256</small></div><i>↗</i></a>
+      </div>
+    </section>
+
+    <section class="section download" id="download" aria-labelledby="download-title">
+      <div class="download-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="download-copy reveal">
+        <p class="eyebrow">VERSION 1.1.43 · WINDOWS X64</p>
+        <h2 id="download-title">进入你的<br>声音现场。</h2>
+        <p>适用于 Windows 10 / 11 64 位系统。请只从 LumiField 的正式 GitHub Release 下载。</p>
+        <div class="download-actions">
+          <a class="button button-primary button-large" href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/download/v1.1.43/LumiField-1.1.43-Setup.exe" data-download-link>下载 Windows 安装包 <span aria-hidden="true">↓</span></a>
+          <a class="button button-ghost" href="https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/tag/v1.1.43" target="_blank" rel="noopener noreferrer">Release 说明</a>
+        </div>
+        <p class="download-meta">LumiField-1.1.43-Setup.exe · 263,690,338 bytes · 发布于 2026-08-14</p>
+      </div>
+      <div class="checksum-card reveal">
+        <div class="checksum-head"><span>SHA-256 / INSTALLER</span><span class="verified-mark"><i></i> 已核验</span></div>
+        <code data-checksum>695E54F6473F7CCBAE811BE9BE4DEAEACF0E7A9CA7461FFDB38261D6614375CB</code>
+        <button class="copy-button" type="button" data-copy-checksum><span data-copy-label>复制 SHA-256</span><i aria-hidden="true">⧉</i></button>
+        <p>Tag <code>v1.1.43</code> · Commit <code>f20b09f2ab27</code><br>下载后可在 PowerShell 中运行：<br><code>Get-FileHash .\LumiField-1.1.43-Setup.exe -Algorithm SHA256</code></p>
+      </div>
+    </section>
+
+    <section class="section faq" id="faq" aria-labelledby="faq-title">
+      <div class="section-heading compact reveal"><p class="eyebrow">BEFORE YOU ENTER</p><h2 id="faq-title">安装前，先了解这些。</h2></div>
+      <div class="faq-list reveal">
+        <details><summary><span>01</span> LumiField 支持哪些系统？<i aria-hidden="true"></i></summary><p>当前正式版本面向 Windows 10 / 11 64 位系统。官网不会把未发布的平台版本标记为可下载。</p></details>
+        <details><summary><span>02</span> 是否免费、是否开源？<i aria-hidden="true"></i></summary><p>是。LumiField 免费提供，并以 GPL-3.0-only 发布。你可以在 GitHub 查看对应版本源码、许可证、构建说明与第三方声明。</p></details>
+        <details><summary><span>03</span> 如何确认安装包没有被替换？<i aria-hidden="true"></i></summary><p>请从正式 GitHub Release 下载，并将本地文件的 SHA-256 与本页及 Release 中公布的值逐字核对。</p></details>
+        <details><summary><span>04</span> 我的本地数据存在哪里？<i aria-hidden="true"></i></summary><p>Cookie、账号状态、播放历史、自定义歌词、封面和缓存保存在用户设备中，不进入公开仓库。具体规则以项目隐私说明为准。</p></details>
+        <details><summary><span>05</span> 如何支持 LumiField？<i aria-hidden="true"></i></summary><p>你可以检查源码、提交问题或自愿赞助。赞助不会影响软件的免费下载与 GPLv3 开源属性。</p></details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>LumiField</strong><p>听见，也进入声音。</p></div>
+    <div class="footer-links"><a href="#experience">体验</a><a href="#gallery">界面</a><a href="#open-source">开源</a><button type="button" data-open-sponsor>赞助支持</button></div>
+    <div class="footer-meta"><p>本网站不使用遥测、Cookie 或外部 CDN。</p><p>© 2026 LumiField · GPL-3.0-only</p></div>
+  </footer>
+
+  <dialog class="sponsor-dialog" data-sponsor-dialog aria-labelledby="sponsor-title">
+    <form method="dialog"><button class="dialog-close icon-button" aria-label="关闭赞助窗口">×</button></form>
+    <p class="eyebrow">SUPPORT THE PROJECT</p>
+    <h2 id="sponsor-title">谢谢你，让声音继续生长。</h2>
+    <p>赞助完全自愿，不影响软件的免费下载、使用或 GPLv3 权利。扫码前请核对收款人信息。</p>
+    <div class="sponsor-grid">
+      <figure data-media><div class="sponsor-image"><img src="assets/sponsor/alipay.jpg" alt="LumiField 支付宝收款码" loading="lazy"><span class="sponsor-fallback">支付宝图片待就绪</span></div><figcaption>支付宝</figcaption></figure>
+      <figure data-media><div class="sponsor-image"><img src="assets/sponsor/wechat.png" alt="LumiField 微信赞赏码" loading="lazy"><span class="sponsor-fallback">微信图片待就绪</span></div><figcaption>微信赞赏</figcaption></figure>
+    </div>
+    <small>二维码由项目作者提供，官网不处理任何支付信息。</small>
+  </dialog>
+
+  <div class="toast" role="status" aria-live="polite" data-toast></div>
+</body>
+</html>
