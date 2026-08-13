@@ -24,7 +24,8 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 90px; }
-body { margin: 0; min-width: 320px; overflow-x: hidden; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6; }
+html, body { max-width: 100%; overflow-x: clip; }
+body { margin: 0; min-width: 320px; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6; }
 body::before { content: ""; position: fixed; inset: 0; z-index: -3; pointer-events: none; background: radial-gradient(circle at 70% 10%, rgba(49, 89, 130, .16), transparent 30%), radial-gradient(circle at 20% 60%, rgba(41, 213, 186, .06), transparent 28%), #05070b; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; }
