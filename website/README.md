@@ -16,14 +16,11 @@ python -m http.server 4173 --directory website
 
 正式发布前应提供以下文件：
 
-- `assets/screenshots/immersive-stage.png`
-- `assets/screenshots/audio-reactive-stage.png`
-- `assets/screenshots/music-library.png`
-- `assets/screenshots/visual-console.png`
-- `assets/screenshots/home.png`
-- `assets/screenshots/secondary-stage.png`
-- `assets/screenshots/my-panel.png`
-- `assets/screenshots/preset-console.png`
+- `assets/screenshots/immersive-stage.webp`
+- `assets/screenshots/audio-reactive-stage.webp`
+- `assets/screenshots/music-library.webp`
+- `assets/screenshots/visual-console.webp`
+- `assets/screenshots/my-panel.webp`
 - `assets/sponsor/alipay.jpg`
 - `assets/sponsor/wechat.png`
 
