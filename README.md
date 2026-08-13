@@ -1,6 +1,6 @@
 # LumiField
 
-![LumiField 音乐视觉舞台](./docs/assets/readme/cinema-beat-smoke.png)
+![LumiField 音乐视觉舞台](./docs/assets/readme/lumifield-hero.png.png)
 
 LumiField 是面向 Windows 的沉浸式开源音乐播放器，把本地播放、天气电台、动态歌词、音频频谱、粒子舞台和 3D 歌单组合成一个连续的空间化体验。
 
