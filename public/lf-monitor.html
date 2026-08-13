@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'">
+  <title>LF 后台监控</title>
+  <link rel="stylesheet" href="./lf-monitor.css">
+  <link rel="stylesheet" href="./lf-monitor-v2.css">
+</head>
+<body>
+  <header>
+    <div><span class="brand">LF</span><div><h1>LF 后台监控</h1><p>认证、权限、反馈、发布与双端状态</p></div></div>
+    <div class="header-actions"><span id="monitor-sync">等待管理员登录</span><button id="monitor-refresh" hidden>立即刷新</button><button id="monitor-logout" hidden>退出后台账号</button><button id="monitor-close">关闭</button></div>
+  </header>
+  <main id="monitor-app">
+    <section id="monitor-login" class="monitor-login"><span class="brand">LF</span><h2>管理员登录</h2><p>使用 LF 管理员邮箱和密码；普通用户无法进入。</p><input id="monitor-account" type="email" autocomplete="username" placeholder="管理员邮箱"><input id="monitor-password" type="password" autocomplete="current-password" placeholder="密码"><button id="monitor-login-submit">登录 LF后台监控</button><div id="monitor-login-status"></div></section>
+    <section id="monitor-denied" class="denied" hidden><h2>无权访问</h2><p>只有经后端确认的管理员可以进入 LF后台监控。</p><button id="monitor-denied-back">返回登录</button></section>
+    <div id="monitor-content" hidden>
+      <section id="monitor-stats" class="stats"></section>
+      <nav class="tabs">
+        <button class="active" data-tab="users">用户</button><button data-tab="feedback">反馈</button><button data-tab="releases">版本发布</button><button data-tab="security">安全审计</button><button data-tab="services">登录服务</button><button data-tab="system">系统状态</button>
+      </nav>
+      <section class="pane active" data-pane="users">
+        <div class="pane-head"><div><h2>用户实时状态</h2><p>每个权限与拉黑开关只影响对应用户。</p></div><input id="user-filter" placeholder="搜索昵称 / 账号 / ID"></div>
+        <div class="table-scroll"><table><thead><tr><th>用户</th><th>登录信息</th><th>设备 / 地点</th><th>状态</th><th>开发 / 二创权限</th><th>拉黑</th></tr></thead><tbody id="monitor-users"></tbody></table></div>
+      </section>
+      <section class="pane" data-pane="feedback"><div class="pane-head"><div><h2>问题反馈</h2><p>数据库状态、邮件投递状态与附件状态分别显示。</p></div><button id="monitor-retry-mail">重试通知邮件</button></div><div id="monitor-feedback" class="cards"></div></section>
+      <section class="pane" data-pane="releases">
+        <div class="pane-head"><div><h2>版本发布</h2><p>新构建先进入待确认；管理员确认后，用户仍自行选择是否更新。</p></div></div>
+        <form id="release-form" class="release-form"><input id="release-version" required placeholder="语义化版本，如 1.1.2"><input id="release-rollout" type="number" min="1" max="100" value="100" placeholder="灰度百分比"><input id="release-package" placeholder="更新包本地路径或 HTTPS 地址"><input id="release-sha" placeholder="更新包 SHA-256"><input id="release-signature" placeholder="Base64 数字签名"><textarea id="release-notes" placeholder="发布说明"></textarea><label><input id="release-mandatory" type="checkbox"> 强制更新（默认关闭）</label><button type="submit">创建待发布版本</button></form>
+        <div id="monitor-releases" class="cards"></div>
+      </section>
+      <section class="pane" data-pane="security"><div class="pane-head"><div><h2>安全审计</h2><p>只记录授权接口访问，不扫描私人文件或私人行为。</p></div></div><div id="monitor-security" class="cards"></div></section>
+      <section class="pane" data-pane="services"><div class="pane-head"><div><h2>系统设置 → 登录服务</h2><p>配置由操作系统加密存储；已保存的 Secret、App Key 与 SMTP 授权码不会回显。</p></div></div><div id="monitor-login-services" class="service-grid"></div></section>
+      <section class="pane" data-pane="system"><div class="pane-head"><div><h2>系统状态</h2><p>本地与远端部署使用同一 REST API 和 SQLite 数据层。</p></div></div><div id="monitor-system" class="system-grid"></div></section>
+    </div>
+  </main>
+  <script src="./lf-monitor.js"></script>
+</body>
+</html>

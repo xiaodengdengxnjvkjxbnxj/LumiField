@@ -1,0 +1,180 @@
+{
+  "name": "lumifield",
+  "productName": "LumiField",
+  "version": "1.1.43",
+  "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
+  "author": "LumiField contributors",
+  "license": "GPL-3.0-only",
+  "homepage": "https://xiaodengdengxnjvkjxbnxj.github.io/LumiField/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaodengdengxnjvkjxbnxj/LumiField.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/issues"
+  },
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "build:home-pet": "esbuild public/lf-home-pet-source.jsx --bundle --format=iife --global-name=LumiFieldHomePetSource --platform=browser --target=chrome134 --outfile=public/lf-home-pet-source.bundle.js --minify --legal-comments=linked",
+    "start": "electron .",
+    "start:lf-backend": "node desktop/lf-backend-service.js",
+    "test:lf-backend": "node scripts/lf-backend-smoke.js",
+    "test:lf-ui": "node scripts/lf-ui-smoke.js",
+    "test:lf-qishui-import": "electron scripts/lf-qishui-official-import-smoke.js",
+    "test:lf-problem17": "node scripts/lf-problem17-smoke.js",
+    "test:lf-problem1": "node scripts/lf-problem1-smoke.js",
+    "test:lf-problem2": "node scripts/lf-problem2-smoke.js",
+    "test:lf-problem4": "node scripts/lf-problem4-smoke.js",
+    "test:lf-problem5": "node scripts/lf-problem5-smoke.js",
+    "test:lf-v4-problem2": "node scripts/lf-v4-problem2-smoke.js",
+    "test:lf-problem5:backend": "node scripts/lf-problem5-backend-smoke.js",
+    "test:lf-problem6": "node scripts/lf-problem6-smoke.js",
+    "test:lf-problem7": "node scripts/lf-problem7-smoke.js",
+    "test:lf-problem8": "node scripts/lf-problem8-smoke.js",
+    "test:lf-master-problem9": "node scripts/lf-master-problem9-smoke.js",
+    "test:lf-master-problem10": "node scripts/lf-master-problem10-smoke.js",
+    "test:lf-master-problem11": "node scripts/lf-master-problem11-smoke.js",
+    "test:lf-master-problem12": "node scripts/lf-master-problem12-smoke.js",
+    "test:lf-master-problem13": "node scripts/lf-master-problem13-smoke.js",
+    "test:lf-master-problem14": "node scripts/lf-master-problem14-smoke.js",
+    "test:lf-master-problem15": "node scripts/lf-master-problem15-smoke.js",
+    "test:lf-master-problem16": "node scripts/lf-master-problem16-smoke.js",
+    "test:lf-new1": "node scripts/lf-new1-smoke.js",
+    "test:lf-new2": "node scripts/lf-new2-smoke.js",
+    "test:lf-new3": "node scripts/lf-new3-smoke.js",
+    "test:lf-new3:backend": "node scripts/lf-new3-backend-smoke.js",
+    "test:lf-new4": "node scripts/lf-new4-smoke.js",
+    "test:lf-new5:backend": "node scripts/lf-new5-backend-smoke.js",
+    "test:lf-new5:integrity": "node scripts/lf-new5-integrity-smoke.js",
+    "test:lf-new5:runtime": "node scripts/lf-new5-runtime-smoke.js",
+    "test:lf-new6:backend": "node scripts/lf-new6-backend-smoke.js",
+    "test:lf-new6": "node scripts/lf-new6-runtime-smoke.js",
+    "test:lf-problem13": "node scripts/lf-problem13-smoke.js",
+    "test:lf-problem15": "node scripts/lf-problem15-smoke.js",
+    "test:lf-problem16:backend": "node scripts/lf-problem16-smoke.js",
+    "test:lf-problem16": "node scripts/lf-problem16-real-smoke.js",
+    "test:lf": "npm run test:lf-backend && npm run test:lf-ui",
+    "audit:public-release": "node scripts/lf-public-release-audit.mjs",
+    "release:sign": "node scripts/lf-sign-release.js",
+    "prebuild:win": "node build/version-release.js && npm run build:home-pet",
+    "build:monitor:win": "electron-builder --config build/monitor-builder.json --win nsis",
+    "build:monitor:win:dir": "electron-builder --config build/monitor-builder.json --win dir",
+    "build:win": "npm run build:monitor:win && electron-builder --win nsis",
+    "prebuild:win:dir": "node build/version-release.js && npm run build:home-pet",
+    "build:win:dir": "npm run build:monitor:win:dir && electron-builder --win dir"
+  },
+  "build": {
+    "appId": "com.lumifield.desktop",
+    "productName": "LumiField",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/lf-integrity-after-pack.js",
+    "toolsets": {
+      "winCodeSign": "1.1.0"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "build/icon.ico",
+      "build/lf-update-public.pem",
+      "server.js",
+      "music-platform-service.js",
+      "LICENSE",
+      "NOTICE.md",
+      "resources/licenses/**/*",
+      "dj-analyzer.js",
+      "brand.config.json",
+      "package.json",
+      "!.env*",
+      "!public/index.*.html",
+      "public/index.html",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "desktop/lf-translation-worker.cjs",
+      "desktop/lf-spleeter-worker.cjs",
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/@browsermt/bergamot-translator/worker/**/*",
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/koffi-win32-x64/**/*",
+      "node_modules/sherpa-onnx-win-x64/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/spleeter",
+        "to": "spleeter",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "executableName": "LumiField",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LumiField",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer.nsh",
+      "artifactName": "LumiField-${version}-Setup.${ext}"
+    }
+  },
+  "lumifield": {
+    "update": {
+      "enabled": false
+    }
+  },
+  "dependencies": {
+    "@browsermt/bergamot-translator": "0.4.9",
+    "@soundtouchjs/audio-worklet": "2.1.0",
+    "bcryptjs": "^3.0.3",
+    "ffmpeg-static": "5.3.0",
+    "koffi": "3.1.2",
+    "mpg123-decoder": "^1.0.3",
+    "NeteaseCloudMusicApi": "^4.32.0",
+    "nodemailer": "^9.0.3",
+    "qrcode": "^1.5.4",
+    "sherpa-onnx-win-x64": "1.13.4"
+  },
+  "overrides": {
+    "music-metadata": "11.13.0"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^1.8.0",
+    "@electron/rebuild": "^4.2.0",
+    "@paper-design/shaders-react": "0.0.80",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "0.28.2",
+    "framer-motion": "13.1.0",
+    "mailparser": "^3.9.14",
+    "node-forge": "1.4.0",
+    "rcedit": "^5.0.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "smtp-server": "^3.19.2"
+  }
+}

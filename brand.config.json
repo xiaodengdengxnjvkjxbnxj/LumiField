@@ -1,0 +1,11 @@
+{
+  "name": "LumiField",
+  "slug": "lumifield",
+  "appId": "com.lumifield.desktop",
+  "tagline": "Immersive Music Space",
+  "splashDurationMs": 4200,
+  "splashMinMs": 3000,
+  "splashMaxMs": 6000,
+  "accent": "#6ee7ff",
+  "accentAlt": "#a855f7"
+}

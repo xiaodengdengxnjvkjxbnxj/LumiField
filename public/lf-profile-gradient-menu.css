@@ -1,0 +1,197 @@
+#lf-profile-info.lf-profile-info {
+  --lf-profile-gradient-a: 108, 205, 255;
+  --lf-profile-gradient-b: 145, 94, 255;
+  align-items: start;
+  overflow-anchor: none;
+}
+
+#lf-profile-info .lf-profile-item {
+  --lf-profile-a: 108, 205, 255;
+  --lf-profile-b: 145, 94, 255;
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 64px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 14px;
+  background: rgba(255,255,255,.032);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  transition: min-height .34s cubic-bezier(.2,.78,.2,1), border-color .3s ease, box-shadow .3s ease, background-color .3s ease;
+}
+
+#lf-profile-info .lf-profile-item::before,
+#lf-profile-info .lf-profile-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .32s ease;
+}
+
+#lf-profile-info .lf-profile-item::before {
+  background: linear-gradient(115deg, rgba(var(--lf-profile-a),.94), rgba(var(--lf-profile-b),.91));
+}
+
+#lf-profile-info .lf-profile-item::after {
+  inset: 12px 8px -10px;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(var(--lf-profile-a),.62), rgba(var(--lf-profile-b),.56));
+  filter: blur(16px);
+}
+
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="1"],
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="6"] { --lf-profile-a: 95, 224, 193; --lf-profile-b: 53, 155, 255; }
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="2"] { --lf-profile-a: 255, 157, 91; --lf-profile-b: 255, 88, 111; }
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="3"],
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="7"] { --lf-profile-a: 115, 137, 255; --lf-profile-b: 195, 94, 255; }
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="4"] { --lf-profile-a: 72, 206, 255; --lf-profile-b: 64, 111, 255; }
+#lf-profile-info .lf-profile-item[data-lf-profile-tone="5"] { --lf-profile-a: 255, 107, 182; --lf-profile-b: 202, 67, 255; }
+
+#lf-profile-info .lf-profile-item.is-expanded {
+  min-height: 86px;
+  border-color: rgba(var(--lf-profile-a),.5);
+  background: rgba(var(--lf-profile-a),.18);
+  box-shadow: 0 13px 34px rgba(0,0,0,.22), 0 0 22px rgba(var(--lf-profile-a),.16);
+}
+
+#lf-profile-info .lf-profile-item.is-expanded::before { opacity: .72; }
+#lf-profile-info .lf-profile-item.is-expanded::after { opacity: .42; }
+
+#lf-profile-info .lf-profile-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr);
+  grid-template-rows: 22px minmax(20px,auto);
+  column-gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  padding: 10px 68px 10px 11px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: #edf8ff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#lf-profile-info .lf-profile-toggle:focus-visible,
+#lf-profile-info .lf-profile-copy:focus-visible {
+  outline: 2px solid rgba(255,255,255,.94);
+  outline-offset: -3px;
+}
+
+#lf-profile-info .lf-profile-symbol {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 50%;
+  background: rgba(255,255,255,.055);
+  color: rgba(225,239,252,.58);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .02em;
+  transition: transform .3s ease, opacity .25s ease, color .25s ease, background-color .25s ease;
+}
+
+#lf-profile-info .lf-profile-label {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  color: rgba(223,239,253,.54);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: .03em;
+  transition: color .25s ease, transform .3s ease;
+}
+
+#lf-profile-info .lf-profile-hint {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  overflow: hidden;
+  color: rgba(237,248,255,.78);
+  font-size: 11px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity .2s ease, transform .28s ease;
+}
+
+#lf-profile-info .lf-profile-value {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  min-width: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px) scale(.96);
+  transform-origin: left center;
+  transition: max-height .34s cubic-bezier(.2,.78,.2,1), opacity .24s ease .07s, transform .3s cubic-bezier(.2,.78,.2,1);
+}
+
+#lf-profile-info .lf-profile-value b {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 780;
+  line-height: 1.45;
+  white-space: normal;
+  user-select: text;
+}
+
+#lf-profile-info .lf-profile-copy {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  height: 27px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.38);
+  border-radius: 999px;
+  background: rgba(3,10,22,.24);
+  color: #fff;
+  font: 760 10px/1 var(--font-sans, sans-serif);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(8px) scale(.92);
+  transition: opacity .2s ease .12s, transform .26s ease .08s, background-color .2s ease, visibility 0s linear .3s;
+}
+
+#lf-profile-info .lf-profile-copy:hover { background: rgba(3,10,22,.46); }
+#lf-profile-info .lf-profile-item.is-expanded .lf-profile-symbol { opacity: .22; transform: scale(.72) rotate(-8deg); color: #fff; background: rgba(255,255,255,.13); }
+#lf-profile-info .lf-profile-item.is-expanded .lf-profile-label { color: rgba(255,255,255,.82); transform: translateY(-1px); }
+#lf-profile-info .lf-profile-item.is-expanded .lf-profile-hint { opacity: 0; transform: translateY(-6px); }
+#lf-profile-info .lf-profile-item.is-expanded .lf-profile-value { max-height: 120px; opacity: 1; transform: translateY(0) scale(1); }
+#lf-profile-info .lf-profile-item.is-expanded .lf-profile-copy { opacity: 1; visibility: visible; transform: translateX(0) scale(1); transition-delay: .12s,.08s,0s,0s; }
+
+@media (max-width: 680px) {
+  #lf-profile-info .lf-profile-item { min-height: 62px; }
+  #lf-profile-info .lf-profile-toggle { min-height: 62px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lf-profile-info .lf-profile-item,
+  #lf-profile-info .lf-profile-item::before,
+  #lf-profile-info .lf-profile-item::after,
+  #lf-profile-info .lf-profile-symbol,
+  #lf-profile-info .lf-profile-label,
+  #lf-profile-info .lf-profile-hint,
+  #lf-profile-info .lf-profile-value,
+  #lf-profile-info .lf-profile-copy { transition-duration: .001ms !important; transition-delay: 0s !important; }
+}

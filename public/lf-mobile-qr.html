@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>LF 手机端扫码确认</title>
+  <link rel="stylesheet" href="/mobile/lf-mobile-qr.css">
+</head>
+<body>
+  <main class="lf-mobile-card">
+    <header><span class="lf-mobile-logo">LF</span><div><h1>LumiField</h1><p>手机端扫码登录确认</p></div></header>
+    <section id="lf-mobile-invalid" class="lf-mobile-state error" hidden>
+      <h2>二维码无效</h2><p>请返回电脑端 LF 刷新二维码后重新扫码。</p>
+    </section>
+    <section id="lf-mobile-login" hidden>
+      <h2>验证手机端 LF 账号</h2>
+      <p>登录后仍需手动确认，密码不会写入页面存储。</p>
+      <label><span>邮箱</span><input id="lf-mobile-account" type="email" autocomplete="username" inputmode="email"></label>
+      <label><span>密码</span><input id="lf-mobile-password" type="password" autocomplete="current-password"></label>
+      <button id="lf-mobile-login-submit" type="button">登录 LF</button>
+    </section>
+    <section id="lf-mobile-confirm" hidden>
+      <h2>确认登录这台电脑？</h2>
+      <p id="lf-mobile-user"></p>
+      <p class="lf-mobile-warning">确认后电脑端将获得一次新的独立安全会话，不会共享手机密码。</p>
+      <button id="lf-mobile-confirm-submit" type="button">确认登录电脑端 LF</button>
+      <button id="lf-mobile-reject-submit" class="secondary" type="button">拒绝本次登录</button>
+      <button id="lf-mobile-change" class="secondary" type="button">更换账号</button>
+    </section>
+    <section id="lf-mobile-done" class="lf-mobile-state ok" hidden>
+      <h2>确认成功</h2><p>电脑端 LF 正在完成登录。本二维码不能再次使用。</p>
+    </section>
+    <section id="lf-mobile-rejected" class="lf-mobile-state" hidden>
+      <h2>已拒绝登录</h2><p>电脑端不会创建会话。本二维码不能再次使用。</p>
+    </section>
+    <p id="lf-mobile-status" class="lf-mobile-status" role="status" aria-live="polite"></p>
+    <footer>仅接受同源 HTTPS 授权 · 二维码 3 分钟失效且只能使用一次</footer>
+  </main>
+  <script src="/mobile/lf-mobile-qr.js" defer></script>
+</body>
+</html>

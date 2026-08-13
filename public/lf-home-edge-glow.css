@@ -1,0 +1,87 @@
+@property --lf-home-flow-turn {
+  syntax:"<angle>";
+  inherits:false;
+  initial-value:0deg;
+}
+
+#home-btn[data-lf-home-edge-glow="true"]{
+  position:relative;
+  isolation:isolate;
+  overflow:visible;
+}
+
+#home-btn[data-lf-home-edge-glow="true"] > svg{
+  position:relative;
+  z-index:2;
+}
+
+#home-btn > .lf-home-edge-glow{
+  --lf-home-highlight-start:-48deg;
+  --lf-home-highlight-opacity:0;
+  --lf-home-highlight-blur:.35px;
+  position:absolute;
+  inset:-1px;
+  z-index:1;
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:.72;
+  contain:paint;
+}
+
+#home-btn > .lf-home-edge-glow::before,
+#home-btn > .lf-home-edge-glow::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  padding:1.35px;
+  pointer-events:none;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+}
+
+#home-btn > .lf-home-edge-glow::before{
+  background:conic-gradient(from var(--lf-home-flow-turn),
+    rgba(107,217,255,.18) 0deg,
+    rgba(149,119,255,.52) 56deg,
+    rgba(255,126,178,.43) 112deg,
+    rgba(255,211,132,.62) 174deg,
+    rgba(245,250,255,.74) 214deg,
+    rgba(86,224,200,.46) 272deg,
+    rgba(107,217,255,.18) 360deg);
+  filter:drop-shadow(0 0 3px rgba(var(--home-icon-rgb),.18));
+  animation:lf-home-edge-flow 5.4s linear infinite;
+}
+
+#home-btn > .lf-home-edge-glow::after{
+  background:conic-gradient(from var(--lf-home-highlight-start),
+    transparent 0deg,
+    rgba(105,215,255,.08) 12deg,
+    rgba(157,124,255,.50) 31deg,
+    rgba(255,255,255,.96) 48deg,
+    rgba(255,217,151,.70) 63deg,
+    rgba(102,224,203,.20) 84deg,
+    transparent 100deg);
+  opacity:var(--lf-home-highlight-opacity);
+  filter:blur(var(--lf-home-highlight-blur)) drop-shadow(0 0 5px rgba(126,210,255,.42));
+  transition:opacity 150ms ease,filter 150ms ease;
+}
+
+#home-btn[data-lf-home-edge-active="true"] > .lf-home-edge-glow{
+  opacity:.92;
+}
+
+body.render-deep-sleep #home-btn > .lf-home-edge-glow::before{
+  animation-play-state:paused;
+}
+
+@keyframes lf-home-edge-flow{
+  to{--lf-home-flow-turn:360deg}
+}
+
+@media(prefers-reduced-motion:reduce){
+  #home-btn > .lf-home-edge-glow::before{animation:none}
+  #home-btn > .lf-home-edge-glow::after{transition:none}
+}

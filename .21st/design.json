@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "project": {
+    "name": "lumifield",
+    "productType": null,
+    "stack": []
+  },
+  "sources": {
+    "tokens": [],
+    "components": [],
+    "assets": [
+      "public/assets"
+    ],
+    "instructions": [
+      "AGENTS.md"
+    ]
+  },
+  "design": {
+    "colorMode": "unknown",
+    "colors": {},
+    "typography": {},
+    "spacing": {},
+    "radius": {},
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+    "decisions": [
+      {
+        "id": "new5-glass-account-switch",
+        "date": "2026-08-11",
+        "decision": "Preserve the existing five-provider account, session and scoped-partition state machine; add one independently authored six-slot glass indicator driven only by a validated active provider or explicit multi-provider mode, with no optimistic activation before a trusted desktop login-success event.",
+        "source": "21st catalog id 5408 plus fixed local video and TXT behavior evidence"
+      },
+      {
+        "id": "new4-animated-search",
+        "date": "2026-08-11",
+        "decision": "Keep the existing single search DOM and request pipeline shared by the main and secondary interfaces; add only an independently authored CSS border-light layer, stable clear action, focus-visible treatment, and IME composition gating without geometry movement.",
+        "source": "Fixed local behavior video and TXT evidence after the current 21st route exposed no retrievable licensed component source"
+      },
+      {
+        "id": "new3-animated-weather-icons",
+        "date": "2026-08-09",
+        "decision": "Keep LumiField's existing weather layout and WMO data flow; replace only the current and forecast glyphs with independently authored inline SVG parts and CSS motion, paused when hidden, off-screen, minimized, or reduced-motion.",
+        "source": "Current 21st component metadata plus fixed local video and TXT evidence"
+      },
+      {
+      "id": "new2-home-grid-glow",
+      "date": "2026-08-09",
+      "decision": "Preserve the existing six-card Home layout and interactions; add only pointer-local purple-blue border glow and two grid-junction lights through one shared pointer listener and on-demand animation frame.",
+      "source": "User target image plus fixed local video and TXT evidence"
+    }
+  ],
+  "evidence": [
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    }
+  ],
+  "generatedAt": "2026-08-09T00:38:20.499Z"
+}

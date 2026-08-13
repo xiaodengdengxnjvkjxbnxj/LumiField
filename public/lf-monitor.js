@@ -1,0 +1,66 @@
+(function () {
+  'use strict';
+  var api = window.LFMonitor;
+  var data = null, filter = '', authenticated = false, loading = false;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); };
+  var time = function (value) { return value ? new Date(Number(value)).toLocaleString('zh-CN') : '—'; };
+  var bytes = function (value) { var size=Number(value)||0,unit=0,units=['B','KB','MB','GB']; while(size>=1024&&unit<3){size/=1024;unit++;} return (unit?size.toFixed(size>=10?1:2):Math.round(size))+' '+units[unit]; };
+
+  function showLogin(message, denied) {
+    authenticated = false; $('monitor-content').hidden = true; $('monitor-login').hidden = !!denied; $('monitor-denied').hidden = !denied;
+    $('monitor-refresh').hidden = true; $('monitor-logout').hidden = true; $('monitor-sync').textContent = '等待管理员登录';
+    $('monitor-login-status').textContent = message || '';
+  }
+  function showContent() { authenticated = true; $('monitor-login').hidden = true; $('monitor-denied').hidden = true; $('monitor-content').hidden = false; $('monitor-refresh').hidden = false; $('monitor-logout').hidden = false; }
+  function renderStats(stats) {
+    var entries = [['注册用户',stats.totalUsers],['当前在线',stats.onlineUsers],['今日活跃',stats.todayActiveUsers],['PC 在线',stats.pcOnline],['手机在线',stats.mobileOnline],['被拉黑',stats.blacklistedUsers],['开发权限',stats.developerUsers],['新反馈',stats.queuedFeedback],['邮件重试',stats.mailRetryQueue]];
+    $('monitor-stats').innerHTML = entries.map(function(item){return '<div class="stat"><span>'+item[0]+'</span><b>'+Number(item[1]||0)+'</b></div>';}).join('');
+  }
+  function renderUsers(users) {
+    var query=filter.toLowerCase();
+    var rows=(users||[]).filter(function(u){return !query||[u.id,u.nickname,u.account].join(' ').toLowerCase().includes(query);});
+    $('monitor-users').innerHTML=rows.map(function(u){return '<tr><td><b>'+esc(u.nickname)+'</b><small>'+esc(u.account)+'</small><small>'+esc(u.id)+'</small><small class="'+(u.role==='admin'?'admin':'')+'">'+esc(u.role)+'</small></td><td><b>'+esc(u.loginMethod||u.accountType)+'</b><small>登录：'+time(u.loginAt)+'</small><small>活跃：'+time(u.lastActiveAt)+'</small></td><td><b>'+esc(u.deviceType)+' · '+esc(u.deviceName)+'</b><small>'+esc(u.location)+'</small><small>v'+esc(u.appVersion)+'</small></td><td><b class="'+(u.online?'online':'offline')+'">'+(u.online?'在线':'离线')+'</b><small class="'+(u.blacklisted?'banned':'')+'">'+(u.blacklisted?'已限制使用':'正常')+'</small><small class="'+(u.abnormalBehavior?'banned':'')+'">'+(u.abnormalBehavior?'异常行为 · ':'完整性 · ')+esc(u.integrityState||'clean')+'</small></td><td><label class="switch"><input type="checkbox" data-user="'+esc(u.id)+'" data-flag="developerPermission" '+(u.developerPermission?'checked':'')+'><span>'+(u.developerPermission?'已开启':'关闭')+'</span></label></td><td><label class="switch"><input type="checkbox" data-user="'+esc(u.id)+'" data-flag="blacklisted" '+(u.blacklisted?'checked':'')+'><span>'+(u.blacklisted?'已拉黑':'关闭')+'</span></label></td></tr>';}).join('')||'<tr><td colspan="6">没有匹配用户。</td></tr>';
+  }
+  function attachmentCard(a) {
+    var actions=a.status==='ready'?'<button data-open-attachment="'+esc(a.id)+'">安全打开</button>':a.status==='quarantined'?'<button data-attachment="'+esc(a.id)+'" data-attachment-status="ready">批准并重发</button><button class="reject" data-attachment="'+esc(a.id)+'" data-attachment-status="rejected">拒绝</button>':'';
+    return '<div class="attachment"><div><b>'+esc(a.file_name)+'</b><span>'+bytes(a.size)+' · '+esc(a.mime)+' · '+esc(a.status)+'</span><code>SHA-256 '+esc(a.sha256)+'</code></div><div class="card-actions">'+actions+'</div></div>';
+  }
+  function renderFeedback(items) {
+    $('monitor-feedback').innerHTML=(items||[]).map(function(f){var accepted=(f.smtpAccepted||[]).join(', ')||'无';var rejected=(f.smtpRejected||[]).join(', ')||'无';return '<article class="card"><div class="card-head"><h3>'+esc(f.nickname)+' · '+esc(f.account)+'</h3><span class="meta">'+time(f.created_at)+' · 数据库 '+esc(f.delivery_status)+' · 邮件 '+esc(f.mail_status)+'</span></div><p>'+esc(f.content)+'</p><div class="meta">用户 ID：'+esc(f.user_id)+' · 联系方式：'+esc(f.contact||'未填写')+' · 客户端：'+esc(f.client_version||'未知')+' · 设备：'+esc(f.device_info||'未知')+'</div><div class="meta">通知 revision '+esc(f.notificationRevision||1)+' · '+esc(f.notificationReason||'initial_submission')+' · SMTP '+esc(f.notificationStatus||f.mail_status||'queued')+' · 尝试 '+esc(f.notificationAttempts||0)+'</div><div class="meta">messageId：'+esc(f.smtpMessageId||'无')+' · accepted：'+esc(accepted)+' · rejected：'+esc(rejected)+(f.smtpResponse?' · response：'+esc(f.smtpResponse):'')+'</div>'+(f.mail_error?'<div class="mail-error">邮件错误：'+esc(f.mail_error)+'</div>':'')+'<div class="attachments">'+(f.attachments||[]).map(attachmentCard).join('')+'</div></article>';}).join('')||'<div class="card">暂无反馈。</div>';
+  }
+  function renderReleases(items) {
+    $('monitor-releases').innerHTML=(items||[]).map(function(r){var actions=r.status==='pending'?'<div class="card-actions"><button class="publish" data-release="'+esc(r.id)+'" data-decision="publish">确认发布</button><button class="reject" data-release="'+esc(r.id)+'" data-decision="reject">不发布</button></div>':r.status==='published'?'<div class="card-actions"><button class="reject" data-release="'+esc(r.id)+'" data-decision="rollback">回滚</button></div>':'';return '<article class="card"><div class="card-head"><h3>v'+esc(r.version)+' · '+esc(r.status)+'</h3><span class="meta">灰度 '+Number(r.rollout_percent||100)+'% · '+(r.mandatory?'强制':'可选')+'</span></div><p>'+esc(r.notes||'无发布说明')+'</p><div class="meta">SHA-256：'+esc(r.package_sha256||'未填写')+' · 签名：'+(r.signature?'已填写':'未填写')+'</div>'+actions+'</article>';}).join('')||'<div class="card">暂无版本记录。</div>';
+  }
+  function renderSecurity(items) { $('monitor-security').innerHTML=(items||[]).map(function(x){return '<article class="card"><div class="card-head"><h3>'+esc(x.action)+'</h3><span class="meta">'+time(x.created_at)+'</span></div><p>用户：'+esc(x.target_user_id||x.actor_user_id||'未知')+'\n详情：'+esc(x.detail||'—')+'</p></article>';}).join('')||'<div class="card">暂无安全事件。</div>'; }
+  function serviceState(item) {
+    if(!item)return '<span class="service-state blocked">未配置</span>';
+    return '<span class="service-state '+(item.configured?'ready':'blocked')+'">'+(item.configured?'已配置':'未配置')+'</span>';
+  }
+  function lastTest(item) {
+    var test=item&&item.lastTest||{};
+    var label=test.status==='passed'?'通过':test.status==='failed'?'失败':test.status==='started'?'测试中':'未测试';
+    return '<div class="service-test '+esc(test.status||'never')+'"><b>最后测试：'+esc(label)+'</b><span>'+time(test.testedAt)+(test.action?' · '+esc(test.action):'')+'</span>'+(test.error?'<code>'+esc(test.error)+'</code>':'')+'</div>';
+  }
+  function renderLoginServices(services) {
+    var mail=services&&services.email||{};
+    var pane=document.querySelector('[data-pane="services"] .pane-head p');
+    if(pane)pane.textContent='反馈与验证码邮件所需的 SMTP 服务状态。';
+    $('monitor-login-services').innerHTML='<article class="service-card" data-service-provider="email"><div class="card-head"><h3>邮箱服务</h3>'+serviceState(mail)+'</div><dl><dt>服务</dt><dd>SMTP</dd><dt>账号</dt><dd>'+esc(mail.account||'未配置')+'</dd><dt>授权凭据</dt><dd>'+esc(mail.credential||'未配置')+'</dd><dt>SMTP 验证</dt><dd>'+(mail.lastTest&&mail.lastTest.validationStatus==='passed'?'已通过':mail.lastTest&&mail.lastTest.validationStatus==='failed'?'未通过':'未测试')+'</dd><dt>实际投递</dt><dd>'+(mail.lastTest&&mail.lastTest.deliveryStatus==='passed'?'已通过':mail.lastTest&&mail.lastTest.deliveryStatus==='failed'?'未通过':'未测试')+'</dd></dl>'+lastTest(mail)+'<div class="service-actions"><button data-service="email" data-service-action="validate">验证配置</button><button data-service="email" data-service-action="send-test">发送测试邮件</button></div></article>';
+  }
+  async function renderSystem() { var status=await api.backendStatus(); $('monitor-system').innerHTML='<div class="system-box"><h3>独立后台应用</h3><p>进程：LF后台监控<br>模式：'+esc(status.mode||'未知')+'<br>API：'+(status.ok?'运行中':'异常')+'<br>版本：v'+esc(status.appVersion||data&&data.appVersion||'未知')+'</p></div><div class="system-box"><h3>账号与安全</h3><ul><li>独立加密管理员会话</li><li>每次启动由后端验证管理员角色</li><li>普通用户无法进入后台数据接口</li><li>附件分片上传、哈希与隔离状态</li><li>下载授权链接 7 天失效</li><li>通知邮件失败进入重试队列</li></ul></div>'; }
+  function render(result){data=result;renderStats(result.stats||{});renderUsers(result.users||[]);renderFeedback(result.feedbacks||[]);renderReleases(result.releases||[]);renderSecurity(result.securityEvents||[]);renderLoginServices(result.loginServices||{});renderSystem();$('monitor-sync').textContent='已同步 · '+time(result.refreshedAt);}
+  async function load(){if(!authenticated||loading)return;loading=true;try{var result=await api.dashboard();if(!result.ok){showLogin(result.message||'管理员会话无效。',result.error==='FORBIDDEN');return;}showContent();render(result);}finally{loading=false;}}
+  async function login(){var button=$('monitor-login-submit');button.disabled=true;$('monitor-login-status').textContent='正在验证管理员身份…';try{var result=await api.login({account:$('monitor-account').value,password:$('monitor-password').value});if(!result.ok){showLogin(result.message||result.error||'登录失败',result.error==='FORBIDDEN');return;}showContent();await load();}finally{button.disabled=false;}}
+  async function bootstrap(){if(!api)return showLogin('独立后台桥接未加载。');var result=await api.authStatus();if(result.ok){showContent();await load();}else showLogin('请使用 LF 管理员账号登录。');}
+
+  document.querySelector('.tabs').addEventListener('click',function(event){var button=event.target.closest('[data-tab]');if(!button)return;document.querySelectorAll('[data-tab]').forEach(function(x){x.classList.toggle('active',x===button);});document.querySelectorAll('[data-pane]').forEach(function(x){x.classList.toggle('active',x.getAttribute('data-pane')===button.getAttribute('data-tab'));});});
+  $('monitor-login-submit').onclick=login;$('monitor-password').onkeydown=function(event){if(event.key==='Enter')login();};$('monitor-refresh').onclick=load;$('monitor-close').onclick=function(){api.close();};$('monitor-logout').onclick=async function(){await api.logout();showLogin('已退出后台账号。');};$('monitor-denied-back').onclick=function(){showLogin('请重新登录。');};$('user-filter').oninput=function(){filter=this.value||'';if(data)renderUsers(data.users);};
+  $('monitor-users').addEventListener('change',async function(event){var input=event.target.closest('[data-user][data-flag]');if(!input)return;input.disabled=true;var result=await api.setUserFlag({userId:input.dataset.user,flag:input.dataset.flag,value:input.checked});if(!result.ok)window.alert(result.message||result.error||'操作失败');await load();});
+  $('monitor-feedback').addEventListener('click',async function(event){var open=event.target.closest('[data-open-attachment]');if(open){var opened=await api.openAttachment(open.dataset.openAttachment);if(!opened.ok)window.alert(opened.message||opened.error||'无法打开附件');return;}var decision=event.target.closest('[data-attachment][data-attachment-status]');if(decision){if(decision.dataset.attachmentStatus==='ready'&&!window.confirm('仅在确认隔离扫描安全后批准；系统会立即生成新链接并重发邮件。是否继续？'))return;decision.disabled=true;var result=await api.setAttachmentStatus({attachmentId:decision.dataset.attachment,status:decision.dataset.attachmentStatus});if(!result.ok)window.alert(result.message||result.error||'操作失败');else if(decision.dataset.attachmentStatus==='ready'&&!result.resent)window.alert('附件已批准，通知邮件仍在重试队列：'+(result.error||result.mailStatus||'SMTP 未完成'));await load();}});
+  $('monitor-login-services').addEventListener('click',async function(event){var button=event.target.closest('[data-service="email"][data-service-action]');if(!button||button.disabled)return;button.disabled=true;try{var result=await api.testLoginService({service:'email',action:button.dataset.serviceAction});window.alert(result.message||result.error||'已处理');await load();}finally{button.disabled=false;}});
+  $('monitor-retry-mail').onclick=async function(){var result=await api.retryNotifications();window.alert(result.ok?'已处理 '+Number(result.processed||0)+' 条通知任务':result.error||'重试失败');await load();};
+  $('monitor-releases').addEventListener('click',async function(event){var button=event.target.closest('[data-release][data-decision]');if(!button)return;if(button.dataset.decision==='publish'&&!window.confirm('确认将新版本提供给用户？'))return;var result=await api.decideRelease({releaseId:button.dataset.release,decision:button.dataset.decision});if(!result.ok)window.alert(result.message||result.error||'版本操作失败');await load();});
+  $('release-form').onsubmit=async function(event){event.preventDefault();var result=await api.createRelease({version:$('release-version').value,rolloutPercent:$('release-rollout').value,packagePath:$('release-package').value,packageSha256:$('release-sha').value,signature:$('release-signature').value,notes:$('release-notes').value,mandatory:$('release-mandatory').checked});window.alert(result.message||result.error||'已处理');await load();};
+  bootstrap();setInterval(function(){if(authenticated)load();},3000);
+})();

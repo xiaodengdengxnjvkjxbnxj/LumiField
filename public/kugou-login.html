@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'">
+  <title>酷狗音乐登录 · LumiField</title>
+  <link rel="stylesheet" href="/kugou-login.css">
+</head>
+<body>
+  <main class="login-shell" aria-labelledby="login-title">
+    <section class="brand-row">
+      <img src="/favicon.ico" alt="" width="42" height="42">
+      <div><b>LumiField</b><span id="login-edition">酷狗音乐</span></div>
+    </section>
+    <h1 id="login-title">使用酷狗音乐 App 扫码</h1>
+    <p id="login-intro" class="intro">二维码由酷狗登录服务实时生成。账号凭据仅保存在本机独立酷狗会话中。</p>
+    <section class="qr-card" aria-live="polite">
+      <div class="qr-frame"><img id="qr-image" alt="酷狗音乐登录二维码"></div>
+      <div id="qr-loading" class="qr-loading">正在获取二维码…</div>
+    </section>
+    <p id="login-status" class="status">正在连接酷狗登录服务…</p>
+    <dl id="sync-result" class="sync-result" hidden>
+      <div><dt>账号资料</dt><dd id="sync-profile">等待扫码</dd></div>
+      <div><dt>会员状态</dt><dd id="sync-membership">等待扫码</dd></div>
+      <div><dt>歌单同步</dt><dd id="sync-playlists">等待扫码</dd></div>
+    </dl>
+    <button id="refresh-qr" type="button" hidden>重新获取二维码</button>
+    <p id="login-notice" class="notice">请仅使用手机端酷狗音乐扫描；不要向任何第三方发送 Cookie 或 Token。</p>
+  </main>
+  <script src="/kugou-login.js"></script>
+</body>
+</html>

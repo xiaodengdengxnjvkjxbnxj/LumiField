@@ -1,0 +1,35 @@
+#empty-home .home-grid > .home-card[data-lf-home-tilt="true"] {
+  --lf-home-tilt-x: 0deg;
+  --lf-home-tilt-y: 0deg;
+  --lf-home-tilt-scale: 1;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  transform: perspective(1050px) rotateX(var(--lf-home-tilt-x)) rotateY(var(--lf-home-tilt-y)) scale3d(var(--lf-home-tilt-scale),var(--lf-home-tilt-scale),1);
+  animation: none;
+  transition: transform .34s cubic-bezier(.22,1.35,.36,1),border-color .2s,background .2s,box-shadow .2s;
+  will-change: auto;
+}
+
+#empty-home .home-grid > .home-card[data-lf-home-tilt-active="true"],
+#empty-home .home-grid > .home-card[data-lf-home-tilt-active="true"]:hover {
+  transform: perspective(1050px) rotateX(var(--lf-home-tilt-x)) rotateY(var(--lf-home-tilt-y)) scale3d(var(--lf-home-tilt-scale),var(--lf-home-tilt-scale),1);
+  transition: transform .11s cubic-bezier(.2,.72,.2,1),border-color .2s,background .2s,box-shadow .2s;
+  will-change: transform;
+}
+
+#empty-home .home-grid > .home-card[data-lf-home-tilt="true"]:focus-visible {
+  --lf-home-tilt-x: 0deg !important;
+  --lf-home-tilt-y: 0deg !important;
+  --lf-home-tilt-scale: 1 !important;
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  #empty-home .home-grid > .home-card[data-lf-home-tilt="true"],
+  #empty-home .home-grid > .home-card[data-lf-home-tilt-active="true"] {
+    --lf-home-tilt-x: 0deg !important;
+    --lf-home-tilt-y: 0deg !important;
+    --lf-home-tilt-scale: 1 !important;
+    transition-duration: .001ms !important;
+    will-change: auto;
+  }
+}

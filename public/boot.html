@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LumiField</title><style>
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;color:#fff;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+body{display:block}
+.boot-error{display:none;position:fixed;left:50%;bottom:12%;width:min(560px,80vw);transform:translateX(-50%);font-size:13px;line-height:1.6;text-align:center;color:rgba(255,255,255,.72)}
+html[data-boot-error="true"] .boot-error{display:block}
+</style></head>
+<body><div class="boot-error" role="alert"></div><script>window.showBootError=function(message){document.documentElement.dataset.bootError='true';document.querySelector('.boot-error').textContent=String(message||'LumiField 启动失败');};</script></body>
+</html>

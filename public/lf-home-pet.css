@@ -1,0 +1,39 @@
+#lf-home-pet {
+  position: fixed;
+  z-index: 8;
+  color: #fff;
+  pointer-events: none;
+  user-select: none;
+  contain: layout style;
+  overflow: visible;
+  filter: drop-shadow(0 13px 24px rgba(21,28,72,.28));
+}
+
+#lf-home-pet[hidden] { display:none !important; }
+#lf-home-pet .lf-home-pet-source-motion {
+  position:absolute;
+  left:0;
+  top:var(--lf-home-pet-safe-top,8px);
+  width:var(--lf-home-pet-visual-width,60px);
+  height:var(--lf-home-pet-visual-height,75px);
+}
+#lf-home-pet .lf-home-pet-source-svg,
+#lf-home-pet .lf-home-pet-source-gradient,
+#lf-home-pet .lf-home-pet-source-mesh { display:block;width:100%;height:100%; }
+#lf-home-pet .lf-home-pet-source-svg { overflow:visible; }
+#lf-home-pet .lf-home-pet-source-gradient { position:relative;overflow:hidden; }
+#lf-home-pet [data-paper-shader] { position:relative;isolation:isolate;width:100%;height:100%; }
+#lf-home-pet [data-paper-shader] canvas { position:absolute;inset:0;z-index:0;width:100%;height:100%;display:block;contain:strict; }
+#lf-home-pet .lf-home-pet-source-eye { fill:currentColor; }
+#lf-home-pet .lf-home-pet-source-blink { animation:lf-home-pet-source-blink 3s infinite ease-in-out; }
+
+@keyframes lf-home-pet-source-blink {
+  0%,90%,100% { ry:30; }
+  95% { ry:3; }
+}
+
+#lf-home-pet[data-paused="true"] .lf-home-pet-source-blink { animation-play-state:paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  #lf-home-pet .lf-home-pet-source-blink { animation:none !important; }
+}

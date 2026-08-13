@@ -1,0 +1,122 @@
+.lf-weather-shell.lf-hot-comments-host{
+  grid-template-areas:"weather-main weather-side" "hot-comments hot-comments"!important;
+  grid-template-rows:auto minmax(140px,1fr);
+  align-content:stretch;
+}
+.lf-weather-shell.lf-hot-comments-host>.lf-weather-main{grid-area:weather-main}
+.lf-weather-shell.lf-hot-comments-host>.lf-weather-side{grid-area:weather-side}
+.lf-weather-shell.lf-hot-comments-host>.lf-hot-comment-card{
+  --lf-hot-glass-x:50%;
+  --lf-hot-glass-y:18%;
+  position:relative;
+  inset:auto;
+  grid-area:hot-comments;
+  align-self:stretch;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  margin:0;
+}
+.lf-hot-comment-card{
+  z-index:4;
+  box-sizing:border-box;
+  padding:clamp(13px,1.15vw,18px);
+  overflow:hidden;
+  isolation:isolate;
+  border:1px solid rgba(255,255,255,.21);
+  border-radius:clamp(18px,2vw,26px);
+  background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018) 52%,rgba(118,190,255,.035)),rgba(3,9,20,.19);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.21),inset 0 -1px 0 rgba(140,205,255,.08),0 18px 48px rgba(0,0,0,.24);
+  backdrop-filter:blur(22px) saturate(1.55) brightness(1.08);
+  -webkit-backdrop-filter:blur(22px) saturate(1.55) brightness(1.08);
+  color:#f4fbff;
+  transition:opacity .17s ease,border-color .2s ease;
+}
+html.control-glass-svg-ok .lf-weather-shell.lf-hot-comments-host>.lf-hot-comment-card{
+  backdrop-filter:var(--saved-panel-glass-svg-filter) saturate(1.12) brightness(1.06);
+  -webkit-backdrop-filter:var(--saved-panel-glass-svg-filter) saturate(1.12) brightness(1.06);
+}
+.lf-hot-comment-card::before,.lf-hot-comment-card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+.lf-hot-comment-card::before{
+  z-index:0;
+  background:radial-gradient(circle at var(--lf-hot-glass-x) var(--lf-hot-glass-y),rgba(255,255,255,.19),transparent 28%),linear-gradient(125deg,rgba(255,255,255,.13),transparent 24%,transparent 68%,rgba(143,205,255,.075));
+  mix-blend-mode:screen;
+  opacity:.72;
+  transition:background-position .12s linear;
+}
+.lf-hot-comment-card::after{
+  z-index:0;
+  padding:1px;
+  background:conic-gradient(from 120deg at var(--lf-hot-glass-x) var(--lf-hot-glass-y),rgba(112,225,255,.04),rgba(172,122,255,.34),rgba(255,139,203,.16),rgba(119,229,255,.31),rgba(112,225,255,.04));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  opacity:.72;
+  animation:lf-hot-comment-chroma 8s ease-in-out infinite alternate;
+}
+@keyframes lf-hot-comment-chroma{0%{filter:hue-rotate(-12deg) brightness(.94);opacity:.52}50%{filter:hue-rotate(12deg) brightness(1.14);opacity:.82}100%{filter:hue-rotate(28deg) brightness(1);opacity:.64}}
+.lf-hot-comment-content{transition:opacity .17s ease}
+.lf-hot-comment-card.changing .lf-hot-comment-content{opacity:.16}
+.lf-hot-comment-card:focus-within,.lf-hot-comment-card:hover{border-color:rgba(210,241,255,.34)}
+.lf-hot-comment-empty,.lf-hot-comment-content{position:relative;z-index:1}
+.lf-hot-comment-empty{display:flex;height:100%;min-height:106px;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:rgba(229,242,252,.68);font-size:12px;line-height:1.55;text-align:center}
+.lf-hot-comment-card.error .lf-hot-comment-empty{color:rgba(255,190,198,.84)}
+.lf-hot-comment-card.loading .lf-hot-comment-empty-message{animation:lf-hot-comment-pulse 1.25s ease-in-out infinite alternate}
+@keyframes lf-hot-comment-pulse{from{opacity:.48}to{opacity:1}}
+.lf-hot-comment-retry,.lf-hot-comment-expand{padding:4px 9px;border:1px solid rgba(138,219,255,.24);border-radius:999px;background:rgba(98,188,255,.08);color:#bceeff;font:inherit;font-size:9px;cursor:pointer}
+.lf-hot-comment-content{display:grid;grid-template-columns:clamp(82px,9vw,112px) minmax(0,1fr) clamp(52px,5.2vw,66px);gap:clamp(12px,1.35vw,19px);align-items:center;height:100%;min-height:0;contain:layout}
+.lf-hot-comment-content[hidden],.lf-hot-comment-empty[hidden]{display:none}
+.lf-hot-comment-cover-wrap{position:relative;width:clamp(82px,9vw,112px);height:clamp(82px,9vw,112px);border-radius:clamp(17px,1.7vw,23px);overflow:hidden;background:rgba(255,255,255,.055);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 10px 28px rgba(0,0,0,.2)}
+.lf-hot-comment-cover,.lf-hot-comment-cover-fallback{width:100%;height:100%}.lf-hot-comment-cover{display:block;object-fit:cover}.lf-hot-comment-cover-fallback{display:grid;place-items:center;color:rgba(226,243,255,.48);font-size:28px}
+.lf-hot-comment-main{display:flex;min-width:0;min-height:0;align-self:stretch;justify-content:center;overflow:hidden;flex-direction:column}
+.lf-hot-comment-heading{display:flex;align-items:center;gap:8px;min-width:0;font-size:11px}.lf-hot-comment-platform{flex:none;padding:3px 7px;border:1px solid rgba(116,222,255,.22);border-radius:999px;color:#9fe8ff}
+.lf-hot-comment-song{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:1.3}.lf-hot-comment-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(229,242,252,.58);font-size:11px}
+.lf-hot-comment-text{display:-webkit-box;height:clamp(48px,7vh,100px);max-height:100px;margin:9px 0 6px;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:5;color:rgba(248,252,255,.94);font-size:13px;line-height:20px}
+.lf-hot-comment-expand{align-self:flex-start;min-height:17px;margin:0 0 5px;padding:2px 8px;background:rgba(255,255,255,.035)}.lf-hot-comment-expand.unused{visibility:hidden;pointer-events:none}
+.lf-hot-comment-card.expanded .lf-hot-comment-main{overflow:hidden}
+.lf-hot-comment-card.expanded .lf-hot-comment-text{display:block;flex:1 1 38px;height:auto;min-height:38px;max-height:min(20vh,180px);overflow:auto;padding-right:5px;-webkit-line-clamp:unset;scrollbar-width:thin}
+.lf-hot-comment-meta{display:flex;align-items:center;gap:7px;min-width:0;color:rgba(224,239,251,.58);font-size:10px}.lf-hot-comment-avatar-wrap{position:relative;width:22px;height:22px;flex:none;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.08)}
+.lf-hot-comment-avatar,.lf-hot-comment-avatar-fallback{width:100%;height:100%}.lf-hot-comment-avatar{display:block;object-fit:cover}.lf-hot-comment-avatar-fallback{display:grid;place-items:center;font-size:8px}
+.lf-hot-comment-user-name{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lf-hot-comment-date:empty{display:none}.lf-hot-comment-likes{margin-left:auto;color:rgba(255,208,231,.8)}
+.lf-hot-comment-actions{display:flex;min-width:0;height:100%;align-items:center;justify-content:center;flex-direction:column;gap:9px}
+.lf-hot-comment-play{position:relative;z-index:1;width:42px;height:42px;flex:none;border:1px solid rgba(255,255,255,.22);border-radius:50%;background:var(--saved-button-glass-bg,rgba(255,255,255,.08));box-shadow:var(--saved-button-glass-shadow,0 8px 20px rgba(0,0,0,.2));backdrop-filter:var(--saved-button-glass-filter,blur(12px));-webkit-backdrop-filter:var(--saved-button-glass-filter,blur(12px));color:#fff;cursor:pointer}.lf-hot-comment-play:disabled{cursor:not-allowed;opacity:.35}
+.lf-hot-comment-switch{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;color:rgba(226,242,253,.56);font-size:9px;line-height:1;white-space:nowrap}
+.lf-hot-comment-song-position{color:rgba(236,248,255,.8);font-size:10px;font-variant-numeric:tabular-nums}.lf-hot-comment-comment-position{font-variant-numeric:tabular-nums}
+.lf-hot-comment-dots{display:flex;gap:4px;height:5px;align-items:center}.lf-hot-comment-dot{display:block;width:4px;height:4px;border-radius:50%;background:rgba(222,242,255,.25);transition:width .17s ease,background-color .17s ease}.lf-hot-comment-dot.active{width:11px;border-radius:999px;background:#9fe8ff}
+html.control-glass-svg-ok .lf-hot-comment-play{backdrop-filter:var(--saved-button-glass-svg-filter);-webkit-backdrop-filter:var(--saved-button-glass-svg-filter)}
+@media(max-width:1180px){.lf-weather-shell.lf-hot-comments-host{grid-template-rows:auto minmax(124px,1fr)}.lf-hot-comment-card{padding:12px}.lf-hot-comment-content{grid-template-columns:72px minmax(0,1fr) 46px}.lf-hot-comment-cover-wrap{width:72px;height:72px}.lf-hot-comment-text{max-height:60px;-webkit-line-clamp:3}.lf-hot-comment-play{width:36px;height:36px}.lf-hot-comment-actions{gap:5px}}
+@media(max-height:760px) and (min-width:621px){
+  .lf-weather-shell.lf-hot-comments-host{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)!important;grid-template-rows:minmax(0,1fr) 108px;overflow:hidden}
+  .lf-hot-comment-card{padding:8px}
+  .lf-weather-shell.lf-hot-comments-host>.lf-weather-main,.lf-weather-shell.lf-hot-comments-host>.lf-weather-side{min-height:0;overflow:hidden}
+  .lf-weather-shell.lf-hot-comments-host>.lf-weather-main{justify-content:center}
+  .lf-weather-shell.lf-hot-comments-host .lf-clock{margin:4px 0 2px;font-size:clamp(42px,5vw,58px)}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-current{margin-top:6px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-icon{font-size:24px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-temp{font-size:24px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-details{margin-top:3px}
+  .lf-weather-shell.lf-hot-comments-host>.lf-weather-side{justify-content:flex-start;gap:4px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-actions{grid-template-columns:minmax(0,1fr) auto auto;gap:3px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-actions input,.lf-weather-shell.lf-hot-comments-host .lf-weather-actions button{height:25px;min-width:0;min-height:25px;padding:0 5px;font-size:9px}
+  .lf-weather-shell.lf-hot-comments-host .lf-forecast{display:flex;min-height:0;gap:4px;overflow-x:auto;overflow-y:hidden;padding-bottom:2px;scrollbar-width:thin}
+  .lf-weather-shell.lf-hot-comments-host .lf-forecast-day{flex:0 0 52px;gap:1px;padding:3px 2px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-side>.lf-weather-tools{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:3px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-tool-buttons{flex-wrap:nowrap;gap:3px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-tools button{min-width:32px;padding:0 5px;font-size:9px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-opacity{min-width:0;gap:2px;padding:2px 4px;white-space:nowrap}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-opacity input{min-width:24px;width:24px}
+  .lf-weather-shell.lf-hot-comments-host .lf-weather-opacity output{min-width:25px}
+  .lf-weather-shell.lf-hot-comments-host #lf-weather-wallpaper-entry{grid-column:1/-1;width:100%}
+  .lf-hot-comment-text{height:38px;max-height:38px;margin:2px 0;-webkit-line-clamp:2}
+  .lf-hot-comment-expand{display:none}.lf-hot-comment-meta{font-size:9px}.lf-hot-comment-avatar-wrap{width:18px;height:18px}
+  .lf-hot-comment-cover-wrap{width:52px;height:52px}
+  .lf-hot-comment-content{grid-template-columns:52px minmax(0,1fr) 40px}
+  .lf-hot-comment-actions{gap:2px}.lf-hot-comment-play{width:30px;height:30px}.lf-hot-comment-switch{font-size:8px}.lf-hot-comment-song-position{font-size:9px}
+}
+@media(max-width:620px){
+  .lf-weather-shell.lf-hot-comments-host{grid-template-areas:"weather-main" "weather-side" "hot-comments"!important;grid-template-columns:1fr!important;grid-template-rows:auto auto minmax(132px,auto);overflow-y:auto}
+  .lf-weather-shell.lf-hot-comments-host>.lf-hot-comment-card{height:auto;min-height:132px}
+  .lf-hot-comment-content{grid-template-columns:56px minmax(0,1fr) 40px;gap:9px}.lf-hot-comment-cover-wrap{width:56px;height:56px}.lf-hot-comment-text{max-height:57px;-webkit-line-clamp:3}.lf-hot-comment-card.expanded .lf-hot-comment-text{max-height:150px}.lf-hot-comment-play{width:32px;height:32px}.lf-hot-comment-actions{gap:3px}
+}
+@media(prefers-reduced-motion:reduce){.lf-hot-comment-card,.lf-hot-comment-content,.lf-hot-comment-card::after{transition:none;animation:none}.lf-hot-comment-card.loading .lf-hot-comment-empty-message{animation:none}}

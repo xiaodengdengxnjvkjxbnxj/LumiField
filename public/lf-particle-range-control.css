@@ -1,0 +1,29 @@
+#lf-particle-range-overlay.lf-particle-range-overlay {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none !important;
+  touch-action: none;
+  z-index: 2147483200;
+  contain: strict;
+}
+
+[data-lf-particle-range-control="true"] {
+  --lf-particle-range-glow: rgba(var(--fc-accent-rgb, 164, 117, 255), 0);
+}
+
+[data-lf-particle-range-control="true"][data-lf-particle-range-active="true"] {
+  --lf-particle-range-glow: rgba(var(--fc-accent-rgb, 164, 117, 255), .28);
+  filter: drop-shadow(0 0 5px var(--lf-particle-range-glow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lf-particle-range-control="true"] {
+    filter: none !important;
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "schema": "lumifield.audio-echo.uniform-baseline/v1",
+  "shapeId": "shape2",
+  "status": "TARGETED_RUNTIME_EVIDENCE_PENDING",
+  "sourceCommit": "cd6d9d2faee167f2dcafd2d0cbd2b4861e7e5fbc",
+  "semantics": "Deterministic adapter default/configuration target before runtime audio. Dynamic values are measured by the targeted source Electron harness.",
+  "grid": {
+    "gridSize": 160,
+    "rows": 160,
+    "columns": 160,
+    "instanceCount": 25600,
+    "totalRange": 168,
+    "halfExtent": 84,
+    "spacing": 1.05,
+    "pillarWidth": 0.89985
+  },
+  "bands": {
+    "count": 8,
+    "order": [
+      "subBass",
+      "bass",
+      "lowMid",
+      "mid",
+      "highMid",
+      "presence",
+      "brilliance",
+      "air"
+    ],
+    "binRanges": [
+      {
+        "id": "subBass",
+        "start": 0,
+        "end": 6,
+        "divisor": 7
+      },
+      {
+        "id": "bass",
+        "start": 7,
+        "end": 18,
+        "divisor": 12
+      },
+      {
+        "id": "lowMid",
+        "start": 19,
+        "end": 35,
+        "divisor": 17
+      },
+      {
+        "id": "mid",
+        "start": 36,
+        "end": 60,
+        "divisor": 25
+      },
+      {
+        "id": "highMid",
+        "start": 61,
+        "end": 95,
+        "divisor": 35
+      },
+      {
+        "id": "presence",
+        "start": 96,
+        "end": 145,
+        "divisor": 50
+      },
+      {
+        "id": "brilliance",
+        "start": 146,
+        "end": 210,
+        "divisor": 65
+      },
+      {
+        "id": "air",
+        "start": 211,
+        "end": 300,
+        "divisor": 90
+      }
+    ],
+    "initial": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "shaderUniformsInitial": {
+    "uTime": 0,
+    "uSubBass": 0,
+    "uBass": 0,
+    "uLowMid": 0,
+    "uMid": 0,
+    "uHighMid": 0,
+    "uPresence": 0,
+    "uBrilliance": 0,
+    "uAir": 0,
+    "uWarmth": 0,
+    "uBrightness": 0,
+    "uSharpness": 0,
+    "uSmoothness": 0,
+    "uDensity": 0,
+    "uSpectralCentroid": 0,
+    "uEnergy": 0,
+    "uIdleWave": 0,
+    "uAudioIntensity": 1,
+    "uResponseRange": 1,
+    "uHalfExtent": 84,
+    "uPeakEnabled": 1,
+    "uPeakIntensity": 1
+  },
+  "themeTarget": {
+    "id": "nocturnal",
+    "uBaseColor1": [
+      0.005,
+      0.008,
+      0.025
+    ],
+    "uBaseColor2": [
+      0.015,
+      0.025,
+      0.07
+    ],
+    "uCoolCore": [
+      0.35,
+      0.1,
+      0.9
+    ],
+    "uCoolEdge": [
+      0.15,
+      0,
+      0.45
+    ],
+    "uWarmCore": [
+      0.65,
+      0.25,
+      1
+    ],
+    "uWarmEdge": [
+      0.5,
+      0.1,
+      0.8
+    ],
+    "uRippleColor": [
+      0.5,
+      0.2,
+      1
+    ],
+    "uPeakColor": [
+      1,
+      0.55,
+      0.05
+    ],
+    "uGlowIntensity": 1
+  },
+  "eventPoolInitial": {
+    "ripples": {
+      "capacity": 20,
+      "shaderLoop": 10,
+      "slot": {
+        "pos": [
+          0,
+          0
+        ],
+        "time": -100,
+        "strength": 0,
+        "isActive": 0,
+        "rippleType": 0
+      }
+    },
+    "meteors": {
+      "capacity": 40,
+      "active": 0
+    },
+    "impactParticles": {
+      "capacity": 200,
+      "active": 0
+    }
+  },
+  "sceneDefaults": {
+    "idleWaveEnabled": true,
+    "idleWaveDebounceSeconds": 1,
+    "idleWaveFadeDurationSeconds": 1,
+    "audioIntensity": 1,
+    "responseRange": 1,
+    "meteorClickEnabled": true,
+    "peakColorEnabled": true,
+    "peakColorIntensity": 1
+  },
+  "triggerDefaults": {
+    "pulse": {
+      "enabled": true,
+      "sensitivity": 0.2,
+      "cooldownFrames": 40,
+      "bandStart": 3,
+      "bandEnd": 16,
+      "strength": 0.28
+    },
+    "meteor": {
+      "enabled": true,
+      "sensitivity": 0.35,
+      "cooldownFrames": 150,
+      "bandStart": 150,
+      "bandEnd": 240,
+      "strength": 0.55
+    }
+  },
+  "cameraDefault": {
+    "fovDegrees": 45,
+    "near": 0.1,
+    "far": 1000,
+    "distance": 85,
+    "angleXDegrees": 120,
+    "angleYDegrees": 25,
+    "autoRotateEnabled": false,
+    "autoRotateSpeedDegreesPerSecond": 10,
+    "rotation": [
+      0,
+      0
+    ],
+    "translation": [
+      0,
+      0
+    ],
+    "zoom": 1
+  },
+  "ownership": {
+    "renderer": "shared-LumiField",
+    "audioElement": "shared-LumiField",
+    "AudioContext": "shared-LumiField",
+    "analyser": "shared-LumiField",
+    "animationFrame": "shared-LumiField",
+    "adapterListeners": 0
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "appId": "com.lumifield.monitor",
+  "productName": "LF后台监控",
+  "extraMetadata": {
+    "name": "lumifield-monitor",
+    "productName": "LF后台监控",
+    "main": "desktop/lf-monitor-main.js"
+  },
+  "electronDist": "node_modules/electron/dist",
+  "directories": {
+    "output": "dist-monitor",
+    "buildResources": "build"
+  },
+  "afterPack": "build/after-pack.js",
+  "files": [
+    "desktop/lf-monitor-main.js",
+    "desktop/lf-monitor-preload.js",
+    "desktop/lf-backend.js",
+    "desktop/lf-api-server.js",
+    "desktop/lf-service-client.js",
+    "desktop/lf-verification-services.js",
+    "desktop/lf-oauth-providers.js",
+    "desktop/lf-secure-login-config.js",
+    "desktop/lf-env.js",
+    "public/lumifield-preset-schema.js",
+    "public/lf-monitor.html",
+    "public/lf-monitor.js",
+    "public/lf-monitor.css",
+    "public/lf-monitor-v2.css",
+    "build/icon.ico",
+    "package.json",
+    "!.env*",
+    "!**/*.map"
+  ],
+  "asar": true,
+  "win": {
+    "executableName": "LF后台监控",
+    "icon": "build/icon.ico",
+    "signAndEditExecutable": false,
+    "target": [{ "target": "nsis", "arch": ["x64"] }]
+  },
+  "nsis": {
+    "include": null,
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "LF后台监控",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "artifactName": "LF-Monitor-${version}-Setup.${ext}"
+  }
+}

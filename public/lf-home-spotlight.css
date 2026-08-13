@@ -1,0 +1,69 @@
+#home-tile-row > .home-tile[data-lf-home-spotlight="true"] {
+  --lf-home-spotlight-x: 50%;
+  --lf-home-spotlight-y: 50%;
+  --lf-home-spotlight-hue: 260;
+  --lf-home-spotlight-opacity: 0;
+  isolation: isolate;
+}
+
+#home-tile-row > .home-tile[data-lf-home-spotlight="true"] > .home-tile-cover,
+#home-tile-row > .home-tile[data-lf-home-spotlight="true"] > .home-tile-title,
+#home-tile-row > .home-tile[data-lf-home-spotlight="true"] > .home-tile-sub {
+  position: relative;
+  z-index: 2;
+}
+
+.lf-home-spotlight-layer,
+.lf-home-spotlight-layer::before,
+.lf-home-spotlight-layer::after {
+  position: absolute;
+  pointer-events: none !important;
+}
+
+.lf-home-spotlight-layer {
+  position: absolute !important;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: var(--lf-home-spotlight-opacity,0);
+  transition: opacity 170ms ease-out;
+  will-change: opacity;
+}
+
+.lf-home-spotlight-layer::before {
+  content: "";
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: radial-gradient(circle 148px at var(--lf-home-spotlight-x) var(--lf-home-spotlight-y),
+    hsl(var(--lf-home-spotlight-hue) 96% 72% / .98) 0,
+    hsl(calc(var(--lf-home-spotlight-hue) + 34) 94% 62% / .82) 31%,
+    hsl(calc(var(--lf-home-spotlight-hue) - 34) 92% 58% / .28) 54%,
+    transparent 72%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 7px hsl(var(--lf-home-spotlight-hue) 96% 64% / .58));
+}
+
+.lf-home-spotlight-layer::after {
+  content: "";
+  inset: 1px;
+  border-radius: inherit;
+  background: radial-gradient(circle 190px at var(--lf-home-spotlight-x) var(--lf-home-spotlight-y),
+    hsl(var(--lf-home-spotlight-hue) 94% 70% / .16) 0,
+    hsl(calc(var(--lf-home-spotlight-hue) + 28) 92% 61% / .075) 34%,
+    transparent 70%);
+  mix-blend-mode: screen;
+}
+
+body:not(.empty-home-active) .lf-home-spotlight-layer,
+body.immersive-mode .lf-home-spotlight-layer {
+  opacity: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-home-spotlight-layer { transition: none !important; }
+}

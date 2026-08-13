@@ -1,0 +1,73 @@
+.home-grid[data-lf-grid-glow-ready="true"]{
+  position:relative;
+  isolation:isolate;
+}
+.home-card[data-lf-grid-glow="true"]{
+  --lf-grid-glow-x:50%;
+  --lf-grid-glow-y:50%;
+  --lf-grid-glow-angle:0deg;
+  --lf-grid-glow-opacity:0;
+}
+.lf-grid-glow-layer{
+  position:absolute;
+  inset:-1px;
+  z-index:5;
+  box-sizing:border-box;
+  border:1px solid rgba(105,108,255,.88);
+  border-radius:inherit;
+  opacity:var(--lf-grid-glow-opacity,0);
+  pointer-events:none!important;
+  filter:drop-shadow(0 0 7px rgba(73,111,255,.72)) drop-shadow(0 0 13px rgba(151,65,255,.42));
+  transition:opacity 150ms ease-out;
+  will-change:opacity;
+}
+@supports (-webkit-mask-composite:xor){
+  .lf-grid-glow-layer{
+    border:0;
+    padding:2px;
+    background:
+      radial-gradient(circle 126px at var(--lf-grid-glow-x) var(--lf-grid-glow-y),
+        rgba(105,197,255,.98) 0%,
+        rgba(84,110,255,.96) 26%,
+        rgba(164,68,255,.92) 49%,
+        rgba(82,55,228,.42) 66%,
+        transparent 78%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+  }
+}
+@supports (mask-composite:exclude){
+  .lf-grid-glow-layer{
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+  }
+}
+.lf-grid-glow-junction{
+  --lf-grid-junction-opacity:0;
+  position:absolute;
+  z-index:6;
+  width:30px;
+  height:30px;
+  margin:-15px 0 0 -15px;
+  border-radius:50%;
+  opacity:var(--lf-grid-junction-opacity,0);
+  background:radial-gradient(circle,
+    transparent 0 20%,
+    rgba(118,205,255,.95) 27%,
+    rgba(91,111,255,.88) 39%,
+    rgba(169,70,255,.76) 50%,
+    transparent 71%);
+  filter:drop-shadow(0 0 6px rgba(69,118,255,.92)) drop-shadow(0 0 11px rgba(145,57,255,.55));
+  pointer-events:none!important;
+  transition:opacity 150ms ease-out;
+  will-change:opacity;
+}
+body:not(.empty-home-active) .lf-grid-glow-layer,
+body:not(.empty-home-active) .lf-grid-glow-junction{
+  opacity:0!important;
+}
+@media (prefers-reduced-motion:reduce){
+  .lf-grid-glow-layer,.lf-grid-glow-junction{
+    transition:none!important;
+  }
+}

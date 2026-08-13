@@ -1,0 +1,22 @@
+.lf-sleep-timer{position:relative;display:flex;align-items:center;flex:0 0 auto}
+.lf-sleep-timer-btn{position:relative}
+.lf-sleep-timer-badge{position:absolute;left:50%;bottom:-7px;min-width:38px;padding:1px 4px;border-radius:7px;background:rgba(7,13,18,.88);border:1px solid rgba(141,255,223,.26);color:#bfffe8;font:600 8px/1.2 "JetBrains Mono",monospace;letter-spacing:-.35px;transform:translateX(-50%);box-shadow:0 5px 18px rgba(0,0,0,.28);pointer-events:none}
+.lf-sleep-timer.active .lf-sleep-timer-btn{color:#bfffe8;background:rgba(82,218,181,.10);box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 0 20px rgba(82,218,181,.12)}
+.lf-sleep-timer-popover{position:absolute;left:50%;bottom:48px;width:292px;padding:15px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:linear-gradient(145deg,rgba(31,39,49,.74),rgba(8,12,18,.88));backdrop-filter:url("#lumifield-control-glass-filter") blur(24px) saturate(1.22);-webkit-backdrop-filter:blur(24px) saturate(1.22);box-shadow:0 22px 70px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.18);opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,10px) scale(.97);transform-origin:50% 100%;transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s;z-index:16}
+.lf-sleep-timer.open .lf-sleep-timer-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0) scale(1);transition-delay:0s}
+.lf-sleep-timer-title{color:#f6fbff;font-size:14px;font-weight:700;letter-spacing:.04em}
+.lf-sleep-timer-status{margin:4px 0 12px;color:rgba(226,239,247,.64);font-size:11px}
+.lf-sleep-timer-durations{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.lf-sleep-timer-durations button,.lf-sleep-timer-actions button{height:32px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.055);color:rgba(239,248,252,.77);font-size:11px;cursor:pointer}
+.lf-sleep-timer-durations button:hover,.lf-sleep-timer-actions button:hover{border-color:rgba(123,255,218,.34);color:#fff;background:rgba(123,255,218,.08)}
+.lf-sleep-timer-durations button.selected{border-color:rgba(123,255,218,.48);color:#c6ffed;background:linear-gradient(145deg,rgba(83,218,181,.22),rgba(91,119,255,.09));box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.lf-sleep-timer-song-label{display:block;margin:12px 0 5px;color:rgba(226,239,247,.64);font-size:10px;letter-spacing:.08em}
+#lf-sleep-timer-song{width:100%;height:35px;padding:0 9px;border:1px solid rgba(255,255,255,.11);border-radius:10px;outline:0;background:rgba(5,10,15,.56);color:#eef7fa;font-size:11px}
+#lf-sleep-timer-song:focus{border-color:rgba(123,255,218,.42);box-shadow:0 0 0 2px rgba(123,255,218,.08)}
+.lf-sleep-timer-empty{padding:8px 2px 0;color:rgba(255,184,184,.74);font-size:10px}
+.lf-sleep-timer-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+.lf-sleep-timer-actions button.primary{border-color:rgba(123,255,218,.38);color:#d5fff2;background:rgba(83,218,181,.14)}
+.lf-sleep-timer-actions button:disabled,.lf-sleep-timer-durations button:disabled{opacity:.38;cursor:not-allowed}
+body.immersive-mode .lf-sleep-timer-popover{bottom:54px}
+@media(max-width:920px){.lf-sleep-timer-popover{left:auto;right:-70px;transform:translate(0,10px) scale(.97)}.lf-sleep-timer.open .lf-sleep-timer-popover{transform:translate(0,0) scale(1)}}
+@media(max-width:620px){.lf-sleep-timer-popover{position:fixed;left:50%;right:auto;bottom:118px;width:min(292px,calc(100vw - 28px));transform:translate(-50%,10px) scale(.97)}.lf-sleep-timer.open .lf-sleep-timer-popover{transform:translate(-50%,0) scale(1)}}

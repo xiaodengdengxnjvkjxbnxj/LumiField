@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: blob: http://127.0.0.1:*">
+  <title>LumiField Voice Assistant</title>
+  <link rel="stylesheet" href="/lf-voice-overlay.css">
+</head>
+<body>
+  <main id="lf-voice-overlay" class="voice-shell" aria-label="LumiField 语音助手">
+    <div class="voice-orb" aria-hidden="true"><i></i><i></i><i></i></div>
+    <section class="track" aria-live="polite">
+      <div id="lf-voice-track-title" class="track-title">等待 LF 歌曲同步</div>
+      <div id="lf-voice-track-meta" class="track-meta">语音助手已就绪</div>
+    </section>
+    <nav class="controls" aria-label="LF 播放控制">
+      <button id="lf-voice-previous" type="button" title="上一首" aria-label="上一首">‹</button>
+      <button id="lf-voice-toggle" class="primary" type="button" title="播放" aria-label="播放"><span>▶</span></button>
+      <button id="lf-voice-next" type="button" title="下一首" aria-label="下一首">›</button>
+    </nav>
+    <div id="lf-voice-status" class="status" data-state="stopped"><span></span><b>已就绪</b></div>
+  </main>
+  <script src="/lf-voice-overlay.js"></script>
+</body>
+</html>

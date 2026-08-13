@@ -1,0 +1,12 @@
+# Python-island/Python-island MacIsland fixed source audit
+# Repository: https://github.com/Python-island/Python-island
+# Commit: af99413667a8192daa895bd206e9e862cb05dc3d
+# These hashes identify reviewed upstream bytes. The bytes are not copied or packaged by LumiField.
+# Format: SHA-256  path  git-blob=<SHA-1> bytes=<decimal>
+A6CBA75F08C88EF9C0EBF60E3ABC61000E6FADC88EF5A95E295D91F88FB18EB1  MacIsland/Service/Implementations/MusicService.swift  git-blob=078ad555948239113a9b45ed10ea3704aeff4d3e bytes=32093
+2F558640809802A1794D1B7EDD25A181588843DE7B537C8FA479B7649DD695E8  MacIsland/Service/Implementations/VoiceService.swift  git-blob=ae0b15d47bd716d0bedb7f5f0beb416d1ceb88a1 bytes=9140
+AB42504139ADA849EBD717CF25339C5AD6DFDC43E8D3C91DBAF6684EAEFEF7A8  MacIsland/Service/Protocols/MusicServiceProtocol.swift  git-blob=eba4e274ec5e6dc7f6e23258ed1c5df706e28184 bytes=1628
+A7AA4D0B89722D6A5AFD79B29297DEAE4D38AEB27530DD768A460A9CB2490431  MacIsland/Service/Protocols/VoiceServiceProtocol.swift  git-blob=fc085db0ffd885adea36c2e87f202848a65b8722 bytes=4581
+0D97138B7FD02335A2615466FC38575E8D284EAC0CC0075DACE5EA1AF8094873  MacIsland/View/Components/AIVoiceChatView.swift  git-blob=8b4fb2a92d8a27207cb74237aa1c68e788abb189 bytes=9667
+8CCDE38D88DC015244DDC77163C0C3EEE42DC4051079E3BD97F8DF22931A103B  MacIsland/View/Components/VoiceConfigView.swift  git-blob=7d9426c0f98f722d39fff9f0b738f6ba796fed78 bytes=8937
+D296D75776B4939A05EF61DFF74D53A5E2F8317406D8EC3243D41E9B6D3C594F  MacIsland/View/Components/VoiceSettingsView.swift  git-blob=5ac9b37857b95d9d2bc1cfa06df481dc173c919a bytes=10128

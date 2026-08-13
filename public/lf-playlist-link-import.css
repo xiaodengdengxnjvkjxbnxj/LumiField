@@ -1,0 +1,84 @@
+#search-submit-btn{
+  flex:0 0 auto;
+  height:30px;
+  min-width:48px;
+  margin-right:6px;
+  padding:0 11px;
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:10px;
+  color:rgba(255,255,255,.82);
+  background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.045));
+  box-shadow:inset 0 1px rgba(255,255,255,.12),0 5px 18px rgba(0,0,0,.18);
+  font:600 11px/1 system-ui,-apple-system,"Microsoft YaHei",sans-serif;
+  cursor:pointer;
+  transition:border-color .18s,background .18s,transform .18s;
+}
+#search-submit-btn:hover,#search-submit-btn:focus-visible{
+  border-color:rgba(99,245,211,.46);
+  background:linear-gradient(145deg,rgba(99,245,211,.18),rgba(99,245,211,.07));
+  outline:none;
+}
+#search-submit-btn:active{transform:scale(.96)}
+
+#lf-playlist-import-modal{
+  position:fixed;
+  inset:0;
+  z-index:12020;
+  display:none;
+  place-items:center;
+  padding:24px;
+  background:rgba(3,7,18,.58);
+  -webkit-backdrop-filter:blur(18px) saturate(1.18);
+  backdrop-filter:blur(18px) saturate(1.18);
+}
+#lf-playlist-import-modal.is-open{display:grid}
+.lf-playlist-import-card{
+  width:min(460px,calc(100vw - 34px));
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:24px;
+  padding:24px;
+  color:#f7fbff;
+  background:
+    radial-gradient(circle at 18% 0,rgba(75,242,210,.15),transparent 42%),
+    linear-gradient(145deg,rgba(24,32,51,.92),rgba(9,14,28,.88));
+  box-shadow:inset 0 1px rgba(255,255,255,.15),0 28px 90px rgba(0,0,0,.48);
+}
+.lf-playlist-import-eyebrow{font-size:11px;letter-spacing:.16em;color:rgba(124,247,218,.76)}
+.lf-playlist-import-card h2{margin:8px 0 7px;font-size:22px;font-weight:720;letter-spacing:.01em}
+.lf-playlist-import-summary{margin:0 0 17px;color:rgba(231,239,255,.64);font-size:12px;line-height:1.7}
+.lf-playlist-import-source{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:8px 12px;
+  min-width:0;
+  padding:14px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:15px;
+  background:rgba(255,255,255,.045);
+  font-size:12px;
+}
+.lf-playlist-import-source span{color:rgba(255,255,255,.45)}
+.lf-playlist-import-source b,.lf-playlist-import-source code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.86)}
+.lf-playlist-import-source code{font:500 11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.lf-playlist-import-progress-wrap{margin-top:17px}
+.lf-playlist-import-progress-track{height:4px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.09)}
+.lf-playlist-import-progress-bar{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#5be7ce,#79a9ff);box-shadow:0 0 16px rgba(91,231,206,.48);transition:width .25s ease}
+#lf-playlist-import-progress{min-height:20px;margin-top:8px;color:rgba(231,239,255,.63);font-size:11.5px;line-height:1.55}
+#lf-playlist-import-progress.is-error{color:#ff9ca9}
+#lf-playlist-import-progress.is-success{color:#83f5cf}
+.lf-playlist-import-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}
+.lf-playlist-import-actions button{
+  height:36px;
+  padding:0 16px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  color:rgba(255,255,255,.8);
+  background:rgba(255,255,255,.06);
+  font:600 12px/1 system-ui,-apple-system,"Microsoft YaHei",sans-serif;
+  cursor:pointer;
+}
+#lf-playlist-import-confirm{border-color:rgba(91,231,206,.36);color:#dffff6;background:rgba(91,231,206,.13)}
+.lf-playlist-import-actions button:disabled{opacity:.45;cursor:wait}
+@media(max-width:560px){#search-submit-btn{min-width:40px;padding:0 8px}.lf-playlist-import-card{padding:20px;border-radius:20px}}
+@media(prefers-reduced-motion:reduce){#search-submit-btn,.lf-playlist-import-progress-bar{transition:none}}

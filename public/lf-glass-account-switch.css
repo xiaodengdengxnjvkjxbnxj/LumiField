@@ -1,0 +1,142 @@
+/* LumiField V4 new-5: independently authored, state-driven account selector. */
+#user-platform-tabs.lf-account-segmented{
+  --lf-account-segment-shift:0%;
+  --lf-account-segment-rgb:236,92,117;
+  position:relative;
+  isolation:isolate;
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:0;
+  width:min(100%,404px);
+  min-height:40px;
+  overflow:hidden;
+  contain:layout paint;
+  border-color:rgba(255,255,255,.10);
+  background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.024));
+  box-shadow:
+    inset 1px 1px 4px rgba(255,255,255,.12),
+    inset -1px -1px 7px rgba(0,0,0,.32),
+    0 8px 24px rgba(0,0,0,.18);
+}
+
+#user-platform-tabs[data-lf-account-selected="netease"]{--lf-account-segment-rgb:236,92,117}
+#user-platform-tabs[data-lf-account-selected="qq"]{--lf-account-segment-rgb:211,224,104}
+#user-platform-tabs[data-lf-account-selected="kugou"]{--lf-account-segment-rgb:91,149,255}
+#user-platform-tabs[data-lf-account-selected="kugou_concept"]{--lf-account-segment-rgb:181,126,255}
+#user-platform-tabs[data-lf-account-selected="qishui"]{--lf-account-segment-rgb:76,235,187}
+#user-platform-tabs[data-lf-account-selected="both"]{--lf-account-segment-rgb:244,210,138}
+
+#user-platform-tabs .lf-account-segment-glider{
+  position:absolute;
+  z-index:0;
+  top:4px;
+  bottom:4px;
+  left:4px;
+  width:calc((100% - 8px) / 6);
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  background:
+    radial-gradient(circle at 30% 18%,rgba(255,255,255,.72),transparent 34%),
+    linear-gradient(135deg,rgba(var(--lf-account-segment-rgb),.28),rgba(var(--lf-account-segment-rgb),.82) 58%,rgba(var(--lf-account-segment-rgb),.40));
+  box-shadow:
+    0 0 18px rgba(var(--lf-account-segment-rgb),.34),
+    0 8px 18px rgba(0,0,0,.20),
+    inset 0 0 12px rgba(255,255,255,.20),
+    inset 1px 1px 0 rgba(255,255,255,.34);
+  pointer-events:none;
+  opacity:1;
+  transform:translate3d(var(--lf-account-segment-shift),0,0);
+  transition:
+    transform .46s cubic-bezier(.20,.92,.25,1.18),
+    opacity .12s ease .46s,
+    background .28s ease,
+    border-color .28s ease,
+    box-shadow .28s ease;
+  will-change:transform;
+}
+
+#user-platform-tabs[data-lf-account-selected=""] .lf-account-segment-glider{
+  visibility:hidden;
+  opacity:0;
+}
+
+#user-platform-tabs.lf-account-segment-snap .lf-account-segment-glider{
+  transition:none!important;
+}
+
+#user-platform-tabs .lf-account-segment-glider::after{
+  content:"";
+  position:absolute;
+  inset:2px 7px auto;
+  height:42%;
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.30),rgba(255,255,255,0));
+  pointer-events:none;
+}
+
+#user-platform-tabs.lf-account-segmented button{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  padding:0 4px;
+  overflow:hidden;
+  border:0;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:rgba(255,255,255,.50);
+  text-overflow:ellipsis;
+  transition:color .20s ease,text-shadow .20s ease;
+}
+
+#user-platform-tabs.lf-account-segmented #user-provider-both{
+  display:block;
+  padding-inline:1px;
+  font-size:10px;
+  letter-spacing:-.2px;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:nowrap;
+}
+
+#user-platform-tabs.lf-account-segmented button:hover{
+  background:transparent!important;
+  color:rgba(255,255,255,.88);
+}
+
+#user-platform-tabs.lf-account-segmented button.active,
+#user-platform-tabs.lf-account-segmented button[aria-checked="true"]{
+  background:transparent!important;
+  color:#fff;
+  text-shadow:0 1px 10px rgba(0,0,0,.42);
+}
+
+#user-platform-tabs.lf-account-segmented button:focus-visible{
+  outline:2px solid rgba(255,255,255,.90);
+  outline-offset:-3px;
+  box-shadow:inset 0 0 0 1px rgba(var(--lf-account-segment-rgb),.72)!important;
+}
+
+#user-platform-tabs.lf-account-segmented:focus-within{
+  border-color:rgba(var(--lf-account-segment-rgb),.42);
+}
+
+html.lf-liquid-glass-reduced #user-platform-tabs .lf-account-segment-glider{
+  transition:none!important;
+  will-change:auto;
+}
+
+@media(max-width:560px){
+  #user-platform-tabs.lf-account-segmented button{
+    padding:0 2px;
+    font-size:9.6px;
+    letter-spacing:0;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #user-platform-tabs .lf-account-segment-glider{
+    transition:none!important;
+    will-change:auto;
+  }
+}

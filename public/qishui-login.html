@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'">
+  <title>汽水音乐登录 · LumiField</title>
+  <link rel="stylesheet" href="/kugou-login.css">
+</head>
+<body data-provider="qishui">
+  <main class="login-shell" aria-labelledby="login-title">
+    <section class="brand-row">
+      <img src="/favicon.ico" alt="" width="42" height="42">
+      <div><b>LumiField</b><span>汽水音乐</span></div>
+    </section>
+    <h1 id="login-title">通过汽水音乐官方客户端登录</h1>
+    <p class="intro">由官方客户端完成扫码与安全校验，LumiField 只从本机导入已建立的真实会话。</p>
+    <dl class="sync-result qishui-steps" aria-live="polite">
+      <div><dt>官方客户端</dt><dd id="client-status">正在检测…</dd></div>
+      <div><dt>官方账号</dt><dd id="account-status">等待登录</dd></div>
+      <div><dt>LF 同步</dt><dd id="sync-playlists">等待导入</dd></div>
+    </dl>
+    <p id="login-status" class="status">请先在官方汽水音乐客户端完成扫码登录</p>
+    <div class="login-actions">
+      <button id="open-client" type="button">打开汽水音乐</button>
+      <button id="import-session" type="button" disabled>已登录，导入到 LF</button>
+      <button id="refresh-status" type="button">重新检测</button>
+    </div>
+    <p class="notice">完成扫码后请完全退出官方汽水音乐，再点击“导入到 LF”。凭据不会显示、上传或写入日志。</p>
+  </main>
+  <script src="/qishui-login.js"></script>
+</body>
+</html>

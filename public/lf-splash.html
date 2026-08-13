@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>LumiField</title>
+  <link rel="stylesheet" href="lf-splash.css">
+</head>
+<body>
+  <main id="lf-splash-root" aria-label="LumiField 启动动画">
+    <section id="lf-splash-stage" aria-hidden="false">
+      <canvas id="lf-splash-atc" aria-hidden="true"></canvas>
+      <canvas id="lf-splash-grid" aria-hidden="true"></canvas>
+      <div id="lf-splash-signature-shell" aria-hidden="true">
+        <video id="lf-splash-signature" src="assets/splash/lf-signature.mp4" muted playsinline preload="auto"></video>
+      </div>
+      <button id="lf-splash-enter" type="button" disabled><span>立即进入</span></button>
+    </section>
+  </main>
+  <script src="lf-splash.js"></script>
+</body>
+</html>

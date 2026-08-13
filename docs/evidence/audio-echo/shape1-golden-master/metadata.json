@@ -1,0 +1,188 @@
+{
+  "schema": "lumifield.audio-echo.golden-metadata/v1",
+  "shapeId": "shape1",
+  "status": "SOURCE_ELECTRON_TARGETED_RUNTIME_VERIFIED",
+  "evidenceSemantics": {
+    "kind": "source Electron targeted runtime capture contract",
+    "humanVisualAcceptance": false,
+    "description": "This file fixes the capture target. It is not a screenshot and does not claim an observed or human-approved pixel match."
+  },
+  "source": {
+    "repository": "https://github.com/yin-yizhen/sonic-topography",
+    "commit": "f14589172431fa1da66fc78dd1f6cc403ead545b",
+    "author": "Ajin",
+    "adapter": "public/lf-audio-echo-shape1.js",
+    "sourceManifestSha256": "714BC22A826F5C8F510D9134A3930A0361E216749A0825B46E40BD3B22037D98"
+  },
+  "runtimeTarget": {
+    "app": "LumiField",
+    "appVersion": "1.1.42",
+    "platform": "Windows",
+    "sourceElectron": true,
+    "Electron": {
+      "dependency": "^42.4.1",
+      "installed": "42.4.1"
+    },
+    "Chromium": "captured-at-targeted-runtime",
+    "GPU": "captured-at-targeted-runtime",
+    "ANGLE": "captured-at-targeted-runtime",
+    "window": {
+      "mode": "BrowserWindow source application",
+      "viewportCssPixels": [
+        1280,
+        720
+      ],
+      "resizeProfilesCssPixels": [
+        [
+          1100,
+          700
+        ],
+        [
+          1360,
+          820
+        ]
+      ]
+    },
+    "DPI": {
+      "deviceScaleFactorProfiles": [
+        1,
+        1.25,
+        1.5
+      ],
+      "labels": [
+        "100pct",
+        "125pct",
+        "150pct"
+      ]
+    }
+  },
+  "theme": {
+    "id": "minimal-monochrome",
+    "sourceDefault": true,
+    "backgroundRgb": [
+      0.02,
+      0.02,
+      0.02
+    ],
+    "fogRgb": [
+      0.02,
+      0.02,
+      0.02
+    ]
+  },
+  "camera": {
+    "fovDegrees": 45,
+    "near": 0.1,
+    "far": 1000,
+    "position": [
+      -37.5836298835141,
+      25.718921008284557,
+      92.25687558089541
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "rotationGesture": [
+      0,
+      0
+    ],
+    "translationGesture": [
+      0,
+      0
+    ],
+    "zoom": 1,
+    "isDefault": true,
+    "interactionCapture": [
+      "mouse-move",
+      "drag-rotate",
+      "wheel-zoom",
+      "double-click-reset"
+    ]
+  },
+  "audio": {
+    "ownership": "single existing LumiField audio element, AudioContext, analyser, and frequency buffer",
+    "fixture": "test-generated lawful local PCM WAV served from loopback",
+    "thirdPartyMediaIncluded": false,
+    "sampleRateHz": 48000,
+    "channels": 2,
+    "bandCount": 8,
+    "states": [
+      "playing",
+      "pause",
+      "seek",
+      "local-track-switch",
+      "idle"
+    ]
+  },
+  "grid": {
+    "density": 46,
+    "formula": "round(96 + (224 - 96) * 0.46)",
+    "columns": 155,
+    "rows": 155,
+    "instanceCount": 24025,
+    "terrainSize": 168
+  },
+  "eventPools": {
+    "ripples": 10,
+    "meteors": 20,
+    "impactParticles": 200,
+    "floatingBlocks": 80
+  },
+  "features": {
+    "originalRipple": true,
+    "meteor": true,
+    "impactParticles": true,
+    "floatingBlocks": true,
+    "idleMotion": true,
+    "cameraInteraction": true,
+    "themes": true
+  },
+  "lyricsFreeze": {
+    "scope": "pre-V2 LumiField Shape 1 left-lyrics layer; no upstream lyric implementation imported",
+    "rootId": "lf-mode1-left-lyrics-layer",
+    "checkpointAudioEchoSha256": "D4FF9E14535F3B9AAC8E135D3574CC65B5F8BC06E59460E56AC2D82FCA835D0D",
+    "legacyJsContractSha256": "E85C85ADB8B97452A7DDD4B654D1706E7AC0D88C8F2D826C23DF462A77B6FE1F",
+    "cssContractSha256": "CAA06C58B997DED35B7C2340EAE301DD7E332F3ED69CA85E3B785AD28BABC478",
+    "updateIntervalMs": 80,
+    "frozenDimensions": [
+      "pixels",
+      "DOM",
+      "classes",
+      "computed-style",
+      "timing",
+      "index",
+      "interaction-pass-through"
+    ]
+  },
+  "capture": {
+    "harness": "scripts/lf-v4-audio-echo-v2-source-electron.js",
+    "outputRoot": "test-results/lf-v4-audio-echo-v2-source-electron/<run-id>",
+    "requiredRuntimeArtifacts": [
+      "active-shape1.png",
+      "lyrics-freeze-before.png",
+      "lyrics-freeze-after.png",
+      "report.json"
+    ],
+    "currentState": "SOURCE_ELECTRON_TARGETED_RUNTIME_VERIFIED",
+    "runId": "2026-08-08T23-33-55-894Z",
+    "result": {
+      "checks": 40,
+      "passed": 40,
+      "failed": 0,
+      "rendererErrors": 0,
+      "consoleErrors": 0,
+      "reportSha256": "7F8103D1A442D412782820437E6462E9801573AAA2DD95D3B8C486053F205984",
+      "activeShapeScreenshotSha256": "1AC89BE084180F187D7458A14FE632EF9C742099E4FDBB8F16C4711E909F31B5",
+      "lyricsBeforeSha256": "A98D096EF7EDE52DC0BA2853F4500B4E342B19BFEDD1CD41C55D86D11EA4681C",
+      "lyricsAfterSha256": "A98D096EF7EDE52DC0BA2853F4500B4E342B19BFEDD1CD41C55D86D11EA4681C",
+      "lyricsPixelChangedRatio": 0
+    }
+  },
+  "releaseGate": {
+    "status": "LUMIFIELD_AUTHORIZED_GPLV3_DOWNSTREAM_CONFIRMED",
+    "privateDevelopmentAndTesting": true,
+    "publicDistributionCleared": true
+  }
+}

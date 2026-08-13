@@ -1,0 +1,54 @@
+#lf-profile-modal[data-lf-neural-vortex-active="true"] {
+  background: rgba(0,0,0,.58);
+}
+
+#lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog[data-lf-neural-vortex-host="true"] {
+  isolation: isolate;
+  background: rgba(1,4,12,.9);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+
+.lf-profile-dialog > .lf-profile-neural-vortex {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none !important;
+  user-select: none;
+  background: #01040c;
+  border-radius: inherit;
+  transform: translate3d(0,var(--lf-profile-vortex-scroll,0px),0);
+}
+
+.lf-profile-neural-vortex-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: .95;
+  pointer-events: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog > :not(.lf-profile-neural-vortex):not(.lf-panel-x) {
+  position: relative;
+  z-index: 1;
+}
+
+.lf-profile-neural-vortex[data-paused="true"] .lf-profile-neural-vortex-canvas,
+html.lf-liquid-glass-reduced .lf-profile-neural-vortex-canvas,
+html.lf-liquid-glass-low-power .lf-profile-neural-vortex-canvas {
+  opacity: .82;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-profile-neural-vortex-canvas { opacity: .82; }
+}
