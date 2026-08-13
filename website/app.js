@@ -164,6 +164,8 @@
   let height = 0;
   let ratio = 1;
   let animationFrame = 0;
+  let lastFieldFrame = 0;
+  const fieldFrameInterval = 1000 / 30;
   const pointer = { x: -1000, y: -1000 };
   const points = [];
   const resizeCanvas = () => {
@@ -184,6 +186,11 @@
   };
   const renderField = (time) => {
     if (!context || reducedMotion.matches || document.hidden) { animationFrame = 0; return; }
+    if (time - lastFieldFrame < fieldFrameInterval) {
+      animationFrame = requestAnimationFrame(renderField);
+      return;
+    }
+    lastFieldFrame = time;
     context.clearRect(0, 0, width, height);
     for (const point of points) {
       const distance = Math.hypot(pointer.x - point.x, pointer.y - point.y);
