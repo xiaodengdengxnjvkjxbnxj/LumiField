@@ -1,33 +1,72 @@
 {
   "schema": "lumifield.audio-echo.golden-metadata/v1",
   "shapeId": "shape1",
-  "status": "SOURCE_ELECTRON_TARGETED_RUNTIME_VERIFIED",
+  "status": "LF_NATIVE_ADAPTER_GOLDEN_CONTRACT",
   "evidenceSemantics": {
-    "kind": "source Electron targeted runtime capture contract",
+    "kind": "LumiField native adapter deterministic golden contract",
     "humanVisualAcceptance": false,
-    "description": "This file fixes the capture target. It is not a screenshot and does not claim an observed or human-approved pixel match."
+    "description": "This file fixes LF-native adapter targets. It is not a screenshot and does not claim a verbatim port, observed exact upstream runtime behavior, or human-approved pixel match."
   },
   "source": {
-    "repository": "https://github.com/yin-yizhen/sonic-topography",
-    "commit": "f14589172431fa1da66fc78dd1f6cc403ead545b",
-    "author": "Ajin",
+    "repository": "https://github.com/hgbhh258-spec/Sonic-Topography-Wallpaper",
+    "commit": "51afbac3d5978c112311fca38f7334578ca2b0e6",
+    "author": "eeegg",
+    "copyright": "Copyright (c) 2026 eeegg",
+    "license": "MIT",
+    "licenseSha256": "A56D7F54B15275F69BA6BA3A2E605183C79918D2DC6AB3BFEF976369CA916585",
     "adapter": "public/lf-audio-echo-shape1.js",
-    "sourceManifestSha256": "714BC22A826F5C8F510D9134A3930A0361E216749A0825B46E40BD3B22037D98"
+    "sourceManifestSha256": "985314D22C24EFEB4F629B623E6D494225F9063AE2FC11F9FD2F2AF539FEFAE1",
+    "sourceAuditSubsetManifestSha256": "CA6FD0557F779451BC7428F6DF4EADC12F970256C13678FC4116779B38E3E700"
+  },
+  "adapterBoundary": {
+    "implementation": "LF-native imperative Three.js r128 adapter",
+    "exactUpstreamPort": false,
+    "exactUpstreamRuntimeMatchClaimed": false,
+    "exactUpstreamPixelMatchClaimed": false,
+    "upstreamReactR3fRuntimePackaged": false,
+    "sharedOwners": [
+      "renderer",
+      "audioElement",
+      "AudioContext",
+      "analyser",
+      "frequencyBuffer",
+      "animationFrame"
+    ]
+  },
+  "upstreamValidation": {
+    "observedAt": "2026-08-20",
+    "scope": "isolated temporary clone of the fixed upstream commit only",
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "npmCi": "PASS",
+    "npmRunBuild": "PASS",
+    "viteTransformedModules": 2471,
+    "npmAudit": {
+      "exitCode": 1,
+      "total": 7,
+      "low": 2,
+      "moderate": 1,
+      "high": 4,
+      "critical": 0
+    },
+    "appliesToLumiFieldDependencyGraph": false,
+    "packagedIntoLumiField": false
   },
   "runtimeTarget": {
     "app": "LumiField",
-    "appVersion": "1.1.42",
+    "appVersion": "1.1.44-development-target",
     "platform": "Windows",
-    "sourceElectron": true,
+    "sourceElectron": false,
+    "currentDocumentationUpdateElectronRun": false,
     "Electron": {
-      "dependency": "^42.4.1",
-      "installed": "42.4.1"
+      "dependency": "project-defined",
+      "installed": "not-queried"
     },
-    "Chromium": "captured-at-targeted-runtime",
-    "GPU": "captured-at-targeted-runtime",
-    "ANGLE": "captured-at-targeted-runtime",
+    "Chromium": "pending-current-adapter-harness",
+    "GPU": "pending-current-adapter-harness",
+    "ANGLE": "pending-current-adapter-harness",
     "window": {
-      "mode": "BrowserWindow source application",
+      "mode": "LumiField LF-native adapter target",
       "viewportCssPixels": [
         1280,
         720
@@ -57,17 +96,18 @@
     }
   },
   "theme": {
-    "id": "minimal-monochrome",
+    "id": "nocturnal",
     "sourceDefault": true,
+    "adapterDefault": true,
     "backgroundRgb": [
+      0.01,
       0.02,
-      0.02,
-      0.02
+      0.04
     ],
     "fogRgb": [
+      0.01,
       0.02,
-      0.02,
-      0.02
+      0.04
     ]
   },
   "camera": {
@@ -75,9 +115,9 @@
     "near": 0.1,
     "far": 1000,
     "position": [
-      -37.5836298835141,
-      25.718921008284557,
-      92.25687558089541
+      35,
+      25,
+      35
     ],
     "target": [
       0,
@@ -117,24 +157,25 @@
     ]
   },
   "grid": {
-    "density": 46,
-    "formula": "round(96 + (224 - 96) * 0.46)",
-    "columns": 155,
-    "rows": 155,
-    "instanceCount": 24025,
+    "density": 100,
+    "formula": "fixed GRID_SIZE = 160",
+    "columns": 160,
+    "rows": 160,
+    "instanceCount": 25600,
+    "spacing": 1.05,
+    "boxWidth": 0.9,
     "terrainSize": 168
   },
   "eventPools": {
     "ripples": 10,
     "meteors": 20,
-    "impactParticles": 200,
-    "floatingBlocks": 80
+    "impactParticles": 200
   },
   "features": {
     "originalRipple": true,
     "meteor": true,
     "impactParticles": true,
-    "floatingBlocks": true,
+    "floatingBlocks": false,
     "idleMotion": true,
     "cameraInteraction": true,
     "themes": true
@@ -165,7 +206,11 @@
       "lyrics-freeze-after.png",
       "report.json"
     ],
-    "currentState": "SOURCE_ELECTRON_TARGETED_RUNTIME_VERIFIED",
+    "currentState": "HISTORICAL_ONLY_NOT_CURRENT_SOURCE_VALIDATION",
+    "historicalSource": {
+      "repository": "https://github.com/yin-yizhen/sonic-topography",
+      "commit": "f14589172431fa1da66fc78dd1f6cc403ead545b"
+    },
     "runId": "2026-08-08T23-33-55-894Z",
     "result": {
       "checks": 40,
@@ -181,7 +226,7 @@
     }
   },
   "releaseGate": {
-    "status": "LUMIFIELD_AUTHORIZED_GPLV3_DOWNSTREAM_CONFIRMED",
+    "status": "MIT_PERMISSIVE_PASS",
     "privateDevelopmentAndTesting": true,
     "publicDistributionCleared": true
   }

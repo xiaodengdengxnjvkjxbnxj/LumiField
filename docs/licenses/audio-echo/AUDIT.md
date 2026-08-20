@@ -2,6 +2,12 @@
 
 Audit date: 2026-07-28
 
+Status: `SUPERSEDED_FOR_AUDIO_ECHO_V2_SHAPE1`. This file preserves the
+2026-07-28 historical review and is not the current Shape 1 source decision.
+The user-designated current source, fixed MIT notice, checksums and LF-native
+adapter boundary are recorded in
+`docs/licenses/audio-echo-v2/SOURCE_AND_LICENSE_MATRIX.md`.
+
 The four repositories below were inspected only to establish provenance and
 observable behavior. No source, shader, bundle, media, icon, preset file, or
 asset from them is included in LumiField.

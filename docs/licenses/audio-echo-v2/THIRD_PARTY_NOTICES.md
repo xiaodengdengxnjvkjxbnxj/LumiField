@@ -4,24 +4,24 @@ This file supplements the repository-level NOTICE.md. It records attribution
 and the exact scope of the Audio Echo V2 private integration. It does not grant
 rights beyond those granted by the respective copyright holders.
 
-## Shape 1 — Sonic Topography
+## Shape 1 — Sonic Topography Wallpaper
 
-- Author attribution: Ajin.
-- Source: https://github.com/yin-yizhen/sonic-topography
-- Fixed commit: f14589172431fa1da66fc78dd1f6cc403ead545b.
-- License at that commit: Non-Commercial Learning License.
-- Canonical LF-byte license SHA-256:
-  2DFAC39FB6A692AFDCC0754C8C6028208FB2A90E803A2FA4299DF7807EE19242.
-- Additional evidence: upstream Issue #25 comments `5118636372` and OWNER
-  confirmation `5118672629` explicitly authorize LumiField use, modification,
-  integration and source/installer distribution, including commercial and
-  closed-source distribution, worldwide and royalty-free, subject to the
-  recorded conditions.
-- LumiField use: Shape 1 scene/shader and audio-response behavior is adapted to
-  the existing LumiField Three.js renderer and shared audio analyser.
-- Classification: `LUMIFIELD_AUTHORIZED + GPLV3_DOWNSTREAM_CONFIRMED`. On
-  2026-08-13 the user attested that the original author supplied the GPLv3
-  downstream confirmation in retained WeChat correspondence.
+- Author/copyright attribution: eeegg; `Copyright (c) 2026 eeegg`.
+- Source: https://github.com/hgbhh258-spec/Sonic-Topography-Wallpaper
+- Fixed `main` commit: 51afbac3d5978c112311fca38f7334578ca2b0e6.
+- License at that commit: MIT.
+- Fixed Git-blob license SHA-256:
+  A56D7F54B15275F69BA6BA3A2E605183C79918D2DC6AB3BFEF976369CA916585.
+- LumiField use: the fixed source is Shape 1's adaptation source of record.
+  `public/lf-audio-echo-shape1.js` is an LF-native imperative Three.js adapter
+  that reuses LumiField's renderer, analyser and frame lifecycle. It is not the
+  upstream React/R3F application; this documentation does not claim a verbatim
+  whole-application port or exact runtime pixel match.
+- Classification: `MIT_PERMISSIVE_PASS`.
+- Upstream-only verification: an isolated fixed-commit temporary clone passed
+  `npm ci` and `npm run build` on 2026-08-20. Its `npm audit` result was 7
+  vulnerabilities (2 low, 1 moderate, 4 high, 0 critical). This result does
+  not describe LumiField's lockfile or packaged dependency graph.
 
 ## Shape 2 — Sonic Topography fork
 
@@ -31,15 +31,19 @@ rights beyond those granted by the respective copyright holders.
 - Declared repository license at that commit: GPL-3.0.
 - Canonical LF-byte license SHA-256:
   5199686BA1FA5624E6C68712611457B45D1A1347C011C51D6011DB20F02169CE.
-- Chain finding: Shape 2 contains substantial Shape 1-derived material. The
-  downstream repository's GPL notice does not by itself establish authority to
-  relicense every upstream portion.
+- Chain finding: Shape 2 contains substantial material from the historical
+  `yin-yizhen/sonic-topography` lineage. The downstream repository's GPL notice
+  does not by itself establish authority to relicense every inherited portion.
 - LumiField use: Shape 2 scene/shader and eight-band response behavior is
   adapted to the existing LumiField Three.js renderer and shared audio
   analyser.
 - Classification: CmzYa's contributions are `GPL_NATIVE_PASS`; inherited
-  Shape-1 expression is `LUMIFIELD_AUTHORIZED +
+  historical-lineage expression is `LUMIFIELD_AUTHORIZED +
   GPLV3_DOWNSTREAM_CONFIRMED`.
+- Rights evidence for those inherited portions: upstream Issue #25 comments
+  `5118636372` and OWNER confirmation `5118672629`, plus the user's 2026-08-13
+  attestation that the original author supplied the GPLv3 downstream
+  confirmation in retained WeChat correspondence.
 
 ## Shape 3 — provenance reference only
 

@@ -1,18 +1,21 @@
 {
   "schema": "lumifield.audio-echo.uniform-baseline/v1",
   "shapeId": "shape1",
-  "status": "TARGETED_RUNTIME_EVIDENCE_PENDING",
-  "sourceCommit": "f14589172431fa1da66fc78dd1f6cc403ead545b",
-  "semantics": "Deterministic adapter default/configuration target before runtime audio. Dynamic values are measured by the targeted source Electron harness.",
+  "status": "LF_NATIVE_ADAPTER_BASELINE",
+  "sourceRepository": "https://github.com/hgbhh258-spec/Sonic-Topography-Wallpaper",
+  "sourceCommit": "51afbac3d5978c112311fca38f7334578ca2b0e6",
+  "adapter": "public/lf-audio-echo-shape1.js",
+  "exactUpstreamApplicationPort": false,
+  "exactUpstreamRuntimePixelMatchClaimed": false,
+  "semantics": "Deterministic LF-native adapter default/configuration target before runtime audio. Fixed source shader/scene parameters are adapted into the shared LumiField lifecycle; full upstream React/R3F application and pixel equivalence are not claimed.",
   "grid": {
-    "density": 46,
-    "minGridSize": 96,
-    "maxGridSize": 224,
-    "gridSize": 155,
-    "instanceCount": 24025,
+    "density": 100,
+    "fixed": true,
+    "gridSize": 160,
+    "instanceCount": 25600,
     "terrainSize": 168,
-    "spacing": 1.0838709677419354,
-    "boxWidth": 0.9290322580645161
+    "spacing": 1.05,
+    "boxWidth": 0.9
   },
   "bands": {
     "count": 8,
@@ -26,36 +29,18 @@
       "brilliance",
       "air"
     ],
-    "groundEq": [
-      90,
-      92,
-      50,
-      50,
-      50,
-      50,
-      50,
-      48
+    "source512BinRangesInclusive": [
+      [0, 1],
+      [2, 3],
+      [4, 7],
+      [8, 18],
+      [19, 46],
+      [47, 93],
+      [94, 186],
+      [187, 372]
     ],
-    "enabled": [
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true
-    ],
-    "initial": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ]
+    "visualEqInitial": [1, 1, 1, 1, 1, 1, 1, 1],
+    "initial": [0, 0, 0, 0, 0, 0, 0, 0]
   },
   "terrainUniformsInitial": {
     "uTime": 0,
@@ -73,61 +58,26 @@
     "uSmoothness": 0,
     "uDensity": 0,
     "uSpectralCentroid": 0,
-    "uEnergy": 0,
-    "uAmplitude": 1
+    "uEnergy": 0
   },
   "themeTarget": {
-    "id": "minimal-monochrome",
-    "uBaseColor1": [
-      0.02,
-      0.02,
-      0.02
-    ],
-    "uBaseColor2": [
-      0.06,
-      0.06,
-      0.06
-    ],
-    "uFogColor": [
-      0.02,
-      0.02,
-      0.02
-    ],
-    "uCoolCore": [
-      0.9,
-      0.9,
-      0.9
-    ],
-    "uCoolEdge": [
-      0.4,
-      0.4,
-      0.4
-    ],
-    "uWarmCore": [
-      1,
-      1,
-      1
-    ],
-    "uWarmEdge": [
-      0.7,
-      0.7,
-      0.7
-    ],
-    "uRippleColor": [
-      1,
-      1,
-      1
-    ],
-    "uGlowIntensity": 0.8
+    "id": "nocturnal",
+    "availableThemeCount": 4,
+    "uBaseColor1": [0.01, 0.02, 0.04],
+    "uBaseColor2": [0.03, 0.05, 0.09],
+    "uFogColor": [0.01, 0.02, 0.04],
+    "uCoolCore": [0, 0.3, 1],
+    "uCoolEdge": [0.6, 0.2, 1],
+    "uWarmCore": [1, 0.2, 0.1],
+    "uWarmEdge": [1, 0.6, 0],
+    "uRippleColor": [0.2, 0.9, 1],
+    "uGlowIntensity": 1
   },
   "eventPoolInitial": {
     "ripples": {
       "capacity": 10,
       "slot": {
-        "pos": [
-          0,
-          0
-        ],
+        "pos": [0, 0],
         "time": -100,
         "strength": 0,
         "isActive": 0,
@@ -143,27 +93,22 @@
       "active": 0
     },
     "floatingBlocks": {
-      "capacity": 80
+      "present": false
     }
   },
   "sceneDefaults": {
-    "motionSpeed": 50,
-    "amplitude": 50,
-    "floatingBlocksEnabled": true,
-    "floatingBlockIntensity": 55,
-    "floatingBlockMinSize": 9,
-    "floatingBlockMaxSize": 26,
-    "floatingBlockSpeed": 77,
-    "rotationSpeedRadiansPerSecond": 0.15,
-    "beatSensitivity": 100,
-    "idleMotionEnabled": true
+    "theme": "nocturnal",
+    "autoRotate": false,
+    "rotateSpeedRadiansPerSecondWhenEnabled": 0.5,
+    "idleWaveEnabled": true,
+    "rippleEnabled": true
   },
   "triggerDefaults": {
     "pulse": {
-      "bandStart": 1,
-      "bandEnd": 2,
-      "sensitivity": 0.85,
-      "cooldownFrames": 15,
+      "bandStart": 0,
+      "bandEnd": 16,
+      "sensitivity": 0.15,
+      "cooldownFrames": 60,
       "pulseStrength": 0.2
     },
     "meteor": {
@@ -172,37 +117,16 @@
       "sensitivity": 0.45,
       "cooldownFrames": 241,
       "pulseStrength": 0.5
-    },
-    "snare": {
-      "bandStart": 47,
-      "bandEnd": 120,
-      "sensitivity": 0.6,
-      "cooldownFrames": 30,
-      "pulseStrength": 0.3
     }
   },
   "cameraDefault": {
     "fovDegrees": 45,
     "near": 0.1,
     "far": 1000,
-    "position": [
-      -37.5836298835141,
-      25.718921008284557,
-      92.25687558089541
-    ],
-    "target": [
-      0,
-      0,
-      0
-    ],
-    "rotation": [
-      0,
-      0
-    ],
-    "translation": [
-      0,
-      0
-    ],
+    "position": [35, 25, 35],
+    "target": [0, 0, 0],
+    "rotation": [0, 0],
+    "translation": [0, 0],
     "zoom": 1
   },
   "ownership": {

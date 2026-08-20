@@ -1,7 +1,7 @@
 # Audio Echo V2 modification record
 
 Fixed-source analysis was performed against Shape 1 commit
-f14589172431fa1da66fc78dd1f6cc403ead545b and Shape 2 commit
+51afbac3d5978c112311fca38f7334578ca2b0e6 and Shape 2 commit
 cd6d9d2faee167f2dcafd2d0cbd2b4861e7e5fbc. The following is a functional
 modification record, not a public-release clearance.
 
@@ -9,14 +9,15 @@ modification record, not a public-release clearance.
 
 ### lf-audio-echo-shape1.js
 
-- Directly adapts the necessary Shape 1 map-scene, shader, eight-band analysis,
-  beat/kick envelope, ground-EQ, ripple, meteor, impact-particle, floating-block,
-  idle-motion, theme, and camera behavior into a vanilla Three.js adapter.
-- Replaces React, React Three Fiber, drei, and source-owned player lifecycle
-  with an imperative adapter mounted by LumiField.
-- Preserves the fixed density calculation: density 46 produces a 155 by 155
-  grid (24,025 instances), 10 ripple slots, 20 meteors, 200 impact particles,
-  and 80 floating blocks.
+- The user-designated Shape 1 source of record is
+  `hgbhh258-spec/Sonic-Topography-Wallpaper@51afbac3d5978c112311fca38f7334578ca2b0e6`.
+- The shipped module is an LF-native imperative Three.js adapter mounted by
+  LumiField. It does not package or execute the upstream React, React Three
+  Fiber, drei, UI, or source-owned player lifecycle.
+- LF-native grid, audio mapping, event-pool, theme and camera behavior is
+  documented in the Shape 1 golden contract. Those adapter values are not
+  represented as a verbatim upstream port or exact upstream pixel/runtime
+  match.
 - Allocates no renderer, AudioContext, analyser, audio element, animation loop,
   timer, or persistent event listener.
 
@@ -62,7 +63,7 @@ LumiField package.
 
 Audio Echo V2 is `AUDIO_ECHO_V2_GPL_PASS`; it is cleared for GPLv3 source and
 installer distribution under the classifications in `RELEASE_GATE.md`. Shape 1
-is `LUMIFIELD_AUTHORIZED + GPLV3_DOWNSTREAM_CONFIRMED`; Shape 2 combines
-`GPL_NATIVE_PASS` for CmzYa's original contributions with that same confirmed
-Shape-1 downstream grant for inherited expression. Preserve the listed
-attribution, fixed revisions, authorization record and GPL obligations.
+is `MIT_PERMISSIVE_PASS`; Shape 2 combines `GPL_NATIVE_PASS` for CmzYa's
+original contributions with the retained confirmed downstream grant for its
+historical inherited lineage. Preserve the listed attribution, fixed
+revisions, authorization record and GPL obligations.

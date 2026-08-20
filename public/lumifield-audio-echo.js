@@ -4,16 +4,18 @@
   var THREE = window.THREE;
   var ECHO_LAYER = 29;
   var SHAPES = ['shape1', 'shape2'];
+  var NORMALIZED_ANCHOR = { x:0.5, y:0.62 };
+  var QUALITY_SCALES = { low:0.62, medium:0.82, high:1, ultra:1.22 };
   var DEFAULT_STATE = {
     enabled:false, shape:'shape1', quality:'high', renderResolution:1,
     audioMonitor:true, responseStrength:1.18, responseRange:0.72,
-    visualEq:[1,1,1,1,1,1,1,1], rippleEnabled:true, rippleSensitivity:0.48,
-    rippleCooldown:14, idleWave:true, idleDebounce:2.4, idleFade:1.8,
-    cameraDistance:1.05, cameraHorizontal:0, cameraElevation:34,
-    autoRotate:false, rotateSpeed:0.16, theme:'neonPurple',
+    visualEq:[1,1,1,1,1,1,1,1], rippleEnabled:true, rippleSensitivity:0.15,
+    rippleCooldown:60, idleWave:true, idleDebounce:1, idleFade:1,
+    cameraDistance:1, cameraHorizontal:0, cameraElevation:27,
+    autoRotate:false, rotateSpeed:0.5, theme:'nocturnal',
     accentEnabled:true, accentColor:'#ffffff', accentStrength:0.78,
     particleStrength:0.72, mode1LeftLyricsEnabled:false, flip:false,
-    autoCycle:false, cycleInterval:18, showColorOptions:true,
+    showColorOptions:true,
     playerVisible:true, playerCover:true, playerSize:1, playerX:0, playerY:0,
     exposureSize:2.2, exposureStrength:0.76, exposureRadius:0.62,
     trailLength:0.72, trailDecay:0.12, flashThreshold:0.78,
@@ -27,7 +29,6 @@
   var buildCount = 0;
   var disposeCount = 0;
   var lastFrameAt = 0;
-  var lastCycleAt = performance.now();
   var lastLyricAt = 0;
   var viewport = { dirty:true, container:null, canvas:null, containerRect:null, canvasRect:null };
   var resizeObserver = null;
@@ -45,6 +46,7 @@
     renderPasses:0, clearDepthCalls:0, stateRestoreCount:0,
     lastViewport:null, lastScissor:null, lastRenderAt:0, drawCalls:0
   };
+  var reportedRenderScale = 1;
 
   function clamp(value, min, max) {
     value = Number(value);
@@ -63,6 +65,9 @@
   function copyState(value) {
     var result = Object.assign({}, value || {});
     result.shape = normalizeShape(result.shape) || 'shape1';
+    result.quality = String(result.quality || 'high').toLowerCase();
+    if (result.quality === 'auto') result.quality = 'medium';
+    if (!Object.prototype.hasOwnProperty.call(QUALITY_SCALES, result.quality)) result.quality = 'high';
     result.visualEq = Array.isArray(result.visualEq) ? result.visualEq.slice(0, 8) : DEFAULT_STATE.visualEq.slice();
     while (result.visualEq.length < 8) result.visualEq.push(1);
     result.visualEq = result.visualEq.map(function (entry) { return clamp(entry, 0, 2); });
@@ -83,7 +88,7 @@
 
   function surfaceAvailable() {
     if (!state.enabled || manuallyPaused || document.hidden || !document.body) return false;
-    if (document.body.classList.contains('lf-auth-locked') || document.body.classList.contains('splash-active')) return false;
+    if (document.body.classList.contains('lf-auth-locked') || document.body.classList.contains('splash-active') || document.body.classList.contains('empty-home-active')) return false;
     return !document.body.classList.contains('render-deep-sleep');
   }
 
@@ -99,7 +104,7 @@
     var lyrics = bridge();
     if (!lyrics || typeof lyrics.configure !== 'function') return false;
     return lyrics.configure({
-      active:surfaceAvailable() && activeShape === 'shape1',
+      active:surfaceAvailable() && !!activeShape,
       enabled:state.mode1LeftLyricsEnabled === true,
       force:force === true
     });
@@ -191,10 +196,14 @@
     state = candidate;
     if (!state.enabled) {
       disposeMode();
+      teardownPointer();
+      refreshRendererQuality('disabled');
       return true;
     }
+    setupPointer();
     if (!surfaceAvailable()) {
       deactivateMode();
+      refreshRendererQuality('surface-unavailable');
       return true;
     }
     if (!active || activeShape !== state.shape) {
@@ -209,6 +218,7 @@
     if (active && typeof active.setActive === 'function') active.setActive(true);
     if (document.body) document.body.classList.add('lf-audio-echo-active');
     syncLyrics(true);
+    refreshRendererQuality('state');
     return true;
   }
 
@@ -245,6 +255,7 @@
     }
     if (!surfaceAvailable()) {
       deactivateMode();
+      refreshRendererQuality('surface-unavailable');
       return false;
     }
     if (!active || activeShape !== state.shape) {
@@ -253,20 +264,11 @@
     if (active.scene) active.scene.visible = true;
     if (typeof active.setActive === 'function') active.setActive(true);
     if (document.body) document.body.classList.add('lf-audio-echo-active');
+    refreshRendererQuality('surface-active');
     var nowMs = Number(now) || performance.now();
     var delta = Number(dt);
     if (!isFinite(delta) || delta <= 0) delta = lastFrameAt ? Math.min(0.1, (nowMs - lastFrameAt) / 1000) : 1 / 60;
     lastFrameAt = nowMs;
-    if (state.autoCycle && nowMs - lastCycleAt >= clamp(state.cycleInterval, 3, 300) * 1000) {
-      var nextShape = activeShape === 'shape1' ? 'shape2' : 'shape1';
-      lastCycleAt = nowMs;
-      if (window.LumiFieldTask13 && typeof window.LumiFieldTask13.setEchoState === 'function') {
-        window.LumiFieldTask13.setEchoState({ shape:nextShape });
-      } else {
-        applyState({ shape:nextShape });
-      }
-      return true;
-    }
     try {
       active.update(audioFrame(nowMs, delta));
     } catch (error) {
@@ -331,7 +333,7 @@
     var width = Math.max(1, Math.min(drawing.x - x, Math.round(rect.width * scaleX)));
     var height = Math.max(1, Math.min(drawing.y - y, Math.round(rect.height * scaleY)));
     try {
-      if (typeof active.resize === 'function') active.resize(width, height, window.devicePixelRatio || 1);
+      if (typeof active.resize === 'function') active.resize(width, height, Math.min(scaleX, scaleY));
       renderer.autoClear = false;
       renderer.setViewport(x, y, width, height);
       renderer.setScissor(x, y, width, height);
@@ -419,7 +421,7 @@
   function pointerWheel(event) {
     if (!isActive() || pointerIgnored(event)) return;
     event.preventDefault();
-    pointer.zoom = clamp(pointer.zoom + Number(event.deltaY || 0) * 0.0009, 0.45, 2.8);
+    pointer.zoom = clamp(pointer.zoom - Number(event.deltaY || 0) * 0.0009, 0.45, 2.8);
   }
 
   function pointerDoubleClick(event) {
@@ -477,7 +479,22 @@
 
   function updateLyricTimeline(force) { return syncLyrics(force === true); }
   function updateViewport() { invalidateViewport(); return viewportFor(window.renderer, true); }
-  function updateQuality() { if (active && typeof active.setState === 'function') active.setState(copyState(state)); return true; }
+  function getRenderScale() {
+    return active && state.enabled && surfaceAvailable() ? QUALITY_SCALES[state.quality] : 1;
+  }
+  function refreshRendererQuality(reason) {
+    var nextScale = getRenderScale();
+    if (Math.abs(nextScale - reportedRenderScale) < 0.001) return true;
+    reportedRenderScale = nextScale;
+    if (typeof window.scheduleMainRendererViewportRefresh === 'function') {
+      window.scheduleMainRendererViewportRefresh('audio-echo-' + (reason || 'quality'));
+    }
+    return true;
+  }
+  function updateQuality() {
+    if (active && typeof active.setState === 'function') active.setState(copyState(state));
+    return refreshRendererQuality('quality');
+  }
   function updateTheme() { return updateQuality(); }
   function savePreset() { return copyState(state); }
   function restorePreset(value) { return applyState(value); }
@@ -502,6 +519,8 @@
       shape3Present:false,
       activeSceneCount:active ? 1 : 0,
       activeAdapter:adapterDebug,
+      normalizedAnchor:Object.assign({}, NORMALIZED_ANCHOR),
+      quality:{ mode:state.quality, renderScale:getRenderScale(), automaticShapeSwitching:false },
       generation:generation,
       buildCount:buildCount,
       disposeCount:disposeCount,
@@ -577,6 +596,8 @@
     updateCamera:function () { return active && typeof active.updateCamera === 'function' ? active.updateCamera(audioFrame(performance.now(), 1 / 60)) : false; },
     updateViewport:updateViewport,
     updateQuality:updateQuality,
+    getRenderScale:getRenderScale,
+    getNormalizedAnchor:function () { return Object.assign({}, NORMALIZED_ANCHOR); },
     updateTheme:updateTheme,
     savePreset:savePreset,
     restorePreset:restorePreset,
@@ -598,7 +619,6 @@
   };
 
   bindLifecycle();
-  setupPointer();
   if (window.LumiFieldTask13 && typeof window.LumiFieldTask13.getState === 'function') {
     applyState(window.LumiFieldTask13.getState().echo || DEFAULT_STATE);
   }

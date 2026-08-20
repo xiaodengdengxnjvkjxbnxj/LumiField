@@ -3646,7 +3646,11 @@ function getRenderPixelRatio() {
   var quality = renderQualityProfile();
   var budgetCap = Math.sqrt(quality.budget / cssPixels);
   var cap = Math.min(quality.cap, budgetCap);
-  return Math.max(quality.min, Math.min(device, cap));
+  var ratio = Math.max(quality.min, Math.min(device, cap));
+  var echoManager = window.LumiFieldAudioEchoManager;
+  var echoScale = echoManager && typeof echoManager.getRenderScale === 'function' ? Number(echoManager.getRenderScale()) : 1;
+  if (!isFinite(echoScale) || echoScale <= 0) echoScale = 1;
+  return Math.max(0.35, Math.min(device, ratio * echoScale));
 }
 function getRenderPixelLoad() {
   var ratio = getRenderPixelRatio();
@@ -17013,7 +17017,7 @@ function deactivateHomeWallpaperPreview(playback) {
   homeVisualPresetActive = false;
   var nextPreset = typeof homeVisualPrevPreset === 'number' ? homeVisualPrevPreset : (fx && typeof fx.preset === 'number' ? fx.preset : 0);
   if (typeof setPreset === 'function' && fx.preset !== nextPreset) {
-    setPreset(nextPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true });
+    setPreset(nextPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true, preserveAudioEcho:true });
   }
 }
 function switchPlaybackVisualToEmily() {
@@ -17025,7 +17029,7 @@ function switchPlaybackVisualToEmily() {
   var targetPreset = typeof playbackVisualPreset === 'number' ? playbackVisualPreset : fxDefaults.preset;
   startupVisualPreviewActive = false;
   if (typeof setPreset === 'function' && fx.preset !== targetPreset) {
-    setPreset(targetPreset, { silent: true, preserveCamera: false, noSave: true });
+    setPreset(targetPreset, { silent: true, preserveCamera: false, noSave: true, preserveAudioEcho:true });
   } else if (typeof syncFxUniforms === 'function') {
     syncFxUniforms();
   }
@@ -17034,7 +17038,7 @@ function applyStartupStarfieldPreset() {
   if (playing || currentIdx >= 0) return;
   startupVisualPreviewActive = true;
   if (typeof setPreset === 'function' && fx.preset !== 5) {
-    setPreset(5, { silent: true, preserveCamera: false, skipTransition: true, noSave: true });
+    setPreset(5, { silent: true, preserveCamera: false, skipTransition: true, noSave: true, preserveAudioEcho:true });
   } else if (typeof syncFxUniforms === 'function') {
     syncFxUniforms();
   }
@@ -22930,7 +22934,7 @@ function applyFxArchiveSnapshot(snapshot) {
     fx[key] = data[key];
   });
   normalizeDevelopmentLockedFxState();
-  setPreset(targetPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true, commitPlaybackPreset: true });
+  setPreset(targetPreset, { silent: true, preserveCamera: false, skipTransition: false, noSave: true, commitPlaybackPreset: true, preserveAudioEcho:true });
   applyCoverParticleResolution(fx.coverResolution, { reload: true });
   if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer();
   setParticleLyricsSilently(fx.particleLyrics);
@@ -23788,9 +23792,36 @@ function tickPresetTransition() {
     syncFxUniforms();
   }
 }
+function stopAudioEchoBeforeNormalPreset(opts) {
+  if (opts && opts.preserveAudioEcho) return true;
+  var manager = window.LumiFieldAudioEchoManager;
+  var task13 = window.LumiFieldTask13;
+  var before = task13 && typeof task13.getState === 'function' ? task13.getState().echo : null;
+  var debug = manager && typeof manager.getDebug === 'function' ? manager.getDebug() : null;
+  var wasActive = !!(before && before.enabled) || !!(debug && (debug.enabled || debug.active || debug.activeSceneCount)) || !!(document.body && document.body.classList.contains('lf-audio-echo-active'));
+  if (!wasActive) return true;
+  var stopped = false;
+  if (task13 && typeof task13.setEchoState === 'function') stopped = task13.setEchoState({ enabled:false }) !== false;
+  else if (manager && typeof manager.applyState === 'function') stopped = manager.applyState({ enabled:false }) !== false;
+  debug = manager && typeof manager.getDebug === 'function' ? manager.getDebug() : null;
+  var released = stopped && (!debug || (!debug.enabled && !debug.active && Number(debug.activeSceneCount || 0) === 0 && Number(debug.pointer && debug.pointer.listeners || 0) === 0));
+  if (!released || (document.body && document.body.classList.contains('lf-audio-echo-active'))) {
+    if (before && task13 && typeof task13.setEchoState === 'function') task13.setEchoState(before);
+    showToast('音域回响资源释放失败，已保留当前视觉');
+    return false;
+  }
+  particles.visible = true;
+  if (bloomParticles) bloomParticles.visible = fx.bloom && fx.bloomStrength > 0.01;
+  if (fx.floatLayer && !floatGroup) createFloatLayer();
+  if (floatGroup) floatGroup.visible = true;
+  if (fx.backCover && !backCoverGroup) createBackCoverLayer();
+  if (backCoverGroup) backCoverGroup.visible = true;
+  return true;
+}
 function setPreset(p, opts) {
   opts = opts || {};
   p = Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0));
+  if (!stopAudioEchoBeforeNormalPreset(opts)) return false;
   var prev = fx.preset;
   var changed = prev !== p;
   fx.preset = p;
@@ -28159,6 +28190,7 @@ function scheduleMainRendererViewportRefresh(reason) {
     setTimeout(function(){ refreshMainRendererViewport(reason || 'sync'); }, delay);
   });
 }
+window.scheduleMainRendererViewportRefresh = scheduleMainRendererViewportRefresh;
 window.addEventListener('resize', function(){
   scheduleMainRendererViewportRefresh('resize');
   if (desktopRuntimeState.fullscreen || desktopFullscreenActive || document.fullscreenElement || document.body.classList.contains('desktop-fullscreen')) layoutFullscreenDiyZone();

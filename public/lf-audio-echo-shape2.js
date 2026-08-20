@@ -41,6 +41,8 @@
     })
   });
 
+  var NORMALIZED_ANCHOR = Object.freeze({ x:0.5, y:0.62 });
+
   var DEFAULTS = Object.freeze({
     theme:'nocturnal',
     cameraDistance:85,
@@ -1257,7 +1259,7 @@
       }
       var azimuthDegrees = (runtimeState.autoRotateEnabled ? autoRotateAngle : runtimeState.cameraAngleX) + lastGesture.y * 180 / Math.PI;
       var elevationDegrees = clamp(runtimeState.cameraAngleY - lastGesture.x * 180 / Math.PI, -85, 85);
-      var distance = clamp(runtimeState.cameraDistance * lastGesture.zoom, 5, 300);
+      var distance = clamp(runtimeState.cameraDistance / lastGesture.zoom, 5, 300);
       var azimuth = azimuthDegrees * Math.PI / 180;
       var elevation = elevationDegrees * Math.PI / 180;
       var horizontalDistance = distance * Math.cos(elevation);
@@ -1335,6 +1337,7 @@
       viewport.height = Math.max(1, Math.round(finite(height, 1)));
       viewport.dpr = clamp(dpr == null ? 1 : dpr, 0.25, 8);
       camera.aspect = viewport.width / viewport.height;
+      camera.setViewOffset(viewport.width, viewport.height, 0, Math.round((0.5 - NORMALIZED_ANCHOR.y) * viewport.height), viewport.width, viewport.height);
       camera.updateProjectionMatrix();
       return true;
     }
@@ -1472,11 +1475,12 @@
           near:camera.near,
           far:camera.far,
           aspect:rounded(camera.aspect),
-          distance:rounded(runtimeState.cameraDistance * lastGesture.zoom),
+          distance:rounded(runtimeState.cameraDistance / lastGesture.zoom),
           angleX:rounded(runtimeState.autoRotateEnabled ? autoRotateAngle : runtimeState.cameraAngleX),
           angleY:rounded(runtimeState.cameraAngleY),
           autoRotate:runtimeState.autoRotateEnabled,
           autoRotateSpeed:runtimeState.autoRotateSpeed,
+          angularVelocity:runtimeState.autoRotateEnabled ? runtimeState.autoRotateSpeed : 0,
           rotation:[rounded(lastGesture.x),rounded(lastGesture.y)],
           translation:[rounded(cameraTarget.x),rounded(cameraTarget.z),0],
           zoom:rounded(lastGesture.zoom),
@@ -1515,6 +1519,7 @@
           audioElements:0
         },
         viewport:Object.assign({}, viewport),
+        normalizedAnchor:{ x:NORMALIZED_ANCHOR.x, y:NORMALIZED_ANCHOR.y },
         source:SOURCE
       };
     }

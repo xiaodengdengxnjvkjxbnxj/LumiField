@@ -1,5 +1,10 @@
 # Audio Echo V2 fixed-source validation — 2026-08-09
 
+Historical evidence notice: the Shape 1 entry below covers the retired
+`yin-yizhen` source decision only. It does not validate the current Shape 1
+source of record. Current fixed-source/build evidence is in
+`docs/licenses/audio-echo-v2/SOURCE_AND_LICENSE_MATRIX.md`.
+
 This is build evidence for the two fixed upstream commits. It is separate from
 LumiField runtime validation and does not clear either public-release license
 gate.

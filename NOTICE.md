@@ -216,16 +216,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Audio Echo V2 source adaptations
 
-- Shape 1 credits Ajin and
-  `yin-yizhen/sonic-topography@f14589172431fa1da66fc78dd1f6cc403ead545b`.
-  GitHub Issue #25 confirms the broad LumiField authorization. On 2026-08-13
-  the project owner additionally confirmed that the original author supplied
-  GPLv3 downstream confirmation through retained WeChat correspondence. Status:
-  `LUMIFIELD_AUTHORIZED + GPLV3_DOWNSTREAM_CONFIRMED`.
+- Shape 1 credits eeegg and
+  `hgbhh258-spec/Sonic-Topography-Wallpaper@51afbac3d5978c112311fca38f7334578ca2b0e6`.
+  Its fixed `LICENSE` is MIT, `Copyright (c) 2026 eeegg`. The shipped module is
+  an LF-native adapter; no verbatim React/R3F runtime or exact pixel-equivalence
+  claim is made. Status: `MIT_PERMISSIVE_PASS`.
 - Shape 2 credits CmzYa and
   `CmzYa/sonic-topography@cd6d9d2faee167f2dcafd2d0cbd2b4861e7e5fbc`.
-  Its original contributions are `GPL_NATIVE_PASS`; Shape-1-derived portions
-  are covered by the authorization and downstream confirmation above.
+  Its original contributions are `GPL_NATIVE_PASS`; portions inherited from
+  the historical `yin-yizhen/sonic-topography` lineage are covered by Issue
+  #25 and the user's retained GPLv3 downstream confirmation attestation.
 - Shape 3 provenance was reviewed at
   `XxHuberrr/Mineradio@411bce4e4a8e5add3d1f76ac4a9c19306f6a10df`,
   but Shape 3 is not imported, exposed, executed, or packaged. Status:
@@ -235,6 +235,30 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
   allocations. Exact commits, hashes, modifications, notices, golden capture
   contracts, and release gates are retained under
   `docs/licenses/audio-echo-v2/` and `docs/evidence/audio-echo/`.
+
+Shape 1 upstream MIT notice:
+
+MIT License
+
+Copyright (c) 2026 eeegg
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Third-party Services
 

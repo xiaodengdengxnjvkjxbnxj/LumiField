@@ -29,31 +29,31 @@
   };
 
   var ECHO_DEFAULTS = {
-    enabled: false, shape: 'shape1', audioMonitor: true, theme: 'neonPurple',
+    enabled: false, shape: 'shape1', audioMonitor: true, theme: 'nocturnal',
     quality: 'high', particleStrength: 0.72, mode1LeftLyricsEnabled: false,
     flip: false, showColorOptions: true, renderResolution: 1,
-    autoCycle: false, cycleInterval: 18, accentEnabled: true, accentColor: '#ffffff', accentStrength: 0.78,
+    accentEnabled: true, accentColor: '#ffffff', accentStrength: 0.78,
     responseStrength: 1.18, responseRange: 0.72,
     visualEq: [1, 1, 1, 1, 1, 1, 1, 1],
-    rippleEnabled: true, rippleSensitivity: 0.48, rippleCooldown: 14,
-    idleWave: true, idleDebounce: 2.4, idleFade: 1.8,
-    cameraDistance: 1.05, cameraHorizontal: 0, cameraElevation: 34,
-    autoRotate: false, rotateSpeed: 0.16,
+    rippleEnabled: true, rippleSensitivity: 0.15, rippleCooldown: 60,
+    idleWave: true, idleDebounce: 1, idleFade: 1,
+    cameraDistance: 1, cameraHorizontal: 0, cameraElevation: 27,
+    autoRotate: false, rotateSpeed: 0.5,
     playerVisible: true, playerCover: true, playerSize: 1, playerX: 0, playerY: 0,
     exposureSize: 2.2, exposureStrength: 0.76, exposureRadius: 0.62,
     trailLength: 0.72, trailDecay: 0.12, flashThreshold: 0.78,
     flashEnabled: true, reducedFlash: true
   };
 
-  var THEMES = {
-    neonPurple: ['#ec70ff', '#775cff', '#57dcff'], azure: ['#3f8cff', '#58d7ff', '#c7f7ff'],
-    ice: ['#9ff7ff', '#d5faff', '#7297ff'], emerald: ['#57ffc7', '#12bd89', '#b8ffe8'],
-    gold: ['#ffd36a', '#ff8a3d', '#fff0a8'], ink: ['#dbe7ef', '#586979', '#ffffff'],
-    deepCyan: ['#39e5dd', '#157b87', '#b4fff7'], lavender: ['#d8b7ff', '#9975ff', '#f4e9ff'],
-    sakura: ['#ffafcf', '#ff6b9c', '#ffe4ef'], copper: ['#e29b62', '#83503b', '#ffd1a4'],
-    mint: ['#92ffd7', '#41c6aa', '#e2fff5'], ember: ['#ff8b4e', '#b52b42', '#ffd1a3'],
-    flame: ['#ff4c63', '#ff9a2e', '#ffe36e'], hazePink: ['#ff90c4', '#a56cff', '#ffd1ed'],
-    fantasy: ['#9d6cff', '#ff69db', '#5fe9ff']
+  var SHAPE1_THEMES = {
+    nocturnal:'Nocturnal', 'neon-tokyo':'Neon Tokyo',
+    'cyber-forest':'Cyber Forest', 'minimal-monochrome':'Minimal Monochrome'
+  };
+  var SHAPE2_THEMES = {
+    nocturnal:'霁紫', 'ocean-deep':'沧蓝', 'arctic-aurora':'冰蓝', 'cyber-forest':'碧翠',
+    'golden-hour':'流金', 'ember-fire':'余烬', 'crimson-sunset':'赤焰', 'coral-mirage':'霞粉',
+    'neon-tokyo':'幻紫', 'minimal-monochrome':'水墨', 'teal-depth':'幽青',
+    'lavender-dream':'薰衣草', 'cherry-blossom':'樱', 'copper-forge':'锻铜', 'mint-fresh':'薄荷'
   };
 
   function byId(id) { return document.getElementById(id); }
@@ -124,7 +124,7 @@
     return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
   }
   var ECHO_NUMBER_LIMITS = {
-    renderResolution:[0.35,1.5], cycleInterval:[3,300], accentStrength:[0,2], particleStrength:[0,2],
+    renderResolution:[0.35,1.5], accentStrength:[0,2], particleStrength:[0,2],
     responseStrength:[0,3], responseRange:[0.08,1], rippleSensitivity:[0,1],
     rippleCooldown:[1,240],
     idleDebounce:[0,20], idleFade:[0.1,12], cameraDistance:[0.45,2.8],
@@ -161,7 +161,21 @@
     if (legacyShape === 'one' || legacyShape === '1') value.shape = 'shape1';
     else if (legacyShape === 'two' || legacyShape === '2') value.shape = 'shape2';
     else if (/^(three|four|3|4|shape3|shape4)$/.test(legacyShape)) value.shape = 'shape1';
+    if (value.quality === 'auto') value.quality = 'medium';
     return value;
+  }
+
+  function echoThemeMap(shape) { return shape === 'shape2' ? SHAPE2_THEMES : SHAPE1_THEMES; }
+  function normalizeEchoThemeForShape(theme, shape) {
+    var aliases = {
+      neonPurple:shape === 'shape2' ? 'nocturnal' : 'neon-tokyo', azure:'ocean-deep', ice:'arctic-aurora',
+      emerald:'cyber-forest', gold:'golden-hour', ink:'minimal-monochrome', deepCyan:'teal-depth',
+      lavender:'lavender-dream', sakura:'cherry-blossom', copper:'copper-forge', mint:'mint-fresh',
+      ember:'ember-fire', flame:'crimson-sunset', hazePink:'coral-mirage', fantasy:'neon-tokyo'
+    };
+    var map = echoThemeMap(shape);
+    theme = aliases[String(theme || '')] || String(theme || '');
+    return Object.prototype.hasOwnProperty.call(map, theme) ? theme : 'nocturnal';
   }
 
   function validateEchoPatch(value) {
@@ -172,15 +186,17 @@
       var current = value[key];
       if (key === 'visualEq') { patch.visualEq = normalizeVisualEq(current, true); return; }
       if (key === 'theme') {
-        if (!Object.prototype.hasOwnProperty.call(THEMES, current)) throw new Error('theme 无效');
-        patch.theme = current; return;
+        var shapeForTheme = Object.prototype.hasOwnProperty.call(value, 'shape') ? String(value.shape) : String(echoState && echoState.shape || ECHO_DEFAULTS.shape);
+        var normalizedTheme = normalizeEchoThemeForShape(current, shapeForTheme);
+        if (!Object.prototype.hasOwnProperty.call(echoThemeMap(shapeForTheme), normalizedTheme)) throw new Error('theme 无效');
+        patch.theme = normalizedTheme; return;
       }
       if (key === 'shape') {
         if (!/^(shape1|shape2)$/.test(String(current))) throw new Error('shape 无效');
         patch.shape = current; return;
       }
       if (key === 'quality') {
-        if (!/^(auto|low|medium|high)$/.test(String(current))) throw new Error('quality 无效');
+        if (!/^(low|medium|high|ultra)$/.test(String(current))) throw new Error('quality 无效');
         patch.quality = String(current); return;
       }
       if (key === 'accentColor') {
@@ -207,6 +223,7 @@
     state.visualEq = ECHO_DEFAULTS.visualEq.slice();
     try { Object.assign(state, validateEchoPatch(value)); } catch (_) {}
     state.visualEq = normalizeVisualEq(state.visualEq, false);
+    state.theme = normalizeEchoThemeForShape(state.theme, state.shape);
     return state;
   }
 
@@ -2015,22 +2032,18 @@
     }
   }
   function syncEchoControls() {
+    var themeInput = document.querySelector('[data-lf-scope="echo"][data-lf-key="theme"]');
+    if (themeInput) {
+      var themeMap = echoThemeMap(echoState.shape);
+      themeInput.innerHTML = Object.keys(themeMap).map(function (key) { return '<option value="' + esc(key) + '">' + esc(themeMap[key]) + '</option>'; }).join('');
+      echoState.theme = normalizeEchoThemeForShape(echoState.theme, echoState.shape);
+    }
     syncScopedControls('echo');
-    document.querySelectorAll('[data-lf-echo-eq]').forEach(function (input) {
-      var index = Number(input.dataset.lfEchoEq);
-      if (index >= 0 && index < 8 && document.activeElement !== input) input.value = echoState.visualEq[index];
-      var output = input.parentElement && input.parentElement.querySelector('output');
-      if (output) output.textContent = Number(echoState.visualEq[index]).toFixed(2);
-    });
     var block = byId('lf-t13-echo-block');
     if (block) block.classList.toggle('lf-hide-color-options', !echoState.showColorOptions);
-    var modeOneLyrics = block && block.querySelector('.lf-t13-mode1-lyrics-control');
-    var modeOneLyricsInput = modeOneLyrics && modeOneLyrics.querySelector('[data-lf-key="mode1LeftLyricsEnabled"]');
-    if (modeOneLyrics) modeOneLyrics.classList.toggle('unavailable', echoState.shape !== 'shape1');
-    if (modeOneLyricsInput) {
-      modeOneLyricsInput.disabled = echoState.shape !== 'shape1';
-      modeOneLyricsInput.title = echoState.shape === 'shape1' ? '' : '仅形态一可用';
-    }
+    if (block) block.querySelectorAll('[data-lf-echo-shapes]').forEach(function (section) {
+      section.hidden = String(section.dataset.lfEchoShapes || '').split(',').indexOf(echoState.shape) < 0;
+    });
     renderEchoPresetOptions();
   }
 
@@ -2047,30 +2060,21 @@
       '<fieldset><legend>位置 / 形态三</legend>' + range('spectrum', 'offset', '位置偏移', -1.5, 1.5, 0.01) + check('spectrum', 'symmetry', '上下对称') + '</fieldset></div></details>';
   }
 
-  function themeOptions() {
-    var labels = { neonPurple:'霓紫', azure:'沧蓝', ice:'冰蓝', emerald:'翡翠', gold:'流金', ink:'水墨', deepCyan:'幽青', lavender:'薰衣草', sakura:'樱', copper:'锻铜', mint:'薄荷', ember:'余烬', flame:'赤焰', hazePink:'霞粉', fantasy:'幻紫' };
-    return Object.keys(THEMES).map(function (key) { return [key, labels[key] || key]; });
-  }
-
-  function echoEqControlsHtml() {
-    var labels = ['超低频','低频','低中频','中频','中高频','高频','空气感','极高频'];
-    return '<fieldset class="lf-t13-echo-eq"><legend>8 段仅视觉 EQ</legend>' + labels.map(function (label, index) {
-      return '<label class="lf-t13-field"><span>' + label + '</span><input type="range" min="0" max="2" step="0.01" data-lf-echo-eq="' + index + '" data-lf-visual-eq="visualEq[' + index + ']"><output></output></label>';
-    }).join('') + '</fieldset>';
+  function themeOptions(shape) {
+    var map = echoThemeMap(shape || 'shape1');
+    return Object.keys(map).map(function (key) { return [key, map[key]]; });
   }
 
   function echoControlsHtml() {
     return '<details id="lf-t13-echo-block" class="lf-t13-block"><summary><span>音域回响</span><small>两套固定源码独立形态</small></summary><div class="lf-t13-body">' +
-      '<div class="lf-t13-echo-toolbar"><select id="lf-t13-echo-builtin"><option value="shape1">形态一 · Sonic Topography / Ajin</option><option value="shape2">形态二 · Sonic Topography / CmzYa</option></select><button type="button" data-lf-echo-action="builtin">应用</button><select id="lf-t13-echo-user"></select></div>' +
+      '<div class="lf-t13-echo-toolbar"><select id="lf-t13-echo-builtin"><option value="shape1">形态一 · Sonic Topography / hgbhh258-spec</option><option value="shape2">形态二 · Sonic Topography / CmzYa</option></select><button type="button" data-lf-echo-action="builtin">应用</button><select id="lf-t13-echo-user"></select></div>' +
       '<div class="lf-t13-echo-toolbar"><button type="button" data-lf-echo-action="save">保存用户存档</button><button type="button" data-lf-echo-action="rename">重命名</button><button type="button" data-lf-echo-action="delete">删除</button><button type="button" data-lf-echo-action="export">导出 JSON</button><button type="button" data-lf-echo-action="import">导入 JSON</button><button type="button" data-lf-echo-action="reset">重置</button></div>' +
-      check('echo', 'enabled', '启用音域回响') + select('echo', 'shape', '形态', [['shape1','形态一 · Sonic Topography / Ajin'],['shape2','形态二 · Sonic Topography / CmzYa']]) +
-      '<fieldset><legend>基础 / 固定源码渲染</legend>' + check('echo', 'audioMonitor', '音频监听') + range('echo', 'particleStrength', '冲击粒子强度', 0, 2, 0.02) + '<label class="lf-t13-check lf-t13-mode1-lyrics-control"><input type="checkbox" data-lf-scope="echo" data-lf-key="mode1LeftLyricsEnabled"><span>左侧歌词播放</span><small>仅形态一可用</small></label>' + check('echo', 'flip', '翻转') + check('echo', 'showColorOptions', '显示颜色选项') + '</fieldset>' +
-      '<fieldset class="lf-t13-echo-colors"><legend>外观</legend>' + select('echo', 'theme', '颜色主题', themeOptions()) + check('echo', 'autoCycle', '自动轮询') + range('echo', 'cycleInterval', '轮询间隔（秒）', 3, 300, 1) + check('echo', 'accentEnabled', '启用强调色') + color('echo', 'accentColor', '强调色') + range('echo', 'accentStrength', '强调色强度', 0, 2, 0.02) + '</fieldset>' +
-      '<fieldset><legend>音频响应 / 波纹</legend>' + range('echo', 'responseStrength', '音频响应强度', 0, 3, 0.02) + range('echo', 'responseRange', '响应范围', 0.08, 1, 0.01) + check('echo', 'rippleEnabled', '启用波纹') + range('echo', 'rippleSensitivity', '波纹灵敏度', 0, 1, 0.01) + number('echo', 'rippleCooldown', '波纹冷却帧', 1, 240, 1) + '</fieldset>' + echoEqControlsHtml() +
-      '<fieldset><legend>空闲波浪</legend>' + check('echo', 'idleWave', '空闲波浪开关') + range('echo', 'idleDebounce', '空闲波浪防抖（秒）', 0, 20, 0.1) + range('echo', 'idleFade', '空闲波浪淡出（秒）', 0.1, 12, 0.1) + '</fieldset>' +
-      '<fieldset><legend>相机</legend>' + range('echo', 'cameraDistance', '视角距离', 0.45, 2.8, 0.01) + range('echo', 'cameraHorizontal', '水平角度', -180, 180, 1) + range('echo', 'cameraElevation', '垂直仰角', 5, 78, 1) + check('echo', 'autoRotate', '自动旋转') + range('echo', 'rotateSpeed', '旋转速度', -2, 2, 0.01) + '<div class="lf-t13-echo-toolbar"><button type="button" data-lf-echo-action="camera-reset">相机归位</button></div></fieldset>' +
-      '<fieldset><legend>播放器</legend>' + check('echo', 'playerVisible', '显示播放器') + check('echo', 'playerCover', '显示封面') + range('echo', 'playerSize', '播放器大小', 0.55, 1.8, 0.01) + range('echo', 'playerX', '水平位置', -45, 45, 1) + range('echo', 'playerY', '垂直位置', -34, 34, 1) + '</fieldset>' +
-      '<fieldset><legend>形态二 · 峰值强调</legend>' + range('echo', 'exposureStrength', '峰值强调强度', 0, 2, 0.02) + check('echo', 'flashEnabled', '峰值强调色') + check('echo', 'reducedFlash', '降低闪光') + '</fieldset>' +
+      check('echo', 'enabled', '启用音域回响') + select('echo', 'shape', '形态（仅用户切换）', [['shape1','形态一 · Sonic Topography / hgbhh258-spec'],['shape2','形态二 · Sonic Topography / CmzYa']]) +
+      '<fieldset><legend>LumiField 适配</legend>' + select('echo', 'quality', '画质', [['low','省电'],['medium','标准'],['high','高清'],['ultra','超清']]) + check('echo', 'audioMonitor', '使用唯一播放器音频') + '<label class="lf-t13-check lf-t13-mode1-lyrics-control"><input type="checkbox" data-lf-scope="echo" data-lf-key="mode1LeftLyricsEnabled"><span>左侧歌词播放</span><small>两种形态复用同一组件</small></label></fieldset>' +
+      '<fieldset class="lf-t13-echo-colors"><legend>源码主题</legend>' + select('echo', 'theme', '颜色主题', themeOptions('shape1')) + '</fieldset>' +
+      '<fieldset data-lf-echo-shapes="shape1"><legend>形态一 · hgbhh258-spec 源码事件</legend>' + check('echo', 'rippleEnabled', '启用波纹与流星') + range('echo', 'rippleSensitivity', '触发灵敏度', 0, 1, 0.01) + number('echo', 'rippleCooldown', '波纹冷却帧', 1, 240, 1) + '</fieldset>' +
+      '<fieldset data-lf-echo-shapes="shape2"><legend>形态二 · CmzYa 源码响应</legend>' + range('echo', 'responseStrength', '音频响应强度', 0, 3, 0.02) + range('echo', 'responseRange', '响应范围', 0.08, 1, 0.01) + check('echo', 'rippleEnabled', '启用波纹') + range('echo', 'rippleSensitivity', '波纹灵敏度', 0, 1, 0.01) + number('echo', 'rippleCooldown', '波纹冷却帧', 1, 240, 1) + check('echo', 'idleWave', '空闲波浪') + range('echo', 'idleDebounce', '空闲防抖（秒）', 0, 20, 0.1) + range('echo', 'idleFade', '空闲淡出（秒）', 0.1, 12, 0.1) + range('echo', 'exposureStrength', '峰值强调强度', 0, 2, 0.02) + check('echo', 'flashEnabled', '峰值强调色') + check('echo', 'reducedFlash', '降低闪光') + '</fieldset>' +
+      '<fieldset><legend>源码相机</legend>' + range('echo', 'cameraDistance', '视角距离', 0.45, 2.8, 0.01) + range('echo', 'cameraHorizontal', '水平角度', -180, 180, 1) + range('echo', 'cameraElevation', '垂直仰角', 5, 78, 1) + check('echo', 'autoRotate', '自动旋转') + range('echo', 'rotateSpeed', '旋转速度', -2, 2, 0.01) + '<div class="lf-t13-echo-toolbar"><button type="button" data-lf-echo-action="camera-reset">相机归位</button></div></fieldset>' +
       '<input id="lf-t13-echo-import" type="file" accept=".json,application/json" hidden></div></details>';
   }
 
@@ -2106,24 +2110,10 @@
 
   function bindConsoleControls(panel) {
     panel.addEventListener('input', function (event) {
-      var eqInput = event.target.closest('[data-lf-echo-eq]');
-      if (eqInput) {
-        var eq = echoState.visualEq.slice();
-        eq[Number(eqInput.dataset.lfEchoEq)] = Number(eqInput.value);
-        applyEchoState({ visualEq:eq }, { partial:true, deferPersist:true });
-        return;
-      }
       var input = event.target.closest('[data-lf-scope][data-lf-key]');
       if (input) setScopedValue(input.dataset.lfScope, input.dataset.lfKey, input);
     });
     panel.addEventListener('change', function (event) {
-      var eqInput = event.target.closest('[data-lf-echo-eq]');
-      if (eqInput) {
-        var eq = echoState.visualEq.slice();
-        eq[Number(eqInput.dataset.lfEchoEq)] = Number(eqInput.value);
-        applyEchoState({ visualEq:eq }, { partial:true });
-        return;
-      }
       var input = event.target.closest('[data-lf-scope][data-lf-key]');
       if (input) setScopedValue(input.dataset.lfScope, input.dataset.lfKey, input);
     });
@@ -2393,6 +2383,7 @@
         : Object.assign({}, ECHO_DEFAULTS, { visualEq:ECHO_DEFAULTS.visualEq.slice() });
       Object.assign(candidate, patch);
       candidate.visualEq = normalizeVisualEq(candidate.visualEq, true);
+      candidate.theme = normalizeEchoThemeForShape(candidate.theme, candidate.shape);
       echoState = candidate;
       var manager = window.LumiFieldAudioEchoManager;
       if (manager && typeof manager.applyState === 'function' && manager.applyState(Object.assign({}, echoState, { visualEq:echoState.visualEq.slice() })) === false) {
@@ -2414,7 +2405,11 @@
   function builtInEchoState(shape) {
     shape = /^(shape1|shape2)$/.test(String(shape)) ? String(shape) : 'shape1';
     var state = Object.assign({}, ECHO_DEFAULTS, { enabled:true, shape:shape, visualEq:ECHO_DEFAULTS.visualEq.slice() });
-    if (shape === 'shape2') Object.assign(state, { theme:'fantasy', exposureStrength:1, reducedFlash:true });
+    if (shape === 'shape2') Object.assign(state, {
+      theme:'nocturnal', cameraElevation:25, rotateSpeed:1 / 6,
+      responseStrength:1, responseRange:1, rippleSensitivity:0.2, rippleCooldown:40,
+      idleDebounce:1, idleFade:1, exposureStrength:1, reducedFlash:true
+    });
     return state;
   }
   function downloadJson(name, value) {
@@ -2432,7 +2427,7 @@
   function handleEchoAction(action) {
     var list, item, name;
     if (action === 'camera-reset') {
-      applyEchoState({ cameraDistance:1.05, cameraHorizontal:0, cameraElevation:34, autoRotate:false }, { partial:true });
+      applyEchoState({ cameraDistance:1, cameraHorizontal:0, cameraElevation:echoState.shape === 'shape2' ? 25 : 27, autoRotate:false }, { partial:true });
       var cameraManager = window.LumiFieldAudioEchoManager;
       if (cameraManager && typeof cameraManager.resetCamera === 'function') cameraManager.resetCamera();
       show('音域回响相机已归位');
@@ -3052,7 +3047,7 @@
   function refreshCoreVisuals(core) {
     if (!window.fx) return;
     if (Object.prototype.hasOwnProperty.call(core, 'preset') && typeof window.setPreset === 'function') {
-      if (window.setPreset(core.preset, { silent:true, preserveCamera:false, skipTransition:false, noSave:true, commitPlaybackPreset:true }) === false) {
+      if (window.setPreset(core.preset, { silent:true, preserveCamera:false, skipTransition:false, noSave:true, commitPlaybackPreset:true, preserveAudioEcho:true }) === false) {
         throw new Error('内置视觉预设切换未能原子提交');
       }
     }
@@ -3447,7 +3442,7 @@
   }
   function restoreBuiltInPresetAfterRetirement() {
     if (!window.fx || typeof window.setPreset !== 'function') return false;
-    return window.setPreset(0, { silent:true, skipTransition:true }) !== false;
+    return window.setPreset(0, { silent:true, skipTransition:true, preserveAudioEcho:true }) !== false;
   }
   function migrateCanonicalArchives() {
     if (!presetScopeOwnerReady()) return;

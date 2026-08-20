@@ -5,7 +5,7 @@ LumiField is a modified GPL-3.0-only distribution of Mineradio. Major LumiField 
 - Electron desktop lifecycle, installer safety, packaged integrity signing and reproducible source fingerprints;
 - a redesigned Home experience, weather radio, account scope isolation and five-platform status integration;
 - one shared Three.js visual stage with particle presets, secondary-screen spectrum, 3D playlist shelf and lyrics;
-- Audio Echo V2 Shape 1/Shape 2 adapters using the existing renderer, analyser and frame lifecycle;
+- LF-native Audio Echo V2 Shape 1/Shape 2 adapters using the existing renderer, analyser and frame lifecycle;
 - an interactive splash, animated search/weather/profile controls and performance/reduced-motion policies;
 - local translation, voice-assistant, source-separation and media-processing integration;
 - replacement of the GSAP runtime with the independently authored `public/lf-motion.js` compatibility layer.
