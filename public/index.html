@@ -18494,11 +18494,18 @@ async function loadPodcastHot() {
 }
 async function doPodcastSearch(q) {
   var requestSeq = ++searchRequestSeq;
+  $results.setAttribute('aria-busy', 'true');
+  $results.innerHTML = '<div class="search-empty">正在搜索 “' + escHtml(q) + '”…</div>';
+  $results.classList.add('show');
   try {
     var data = await apiJson('/api/podcast/search?keywords=' + encodeURIComponent(q) + '&limit=18');
     if (requestSeq !== searchRequestSeq || searchMode !== 'podcast' || $input.value.trim() !== q) return;
+    $results.setAttribute('aria-busy', 'false');
     renderPodcastRadios(data.podcasts || [], 'Search results');
   } catch (err) {
+    if (requestSeq !== searchRequestSeq) return;
+    $results.setAttribute('aria-busy', 'false');
+    $results.innerHTML = '<div class="search-empty">播客搜索失败，请重试</div>';
     console.error('Podcast search:', err);
   }
 }
@@ -18836,6 +18843,7 @@ async function fetchMusicSearchResults(q, mode, signal) {
 }
 function renderSongSearchResults(songs) {
   playlist = songs || [];
+  $results.setAttribute('aria-busy', 'false');
   $results.innerHTML = playlist.map(function(s, i){
     var vipTag = (s.fee === 1) ? '<span class="tag-vip">VIP</span>' : '';
     var sourceTag = songSourceTagHtml(s);
@@ -18870,7 +18878,12 @@ async function doSearch(q, opts) {
     else renderSearchHistory();
     return;
   }
+  $results.setAttribute('aria-busy', 'true');
+  $results.innerHTML = '<div class="search-empty">正在搜索 “' + escHtml(q) + '”…</div>';
+  $results.classList.add('show');
   if (!navigator.onLine || (window.LFAuth && typeof window.LFAuth.isOnline === 'function' && !window.LFAuth.isOnline())) {
+    $results.setAttribute('aria-busy', 'false');
+    $results.innerHTML = '<div class="search-empty">离线模式下不能进行在线搜索</div>';
     if (typeof showToast === 'function') showToast('离线模式下不能进行在线搜索。');
     return;
   }
@@ -18888,6 +18901,7 @@ async function doSearch(q, opts) {
     if (!songs.length) {
       playlist = [];
       searchLastResultQuery = '';
+      $results.setAttribute('aria-busy', 'false');
       $results.innerHTML = '<div class="search-empty">' + escHtml(window.lumiFieldLastSearchUnsupported || '没有找到相关歌曲') + '</div>';
       $results.classList.add('show');
       return;
@@ -18896,7 +18910,15 @@ async function doSearch(q, opts) {
     rememberSearchQuery(q);
     renderSongSearchResults(songs);
     if (opts.autoPlayFirst) playSearchResult(0);
-  } catch (err) { if (!err || err.name !== 'AbortError') console.error('Search:', err); }
+  } catch (err) {
+    if (requestSeq !== searchRequestSeq) return;
+    $results.setAttribute('aria-busy', 'false');
+    if (!err || err.name !== 'AbortError') {
+      $results.innerHTML = '<div class="search-empty">搜索失败，请重试</div>';
+      $results.classList.add('show');
+      console.error('Search:', err);
+    }
+  }
 }
 
 // ============================================================

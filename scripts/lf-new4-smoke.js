@@ -206,6 +206,14 @@ function staticAudit() {
       /function setPlayIcon\(p\)[^]*syncTaskbarPlaybackState\(!!p\)/.test(renderer) &&
       /function renderQueuePanel[^]*syncTaskbarPlaybackState\(\)/.test(renderer),
     true);
+  const searchStart = renderer.indexOf('async function doSearch(q, opts)');
+  const searchEnd = renderer.indexOf('// ============================================================\n//  音频上下文', searchStart);
+  const searchBlock = renderer.slice(searchStart, searchEnd);
+  pass('every music search shows a synchronous pending result before network await',
+    searchStart >= 0 &&
+      searchBlock.indexOf("$results.setAttribute('aria-busy', 'true')") >= 0 &&
+      searchBlock.indexOf("$results.classList.add('show')") < searchBlock.indexOf('await fetchMusicSearchResults'),
+    true);
 }
 
 async function startApp() {
@@ -327,6 +335,46 @@ async function runRuntimeChecks() {
       fixture.currentIdx === 1 &&
       fixture.queueIds.join(',') === 'new4-a,new4-b,new4-c',
     fixture);
+
+  const searchFeedback = await cdp.call(async function() {
+    var originalFetch = window.fetchMusicSearchResults;
+    var originalAuth = window.LFAuth;
+    var releaseSearch;
+    window.LFAuth = null;
+    window.fetchMusicSearchResults = function() {
+      return new Promise(function(resolve) { releaseSearch = resolve; });
+    };
+    searchMode = 'song';
+    $input.value = 'LumiField immediate feedback';
+    var pendingPromise = doSearch($input.value, { source:'programmatic-test' });
+    var immediate = {
+      visible: $results.classList.contains('show'),
+      busy: $results.getAttribute('aria-busy'),
+      text: $results.textContent,
+      childCount: $results.children.length
+    };
+    releaseSearch([{ id:'lf-search-feedback', name:'Immediate Feedback', artist:'LumiField', provider:'netease', playable:true }]);
+    await pendingPromise;
+    var settled = {
+      visible: $results.classList.contains('show'),
+      busy: $results.getAttribute('aria-busy'),
+      resultCount: $results.querySelectorAll('.search-result').length
+    };
+    window.fetchMusicSearchResults = originalFetch;
+    window.LFAuth = originalAuth;
+    return { immediate: immediate, settled: settled };
+  });
+  pass('programmatic search exposes loading UI in the same task',
+    searchFeedback.immediate.visible &&
+      searchFeedback.immediate.busy === 'true' &&
+      /正在搜索/.test(searchFeedback.immediate.text) &&
+      searchFeedback.immediate.childCount === 1,
+    searchFeedback.immediate);
+  pass('search pending state closes after the latest result renders',
+    searchFeedback.settled.visible &&
+      searchFeedback.settled.busy === 'false' &&
+      searchFeedback.settled.resultCount === 1,
+    searchFeedback.settled);
 
   const paused = await waitFor(async () => {
     const state = await toolbarState();
