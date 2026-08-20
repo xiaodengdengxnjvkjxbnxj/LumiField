@@ -79,6 +79,7 @@
     modal:null,
     dialog:null,
     layer:null,
+    glass:null,
     canvas:null,
     gl:null,
     program:null,
@@ -136,6 +137,15 @@
     layer.appendChild(canvas);
     state.canvas = canvas;
     return layer;
+  }
+
+  function createGlass() {
+    var glass = document.createElement('div');
+    glass.id = 'lf-profile-neural-vortex-glass';
+    glass.className = 'lf-profile-neural-vortex-glass';
+    glass.setAttribute('aria-hidden', 'true');
+    glass.setAttribute('role', 'presentation');
+    return glass;
   }
 
   function initWebGL() {
@@ -218,6 +228,10 @@
       state.layer.style.width = cssWidth + 'px';
       state.layer.style.height = cssHeight + 'px';
     }
+    if (state.glass) {
+      state.glass.style.width = cssWidth + 'px';
+      state.glass.style.height = cssHeight + 'px';
+    }
     if (!state.pointer.initialized) {
       state.pointer.x = state.pointer.tX = cssWidth * 0.5;
       state.pointer.y = state.pointer.tY = cssHeight * 0.5;
@@ -241,7 +255,9 @@
 
   function syncLayerScroll() {
     if (!state.layer || !state.dialog) return;
-    state.layer.style.setProperty('--lf-profile-vortex-scroll', (Number(state.dialog.scrollTop) || 0) + 'px');
+    var scroll = (Number(state.dialog.scrollTop) || 0) + 'px';
+    state.layer.style.setProperty('--lf-profile-vortex-scroll', scroll);
+    if (state.glass) state.glass.style.setProperty('--lf-profile-vortex-scroll', scroll);
   }
 
   function renderFrame() {
@@ -342,18 +358,20 @@
   function activate(modal) {
     modal = modal || document.getElementById('lf-profile-modal');
     if (!modal || modal.id !== 'lf-profile-modal' || !modal.classList.contains('show')) return false;
-    if (state.active && state.modal === modal && state.layer && state.layer.isConnected && state.gl) {
+    if (state.active && state.modal === modal && state.layer && state.layer.isConnected && state.glass && state.glass.isConnected && state.gl) {
       subscribePointer();
       ensureFrame();
       return true;
     }
     deactivate();
-    Array.prototype.slice.call(document.querySelectorAll('#lf-profile-neural-vortex')).forEach(function (node) { node.remove(); });
+    Array.prototype.slice.call(document.querySelectorAll('#lf-profile-neural-vortex, #lf-profile-neural-vortex-glass')).forEach(function (node) { node.remove(); });
     state.modal = modal;
     state.dialog = modal.querySelector('.lf-profile-dialog');
     if (!state.dialog) return false;
     state.layer = createLayer();
+    state.glass = createGlass();
     state.dialog.insertBefore(state.layer, state.dialog.firstChild);
+    state.dialog.insertBefore(state.glass, state.layer.nextSibling);
     modal.dataset.lfNeuralVortexActive = 'true';
     state.dialog.dataset.lfNeuralVortexHost = 'true';
     state.active = true;
@@ -361,6 +379,7 @@
     state.lastReason = 'activate';
     if (!initWebGL()) {
       state.layer.dataset.webgl = 'unavailable';
+      deactivate();
       return false;
     }
     state.layer.dataset.webgl = 'ready';
@@ -384,12 +403,14 @@
     state.listenerCount = 0;
     releaseWebGL();
     if (state.layer) state.layer.remove();
+    if (state.glass) state.glass.remove();
     if (state.modal) delete state.modal.dataset.lfNeuralVortexActive;
     if (state.dialog) delete state.dialog.dataset.lfNeuralVortexHost;
     state.active = false;
     state.modal = null;
     state.dialog = null;
     state.layer = null;
+    state.glass = null;
     state.canvas = null;
     state.hidden = false;
     state.reducedMotion = false;
@@ -411,7 +432,9 @@
 
   function getDebug() {
     var layers = document.querySelectorAll('#lf-profile-neural-vortex');
+    var glasses = document.querySelectorAll('#lf-profile-neural-vortex-glass');
     var layer = layers[0] || null;
+    var glass = glasses[0] || null;
     var width = Math.max(1, state.dialog ? state.dialog.clientWidth : 1);
     var height = Math.max(1, state.dialog ? state.dialog.clientHeight : 1);
     var dialogRect = state.dialog ? state.dialog.getBoundingClientRect() : null;
@@ -424,10 +447,11 @@
       height:state.dialog.clientHeight
     } : null;
     return {
-      version:'2.0.0',
+      version:'2.1.0',
       source:SOURCE,
-      active:!!(state.active && layer && layer.isConnected && state.gl),
+      active:!!(state.active && layer && layer.isConnected && glass && glass.isConnected && state.gl),
       layerCount:layers.length,
+      glassCount:glasses.length,
       svgCount:layer ? layer.querySelectorAll('svg').length : 0,
       canvasCount:layer ? layer.querySelectorAll('canvas').length : 0,
       webglReady:!!state.gl,
@@ -466,17 +490,28 @@
       contextReleased:state.contextReleased,
       host:'lf-profile-dialog',
       contained:!!(layer && state.dialog && layer.parentElement === state.dialog),
+      glassContained:!!(glass && state.dialog && glass.parentElement === state.dialog),
+      layerOrder:state.dialog ? Array.prototype.map.call(state.dialog.children, function (node) {
+        if (node === layer) return 'neural-vortex';
+        if (node === glass) return 'panel-glass';
+        return 'content-control';
+      }) : [],
       dialogRect:dialogRect ? { left:dialogRect.left, top:dialogRect.top, right:dialogRect.right, bottom:dialogRect.bottom, width:dialogRect.width, height:dialogRect.height } : null,
       contentRect:contentRect,
       fixedPosition:layer ? global.getComputedStyle(layer).position === 'fixed' : false,
       layerPosition:layer ? global.getComputedStyle(layer).position : '',
+      layerPointerEvents:layer ? global.getComputedStyle(layer).pointerEvents : '',
+      canvasPointerEvents:state.canvas ? global.getComputedStyle(state.canvas).pointerEvents : '',
+      glassPointerEvents:glass ? global.getComputedStyle(glass).pointerEvents : '',
+      layerZIndex:layer ? global.getComputedStyle(layer).zIndex : '',
+      glassZIndex:glass ? global.getComputedStyle(glass).zIndex : '',
       blurFilter:layer ? global.getComputedStyle(layer).filter : '',
       backdropFilter:state.dialog ? (global.getComputedStyle(state.dialog).backdropFilter || global.getComputedStyle(state.dialog).webkitBackdropFilter || '') : ''
     };
   }
 
   global.LumiFieldProfileNeuralVortex = Object.freeze({
-    version:'2.0.0',
+    version:'2.1.0',
     source:SOURCE,
     activate:activate,
     deactivate:deactivate,

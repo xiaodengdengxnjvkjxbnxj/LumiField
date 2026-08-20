@@ -4,7 +4,7 @@
 
 #lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog[data-lf-neural-vortex-host="true"] {
   isolation: isolate;
-  background: rgba(1,4,12,.9);
+  background: #01040c;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
@@ -24,6 +24,24 @@
   transform: translate3d(0,var(--lf-profile-vortex-scroll,0px),0);
 }
 
+.lf-profile-dialog > .lf-profile-neural-vortex-glass {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  overflow: hidden;
+  contain: strict;
+  border-radius: inherit;
+  pointer-events: none !important;
+  user-select: none;
+  background: linear-gradient(145deg,rgba(14,24,39,.08),rgba(3,8,16,.22));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.055);
+  transform: translate3d(0,var(--lf-profile-vortex-scroll,0px),0);
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .lf-profile-neural-vortex-canvas {
   position: absolute;
   inset: 0;
@@ -38,9 +56,15 @@
   -webkit-backdrop-filter: none !important;
 }
 
-#lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog > :not(.lf-profile-neural-vortex):not(.lf-panel-x) {
+#lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog > :not(.lf-profile-neural-vortex):not(.lf-profile-neural-vortex-glass):not(.lf-panel-x) {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+
+#lf-profile-modal[data-lf-neural-vortex-active="true"] > .lf-profile-dialog > .lf-panel-x {
+  z-index: 3;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .lf-profile-neural-vortex[data-paused="true"] .lf-profile-neural-vortex-canvas,
