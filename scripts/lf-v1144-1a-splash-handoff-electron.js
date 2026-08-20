@@ -18,6 +18,7 @@ const rendererErrors = [];
 const consoleErrors = [];
 const appLog = [];
 const screenshots = [];
+const handoffTrace = { samples: [] };
 let app = null;
 let splash = null;
 let main = null;
@@ -72,6 +73,13 @@ class CDP {
         consoleErrors.push(`${this.label}: ${(message.params.args || []).map(item => item.value || item.description || '').join(' ')}`);
       }
     };
+    this.ws.onclose = () => {
+      for (const pending of this.pending.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error(`CDP target closed: ${this.label}`));
+      }
+      this.pending.clear();
+    };
     await new Promise((resolve, reject) => { this.ws.onopen = resolve; this.ws.onerror = reject; });
     await this.send('Runtime.enable');
     await this.send('Page.enable');
@@ -110,7 +118,9 @@ function staticChecks() {
   pass('splash exposes exactly three native window actions', (splashHtml.match(/data-window-action=/g) || []).length === 3 && /lf-splash-window-action/.test(splashMain + splashPreload), true);
   pass('splash window can maximize and restore', /resizable:\s*true/.test(splashMain) && /win\.isMaximized\(\)[\s\S]*win\.unmaximize\(\)[\s\S]*win\.maximize\(\)/.test(splashMain), true);
   pass('first click freezes unfinished splash animation before IPC', /beginEntryExit\(\);[\s\S]*api\.enter\(\)/.test(splashJs) && /signature\.pause\(\)/.test(splashJs), true);
-  pass('handoff primes transparent main surface before retiring splash', /mainWindow\.setOpacity\(0\)[\s\S]*showInactive\(\)[\s\S]*closing\.destroy\(\)[\s\S]*setOpacity\(1\)[\s\S]*revealMain/.test(splashMain), true);
+  pass('main surface is primed before the entry button is enabled', /primeMainSurface\(\)[\s\S]*setOpacity\(0\)[\s\S]*showInactive\(\)[\s\S]*surfacePrimed\s*=\s*true[\s\S]*publishMainReady/.test(splashMain) && /onMainReady/.test(splashPreload + splashJs) && /!mainReady\|\|!stageVisible/.test(splashJs), true);
+  pass('entry click performs a synchronous prewarmed window swap', /!surfacePrimed\s*\|\|\s*!enterRequested/.test(splashMain) && /closing\.destroy\(\)[\s\S]*setOpacity\(1\)[\s\S]*revealMain/.test(splashMain) && !/splashEntryGate/.test(mainSource), true);
+  pass('remote fonts cannot block first Home load', /window\.addEventListener\('load'[\s\S]*lf-late-fonts/.test(index) && !/<link[^>]+fonts\.googleapis\.com[^>]+rel="stylesheet"/i.test(index), true);
   pass('main route is prepared before ready signal', /LumiFieldPrepareFirstReveal/.test(mainSource) && /window\.LumiFieldPrepareFirstReveal/.test(index), true);
   pass('window controls use reference dark rounded luminous treatment', /border-radius:13px/.test(splashCss) && /drop-shadow\(0 0 3px/.test(splashCss) && /\.desktop-window-btn\{width:44px;height:34px/.test(index), true);
 }
@@ -142,7 +152,13 @@ async function startApp() {
   }, 45000, 120);
   splash = new CDP(splashTarget.webSocketDebuggerUrl, 'splash');
   await splash.connect();
-  await waitFor(() => splash.evaluate('document.readyState==="complete" && !!window.__lfSplashDebug && !document.getElementById("lf-splash-enter").disabled'), 20000);
+  await waitFor(() => splash.evaluate('document.readyState==="complete" && !!window.__lfSplashDebug && window.__lfSplashDebug().mainReady && !document.getElementById("lf-splash-enter").disabled'), 45000);
+  const mainTarget = await waitFor(async () => {
+    const targets = await listTargets(port);
+    return targets.find(target => target.type === 'page' && /^http:\/\/127\.0\.0\.1:\d+\/?(?:index\.html)?$/i.test(target.url));
+  }, 20000, 80);
+  main = new CDP(mainTarget.webSocketDebuggerUrl, 'main');
+  await main.connect();
   return port;
 }
 
@@ -153,6 +169,7 @@ async function exerciseSplash(port) {
     main:await window.LumiFieldSplash.getMainDebug()
   }))()`);
   pass('three splash controls are visible and non-overlapping', initial.controls.length === 3 && initial.controls.every(item => item.visible && item.rect.width >= 40 && item.rect.height >= 31) && initial.controls[0].rect.right < initial.controls[1].rect.left && initial.controls[1].rect.right < initial.controls[2].rect.left, initial.controls);
+  pass('entry button is exposed only after the Home surface is ready and primed', initial.debug.mainReady === true && initial.debug.button.disabled === false && initial.main.mainReady === true && initial.main.surfacePrimed === true && initial.main.mainVisible === true, { splash: initial.debug, main: initial.main });
 
   const maxRect = initial.controls.find(item => item.action === 'maximize').rect;
   await splash.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: maxRect.x + maxRect.width / 2, y: maxRect.y + maxRect.height / 2, button: 'left', clickCount: 1 });
@@ -164,34 +181,44 @@ async function exerciseSplash(port) {
   await splash.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: restoreRect.x + restoreRect.width / 2, y: restoreRect.y + restoreRect.height / 2, button: 'left', clickCount: 1 });
   await waitFor(() => splash.evaluate(`document.querySelector('[data-window-action="maximize"]').getAttribute('aria-label')==='最大化'`), 8000);
 
+  await splash.screenshot('01-ready-before-first-click.png');
+  const beforeClickMain = await main.evaluate(`(()=>({
+    complete:document.readyState==='complete',
+    home:document.body.classList.contains('empty-home-active'),
+    homeRect:document.getElementById('empty-home')&&document.getElementById('empty-home').getBoundingClientRect().toJSON(),
+    stageMode:document.getElementById('search-area')&&document.getElementById('search-area').classList.contains('stage-mode')
+  }))()`);
+  pass('hidden main is already complete on the Home route before click', beforeClickMain.complete && beforeClickMain.home && !beforeClickMain.stageMode && beforeClickMain.homeRect && beforeClickMain.homeRect.width > 0, beforeClickMain);
   const enterRect = await splash.evaluate(`document.getElementById('lf-splash-enter').getBoundingClientRect().toJSON()`);
   const clickedAt = Date.now();
   await splash.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: enterRect.x + enterRect.width / 2, y: enterRect.y + enterRect.height / 2, button: 'left', clickCount: 1 });
-  await splash.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: enterRect.x + enterRect.width / 2, y: enterRect.y + enterRect.height / 2, button: 'left', clickCount: 1 });
-  const immediate = await waitFor(() => splash.evaluate(`(()=>{const d=window.__lfSplashDebug(),root=document.getElementById('lf-splash-root'),sig=document.getElementById('lf-splash-signature');return root.dataset.exiting==='true'&&d.button.clicks===1&&d.button.pending&&sig.paused?{elapsed:performance.now()-d.elapsedMs,debug:d,signatureOpacity:getComputedStyle(document.getElementById('lf-splash-signature-shell')).opacity}:null;})()`), 1200, 20);
-  pass('first click locks one transition and immediately stops signature', immediate.debug.button.clicks === 1 && immediate.debug.performance.suspended === true, immediate);
-  await delay(180);
-  const exitSurface = await splash.evaluate(`(()=>({signatureOpacity:Number(getComputedStyle(document.getElementById('lf-splash-signature-shell')).opacity),status:getComputedStyle(document.getElementById('lf-splash-entry-status')).opacity,canvasCount:document.querySelectorAll('canvas').length,rootBg:getComputedStyle(document.getElementById('lf-splash-root')).backgroundColor}))()`);
-  pass('pending handoff removes signature watermark but retains painted backdrop', exitSurface.signatureOpacity === 0 && Number(exitSurface.status) > 0.9 && exitSurface.canvasCount === 2 && exitSurface.rootBg !== 'rgb(0, 0, 0)', exitSurface);
-  await splash.screenshot('01-first-click-exit-surface.png');
-
-  const mainTarget = await waitFor(async () => {
-    const targets = await listTargets(port);
-    return targets.find(target => target.type === 'page' && /^http:\/\/127\.0\.0\.1:\d+\/?(?:index\.html)?$/i.test(target.url));
-  }, 90000, 150);
-  main = new CDP(mainTarget.webSocketDebuggerUrl, 'main');
-  await main.connect();
-  const ready = await waitFor(() => main.evaluate(`(()=>{const state={
+  try {
+    await splash.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: enterRect.x + enterRect.width / 2, y: enterRect.y + enterRect.height / 2, button: 'left', clickCount: 1 });
+  } catch (error) {
+    // A synchronous successful handoff can destroy the splash target before
+    // DevTools returns the mouseReleased acknowledgement. Product state below
+    // remains the authority; any undelivered click still fails that hard gate.
+    handoffTrace.splashTargetClosedDuringRelease = String(error && error.message || error);
+  }
+  const handoff = await waitFor(async () => {
+    const state = await main.evaluate(`(async()=>{const state={
     complete:document.readyState==='complete',
     visible:document.visibilityState==='visible',
     home:document.body.classList.contains('empty-home-active'),
     homeRect:document.getElementById('empty-home')&&document.getElementById('empty-home').getBoundingClientRect().toJSON(),
     stageMode:document.getElementById('search-area')&&document.getElementById('search-area').classList.contains('stage-mode'),
-    controls:document.querySelectorAll('.desktop-window-btn[data-window-action]').length
-  };return state.complete&&state.visible&&state.home&&!state.stageMode&&state.homeRect&&state.homeRect.width>0&&state.controls===3?state:null;})()`), 30000, 100);
-  pass('atomic handoff lands directly on visible main route', ready.complete && ready.visible && ready.home && !ready.stageMode && ready.homeRect && ready.homeRect.width > 0 && ready.controls === 3, ready);
-  const splashGone = await waitFor(async () => !(await listTargets(port)).some(target => /lf-splash\.html/i.test(target.url)), 10000, 100);
-  pass('splash BrowserWindow is fully retired before final state', splashGone === true, { elapsedMs: Date.now() - clickedAt });
+    controls:document.querySelectorAll('.desktop-window-btn[data-window-action]').length,
+    splash:await window.desktopWindow.getSplashDebug()
+  };return state.splash&&state.splash.revealed&&state.splash.mainVisible&&!state.splash.splashExists?state:null;})()`);
+    return state;
+  }, 1200, 10);
+  handoffTrace.clickToVisibleMs = Date.now() - clickedAt;
+  handoffTrace.slowestResources = await main.evaluate(`performance.getEntriesByType('resource').map(e=>({name:e.name,initiatorType:e.initiatorType,startTime:e.startTime,duration:e.duration,responseEnd:e.responseEnd})).sort((a,b)=>b.duration-a.duration).slice(0,20)`);
+  pass('first click performs exactly one synchronous transition', handoff.splash.enterCount === 1 && handoff.splash.transitionStartedAt >= handoff.splash.enterRequestedAt && handoff.splash.surfacePrimedAt <= handoff.splash.enterRequestedAt, handoff.splash);
+  pass('first click reveals Home with no perceptible wait', handoffTrace.clickToVisibleMs <= 250 && handoff.splash.revealedAt - handoff.splash.enterRequestedAt <= 100, { clickToVisibleMs: handoffTrace.clickToVisibleMs, controllerMs: handoff.splash.revealedAt - handoff.splash.enterRequestedAt });
+  pass('atomic handoff lands directly on visible main route', handoff.complete && handoff.visible && handoff.home && !handoff.stageMode && handoff.homeRect && handoff.homeRect.width > 0 && handoff.controls === 3, handoff);
+  const splashGone = await waitFor(async () => !(await listTargets(port)).some(target => /lf-splash\.html/i.test(target.url)), 1200, 20);
+  pass('splash BrowserWindow is fully retired immediately', splashGone === true, { elapsedMs: Date.now() - clickedAt });
   const mainDebug = await main.evaluate(`window.desktopWindow&&window.desktopWindow.getState?window.desktopWindow.getState():null`);
   pass('main native window state is available after handoff', !!mainDebug, mainDebug);
   await main.screenshot('02-main-route-after-handoff.png');
@@ -214,7 +241,7 @@ async function run() {
   await exerciseSplash(port);
   pass('renderer errors are zero', rendererErrors.length === 0, rendererErrors);
   pass('console errors are zero', consoleErrors.length === 0, consoleErrors);
-  const result = { ok: true, runId, evidenceDir, checks, screenshots, rendererErrors, consoleErrors };
+  const result = { ok: true, runId, evidenceDir, checks, screenshots, rendererErrors, consoleErrors, handoffTrace };
   fs.writeFileSync(path.join(evidenceDir, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify({ ok: true, evidenceDir, checkCount: Object.keys(checks).length, screenshots: screenshots.length }, null, 2));
 }

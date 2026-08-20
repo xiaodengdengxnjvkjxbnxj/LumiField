@@ -6,7 +6,20 @@
 <title>LumiField</title>
 <meta name="referrer" content="no-referrer">
 <script src="/lf-legacy-runtime-migration.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+<script>
+window.addEventListener('load', function () {
+  var loadFonts = function () {
+    if (document.getElementById('lf-late-fonts')) return;
+    var link = document.createElement('link');
+    link.id = 'lf-late-fonts';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap';
+    document.head.appendChild(link);
+  };
+  if (window.requestIdleCallback) requestIdleCallback(loadFonts, { timeout: 2500 });
+  else setTimeout(loadFonts, 600);
+}, { once: true });
+</script>
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
 <script src="lf-motion.js"></script>
@@ -28843,9 +28856,6 @@ scheduleUiWarmTask(function(){
   updateControlGlassDisplacementMap();
   updateSearchBoxGlassDisplacementMap();
   updateSearchPillGlassDisplacementMap();
-  try {
-    if (renderer && renderer.compile && scene && camera) renderer.compile(scene, camera);
-  } catch (e) {}
 }, 900);
 try {
   if (!audio) {

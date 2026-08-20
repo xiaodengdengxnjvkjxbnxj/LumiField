@@ -7,6 +7,7 @@ const CHANNELS = Object.freeze({
   enter: 'lf-splash-enter',
   debug: 'lf-splash-debug',
   mainDebug: 'lf-splash-main-debug',
+  mainReady: 'lf-splash-main-ready',
   windowAction: 'lf-splash-window-action',
   windowState: 'lf-splash-window-state',
 });
@@ -40,6 +41,8 @@ function createSplashController(options) {
   let revealInFlight = false;
   let transitionStartedAt = 0;
   let surfacePrimedAt = 0;
+  let surfacePrimed = false;
+  let surfacePrimePromise = null;
   let userCloseRequested = false;
 
   function isTrusted(event) {
@@ -60,6 +63,7 @@ function createSplashController(options) {
       revealInFlight,
       transitionStartedAt,
       surfacePrimedAt,
+      surfacePrimed,
       disposed,
       recreateCount,
       splashExists: !!(splashWindow && !splashWindow.isDestroyed()),
@@ -88,16 +92,54 @@ function createSplashController(options) {
     recreateTimer = null;
   }
 
+  function publishMainReady() {
+    if (!surfacePrimed || !splashWindow || splashWindow.isDestroyed() || splashWindow.webContents.isDestroyed()) return;
+    splashWindow.webContents.send(CHANNELS.mainReady, { ready: true, surfacePrimedAt });
+  }
+
   function maybeReveal() {
-    if (disposed || revealed || revealInFlight || !mainReady || !enterRequested || !stageReady) return false;
+    if (disposed || revealed || revealInFlight || !mainReady || !surfacePrimed || !enterRequested || !stageReady) return false;
     if (!mainWindow || mainWindow.isDestroyed()) return false;
     revealInFlight = true;
     transitionStartedAt = Date.now();
     clearRecreateTimer();
     const closing = splashWindow;
-    Promise.resolve().then(async () => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed()) throw new Error('MAIN_WINDOW_LOST');
+      splashWindow = null;
+      if (closing && !closing.isDestroyed()) closing.destroy();
+      try { mainWindow.setIgnoreMouseEvents(false); } catch (_) {}
+      try { mainWindow.setOpacity(1); } catch (_) {}
+      revealMain(mainWindow);
+      revealed = true;
+      revealedAt = Date.now();
+    } catch (error) {
+      log('Atomic splash handoff failed', error);
+      splashWindow = null;
+      if (closing && !closing.isDestroyed()) closing.destroy();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.setIgnoreMouseEvents(false); } catch (_) {}
+        try { mainWindow.setOpacity(1); } catch (_) {}
+        revealMain(mainWindow);
+        revealed = true;
+        revealedAt = Date.now();
+      }
+    } finally {
+      revealInFlight = false;
+    }
+    return true;
+  }
+
+  function primeMainSurface() {
+    if (surfacePrimed) {
+      publishMainReady();
+      return Promise.resolve(true);
+    }
+    if (surfacePrimePromise) return surfacePrimePromise;
+    surfacePrimePromise = Promise.resolve().then(async () => {
       if (!mainWindow || mainWindow.isDestroyed()) throw new Error('MAIN_WINDOW_LOST');
       try { mainWindow.setOpacity(0); } catch (_) {}
+      try { mainWindow.setIgnoreMouseEvents(true); } catch (_) {}
       mainWindow.showInactive();
       const ready = await Promise.race([
         mainWindow.webContents.executeJavaScript(
@@ -112,26 +154,21 @@ function createSplashController(options) {
       ]);
       if (!ready) log('Main surface priming reached bounded fallback');
       surfacePrimedAt = Date.now();
-      splashWindow = null;
-      if (closing && !closing.isDestroyed()) closing.destroy();
-      try { mainWindow.setOpacity(1); } catch (_) {}
-      revealMain(mainWindow);
-      revealed = true;
-      revealedAt = Date.now();
+      surfacePrimed = true;
+      publishMainReady();
+      maybeReveal();
+      return true;
     }).catch(error => {
-      log('Atomic splash handoff failed', error);
-      splashWindow = null;
-      if (closing && !closing.isDestroyed()) closing.destroy();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        try { mainWindow.setOpacity(1); } catch (_) {}
-        revealMain(mainWindow);
-        revealed = true;
-        revealedAt = Date.now();
-      }
+      log('Main surface priming failed', error);
+      surfacePrimedAt = Date.now();
+      surfacePrimed = true;
+      publishMainReady();
+      maybeReveal();
+      return false;
     }).finally(() => {
-      revealInFlight = false;
+      surfacePrimePromise = null;
     });
-    return true;
+    return surfacePrimePromise;
   }
 
   function scheduleRecreate(reason) {
@@ -227,6 +264,7 @@ function createSplashController(options) {
     ipcMain.on(CHANNELS.stageReady, event => {
       if (!isTrusted(event) || disposed || revealed) return;
       stageReady = true;
+      publishMainReady();
       maybeReveal();
     });
     ipcMain.handle(CHANNELS.enter, event => {
@@ -238,9 +276,6 @@ function createSplashController(options) {
         enterRequestedAt = Date.now();
       }
       enterRequested = true;
-      if (typeof options.onEnterRequested === 'function') {
-        try { options.onEnterRequested(); } catch (error) { log('Splash entry signal failed', error); }
-      }
       // A trusted click is itself proof that the loaded splash stage is ready.
       // Accept it even if the fire-and-forget stageReady IPC is still queued.
       stageReady = true;
@@ -295,6 +330,7 @@ function createSplashController(options) {
         stageReady = true;
         enterRequested = true;
       }
+      primeMainSurface();
       return maybeReveal();
     },
     focus() {
@@ -323,6 +359,7 @@ function createSplashController(options) {
       splashWindow = null;
       if (closing && !closing.isDestroyed()) closing.destroy();
       mainWindow = null;
+      surfacePrimePromise = null;
     },
   });
 }

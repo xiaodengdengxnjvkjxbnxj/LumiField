@@ -38,9 +38,6 @@ if (app.isPackaged && !allowPackagedCdpTest) {
 
 let mainWindow = null;
 let splashController = null;
-let splashEntryGate = Promise.resolve();
-let resolveSplashEntryGate = null;
-let splashEntryGateFallback = null;
 let localServer = null;
 let mainServerPort = 0;
 let musicPlatformManager = null;
@@ -4140,10 +4137,6 @@ async function createWindow() {
 
   try {
     await mainWindow.loadFile(path.join(__dirname, '..', 'public', 'boot.html'));
-    // boot.html is an internal hidden staging surface only. It must never make
-    // the main window revealable; keep the responsive splash visible until the
-    // real local player page has completed loading.
-    await splashEntryGate;
   } catch (error) {
     writeStartupLog('Failed to load local boot screen', error);
   }
@@ -4212,20 +4205,6 @@ if (!gotSingleInstanceLock) {
   app.whenReady().then(async () => {
     const splashTestMode = process.env.LF_MASTER_TEST === '1';
     const splashTestBypass = splashTestMode && process.env.LUMIFIELD_SKIP_SPLASH === '1';
-    splashEntryGate = new Promise(resolve => { resolveSplashEntryGate = resolve; });
-    // Fail open if the splash renderer itself cannot become interactive.
-    splashEntryGateFallback = setTimeout(() => {
-      splashEntryGateFallback = null;
-      if (!resolveSplashEntryGate) return;
-      resolveSplashEntryGate();
-      resolveSplashEntryGate = null;
-    }, 2200);
-    if (splashTestBypass && resolveSplashEntryGate) {
-      clearTimeout(splashEntryGateFallback);
-      splashEntryGateFallback = null;
-      resolveSplashEntryGate();
-      resolveSplashEntryGate = null;
-    }
     splashController = createSplashController({
       app,
       BrowserWindow,
@@ -4236,19 +4215,6 @@ if (!gotSingleInstanceLock) {
       testMode: splashTestMode,
       testBypass: splashTestBypass,
       log: writeStartupLog,
-      onEnterRequested: () => {
-        // Accept the first click immediately, then give its IPC response and
-        // splash frame a short head start before loading the server graph. The
-        // splash remains visible until the real player page is ready.
-        if (!resolveSplashEntryGate) return;
-        const release = resolveSplashEntryGate;
-        resolveSplashEntryGate = null;
-        clearTimeout(splashEntryGateFallback);
-        splashEntryGateFallback = setTimeout(() => {
-          splashEntryGateFallback = null;
-          release();
-        }, 180);
-      },
       revealMain: win => {
         if (!win || win.isDestroyed()) return;
         win.show();
@@ -4257,15 +4223,16 @@ if (!gotSingleInstanceLock) {
         applyWindowsTaskbarToolbar();
       },
     });
-    splashController.start().catch(error => writeStartupLog('Independent splash failed to start', error));
-    // Start the hidden main window as soon as the independent splash is alive.
-    // Account migrations, the private LF API and integrity checks do not gate
-    // loading the local player page and previously added a long, visible delay
-    // after the user's first click.
-    // Requiring the player server loads several large provider modules. Yield
-    // briefly so the splash renderer can bind and accept the first click before
-    // that synchronous module initialization begins in the main process.
-    const mainWindowPromise = new Promise(resolve => setImmediate(resolve)).then(() => createWindow());
+    const splashStartPromise = splashController.start().catch(error => {
+      writeStartupLog('Independent splash failed to start', error);
+      return null;
+    });
+    // The player is fully warmed behind the responsive splash. The entry click
+    // never starts the server, navigation or shader bootstrap; the button is
+    // enabled only after the hidden Home surface has been composited.
+    const mainWindowPromise = splashStartPromise
+      .then(() => new Promise(resolve => setImmediate(resolve)))
+      .then(() => createWindow());
     // Attach a handler immediately because the remaining startup tasks may
     // still be awaiting migrations; this prevents a transient window/server
     // failure from becoming an unhandled rejection.
@@ -4355,14 +4322,6 @@ if (!gotSingleInstanceLock) {
     if (splashController) {
       splashController.dispose();
       splashController = null;
-    }
-    if (splashEntryGateFallback) {
-      clearTimeout(splashEntryGateFallback);
-      splashEntryGateFallback = null;
-    }
-    if (resolveSplashEntryGate) {
-      resolveSplashEntryGate();
-      resolveSplashEntryGate = null;
     }
     if (lfLoginConfigFile) fs.unwatchFile(lfLoginConfigFile);
     if (lfStemService) {

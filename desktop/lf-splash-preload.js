@@ -15,5 +15,11 @@ contextBridge.exposeInMainWorld('LumiFieldSplash', Object.freeze({
     ipcRenderer.on('lf-splash-window-state', handler);
     return () => ipcRenderer.removeListener('lf-splash-window-state', handler);
   },
+  onMainReady: callback => {
+    if (typeof callback !== 'function') return function () {};
+    const handler = (_event, state) => callback(state || {});
+    ipcRenderer.on('lf-splash-main-ready', handler);
+    return () => ipcRenderer.removeListener('lf-splash-main-ready', handler);
+  },
   getMainDebug: () => isTest ? ipcRenderer.invoke('lf-splash-debug') : Promise.resolve(null),
 }));

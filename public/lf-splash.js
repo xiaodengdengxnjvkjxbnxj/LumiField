@@ -19,6 +19,8 @@
   var stageReadySent = false;
   var enterClicks = 0;
   var enterPending = false;
+  var mainReady = false;
+  var mainReadyAt = 0;
   var enterAcceptedAt = 0;
   var enterError = '';
   var enterDispatchDelayMs = -1;
@@ -352,6 +354,16 @@
     if (maximizeIcon) maximizeIcon.hidden = maximized;
     if (restoreIcon) restoreIcon.hidden = !maximized;
   }
+  function applyMainReady(state) {
+    if (disposed || !state || state.ready !== true) return;
+    mainReady = true;
+    mainReadyAt = performance.now();
+    enter.disabled = false;
+    enter.dataset.ready = 'true';
+    var label = enter.querySelector('span');
+    if (label) label.textContent = '立即进入';
+    if (entryStatus) entryStatus.textContent = '';
+  }
   function onWindowAction(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -372,7 +384,7 @@
   function finishRejectedEntry(message){
     enterError=String(message||'SPLASH_ENTER_REJECTED');
     enterPending=false;
-    enter.disabled=false;
+    enter.disabled=!mainReady;
     enter.removeAttribute('data-pending');
     enter.removeAttribute('aria-busy');
     root.removeAttribute('data-exiting');
@@ -382,7 +394,7 @@
     if(!signatureEnded&&signature.readyState>=2)playSignature();
   }
   function onEnterClick(){
-    if(disposed||enterPending||!stageVisible||!api)return;
+    if(disposed||enterPending||!mainReady||!stageVisible||!api)return;
     var clickedAt=performance.now();
     enterClicks+=1;
     enterPending=true;
@@ -427,9 +439,12 @@
   add(signature,'ended',holdSignature);
   add(signature,'error',function(){signatureError='SIGNATURE_MEDIA_ERROR';});
   add(window,'beforeunload',dispose,{once:true});
-  revealStage();
-  enter.disabled=false;
   if(api&&typeof api.onWindowState==='function')externalDisposers.push(api.onWindowState(applyWindowState));
+  if(api&&typeof api.onMainReady==='function')externalDisposers.push(api.onMainReady(applyMainReady));
+  var enterLabel=enter.querySelector('span');
+  if(enterLabel)enterLabel.textContent='正在准备…';
+  if(entryStatus)entryStatus.textContent='正在准备主界面…';
+  revealStage();
   renderGrid(initialFrameNow);
   atcInitTimer=setTimeout(function(){atcInitTimer=0;initAtc();},50);
   if (!suspended) rafId=requestAnimationFrame(frame);
@@ -437,6 +452,6 @@
   if(api&&api.isTest){
     window.__lfSplashSetTestVisibility=function(hidden){setSuspended(!!hidden);return window.__lfSplashDebug();};
     window.__lfSplashDebug=function(){return{
-      version:2,elapsedMs:Math.round(performance.now()-startedAt),firstFrameAtMs:firstFrameAtMs,stageVisible:stageVisible,atcMode:atcMode,atcFrames:atcFrames,gridFrames:gridFrames,gridCurrentMaxWarp:gridCurrentMaxWarp,gridObservedMaxWarp:gridObservedMaxWarp,gridObservedRippleWarp:gridObservedRippleWarp,pointerMoves:pointerMoves,pointer:{x:pointer.x,y:pointer.y,targetX:pointer.tx,targetY:pointer.ty,active:pointer.active},rippleTriggers:rippleTriggers,activeRipples:ripples.length,signature:{readyState:signature.readyState,duration:Number(signature.duration)||0,currentTime:Number(signature.currentTime)||0,paused:signature.paused,ended:signatureEnded,held:signatureHeld,playAttempts:signaturePlayAttempts,error:signatureError,source:signature.currentSrc||signature.src},button:{text:enter.textContent.trim(),visible:stageVisible,disabled:enter.disabled,clicks:enterClicks,pending:enterPending,acceptedAtMs:enterAcceptedAt?Math.round(enterAcceptedAt-startedAt):-1,dispatchDelayMs:enterDispatchDelayMs<0?-1:Math.round(enterDispatchDelayMs),error:enterError,strength:enter.style.getPropertyValue('--lf-enter-strength')||'0',x:enter.style.getPropertyValue('--lf-enter-x')||'50%',y:enter.style.getPropertyValue('--lf-enter-y')||'50%'},performance:{targetFps:Math.round(1000/TARGET_FRAME_MS),dpr:dpr,frameGateSkips:frameGateSkips,suspended:suspended,visibilityPauses:visibilityPauses,pointerCoalesced:pointerMoves>gridFrames},resources:{rafActive:rafId?1:0,listeners:listeners.length,webglContexts:gl?1:0,audioContexts:0,audioElements:0,videoElements:document.querySelectorAll('video').length},reducedMotion:reducedMotion,disposed:disposed};};
+      version:2,elapsedMs:Math.round(performance.now()-startedAt),firstFrameAtMs:firstFrameAtMs,stageVisible:stageVisible,mainReady:mainReady,mainReadyAtMs:mainReadyAt?Math.round(mainReadyAt-startedAt):-1,atcMode:atcMode,atcFrames:atcFrames,gridFrames:gridFrames,gridCurrentMaxWarp:gridCurrentMaxWarp,gridObservedMaxWarp:gridObservedMaxWarp,gridObservedRippleWarp:gridObservedRippleWarp,pointerMoves:pointerMoves,pointer:{x:pointer.x,y:pointer.y,targetX:pointer.tx,targetY:pointer.ty,active:pointer.active},rippleTriggers:rippleTriggers,activeRipples:ripples.length,signature:{readyState:signature.readyState,duration:Number(signature.duration)||0,currentTime:Number(signature.currentTime)||0,paused:signature.paused,ended:signatureEnded,held:signatureHeld,playAttempts:signaturePlayAttempts,error:signatureError,source:signature.currentSrc||signature.src},button:{text:enter.textContent.trim(),visible:stageVisible,disabled:enter.disabled,clicks:enterClicks,pending:enterPending,acceptedAtMs:enterAcceptedAt?Math.round(enterAcceptedAt-startedAt):-1,dispatchDelayMs:enterDispatchDelayMs<0?-1:Math.round(enterDispatchDelayMs),error:enterError,strength:enter.style.getPropertyValue('--lf-enter-strength')||'0',x:enter.style.getPropertyValue('--lf-enter-x')||'50%',y:enter.style.getPropertyValue('--lf-enter-y')||'50%'},performance:{targetFps:Math.round(1000/TARGET_FRAME_MS),dpr:dpr,frameGateSkips:frameGateSkips,suspended:suspended,visibilityPauses:visibilityPauses,pointerCoalesced:pointerMoves>gridFrames},resources:{rafActive:rafId?1:0,listeners:listeners.length,webglContexts:gl?1:0,audioContexts:0,audioElements:0,videoElements:document.querySelectorAll('video').length},reducedMotion:reducedMotion,disposed:disposed};};
   }
 })();
