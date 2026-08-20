@@ -853,26 +853,49 @@
     if ($('lf-legal-modal')) return;
     var modal = document.createElement('div');
     modal.id = 'lf-legal-modal';
-    modal.innerHTML = '<div class="lf-legal-dialog"><button id="lf-legal-close" class="lf-panel-x">×</button><h2 id="lf-legal-title"></h2><div id="lf-legal-body"></div></div>';
+    modal.innerHTML = '<div class="lf-legal-dialog" role="dialog" aria-modal="true" aria-labelledby="lf-legal-title"><button id="lf-legal-close" class="lf-panel-x" type="button" aria-label="关闭">×</button><h2 id="lf-legal-title"></h2><div id="lf-legal-body"></div></div>';
     document.body.appendChild(modal);
     $('lf-legal-close').onclick = function () { modal.classList.remove('show'); };
     modal.addEventListener('click', function (event) { if (event.target === modal) modal.classList.remove('show'); });
   }
 
+  function renderLegalDocument(kind, supplied) {
+    var library = window.LumiFieldLegalContent || {};
+    var fallback = library[kind] || {};
+    var source = supplied && Array.isArray(supplied.sections) ? supplied : fallback;
+    var sections = Array.isArray(source.sections) ? source.sections : [];
+    var version = String(source.version || library.version || state.appVersion || '').replace(/^v/i, '');
+    var effectiveDate = source.effectiveDate || library.effectiveDate || '';
+    var body = $('lf-legal-body');
+    $('lf-legal-title').textContent = source.title || fallback.title || (kind === 'privacy' ? 'LumiField 隐私说明' : 'LumiField 用户协议');
+    body.dataset.document = kind;
+    body.dataset.version = version;
+    body.innerHTML =
+      '<p class="lf-legal-meta">适用版本：v' + esc(version || '当前版本') + (effectiveDate ? ' · 生效日期：' + esc(effectiveDate) : '') + '</p>' +
+      '<p class="lf-legal-intro">' + esc(source.intro || fallback.intro || '') + '</p>' +
+      sections.map(function (section) {
+        var paragraphs = (section.paragraphs || []).map(function (text) { return '<p>' + esc(text) + '</p>'; }).join('');
+        var items = Array.isArray(section.items) && section.items.length ? '<ul>' + section.items.map(function (text) { return '<li>' + esc(text) + '</li>'; }).join('') + '</ul>' : '';
+        return '<section class="lf-legal-section" data-legal-section="' + esc(section.id || '') + '"><h3>' + esc(section.title || '') + '</h3>' + paragraphs + items + '</section>';
+      }).join('');
+    body.scrollTop = 0;
+    var dialog = body.closest('.lf-legal-dialog');
+    if (dialog) dialog.scrollTop = 0;
+  }
+
   async function openPrivacy() {
     closeProfile();
     createLegalModal();
-    var result = await api.lfPrivacyNotice();
-    $('lf-legal-title').textContent = 'LumiField 隐私说明';
-    $('lf-legal-body').innerHTML = '<h3>会收集</h3><ul>' + (result.collected || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul><h3>绝不收集</h3><ul>' + (result.neverCollected || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul><p>' + esc(result.retention || '') + '</p><p>联系：' + esc(result.contact || '') + '</p>';
+    var result = null;
+    try { result = await api.lfPrivacyNotice(); } catch (_) {}
+    renderLegalDocument('privacy', result && result.ok ? result : null);
     $('lf-legal-modal').classList.add('show');
   }
 
   function openAgreement() {
     closeProfile();
     createLegalModal();
-    $('lf-legal-title').textContent = 'LumiField 用户协议';
-    $('lf-legal-body').innerHTML = '<p>LF 账号仅用于 LumiField 使用权、用户设置同步、反馈与安全权限控制，与网易云音乐、QQ 音乐账号相互独立。</p><p>不得伪造身份、绕过拉黑状态或未经授权访问开发接口。系统只记录必要的登录、权限和审计信息，不扫描私人文件。</p><p>在线音乐与第三方壁纸内容受各平台条款和版权规则约束；LumiField 不伪造第三方同步能力。</p><p>联系管理员请使用应用内“反馈问题”入口。</p>';
+    renderLegalDocument('agreement', null);
     $('lf-legal-modal').classList.add('show');
   }
 

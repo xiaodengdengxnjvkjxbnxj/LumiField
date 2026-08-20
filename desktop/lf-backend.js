@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { createVerificationServices } = require('./lf-verification-services');
 const { LFOAuthProviders } = require('./lf-oauth-providers');
 const LumiFieldPresetSchema = require('../public/lumifield-preset-schema');
+const LumiFieldLegalContent = require('../public/lf-legal-content');
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -2750,10 +2751,15 @@ class LFBackend {
   privacyNotice() {
     return {
       ok: true,
+      version: LumiFieldLegalContent.version,
+      effectiveDate: LumiFieldLegalContent.effectiveDate,
+      title: LumiFieldLegalContent.privacy.title,
+      intro: LumiFieldLegalContent.privacy.intro,
+      sections: LumiFieldLegalContent.privacy.sections,
       collected: ['LF 用户 ID、昵称、登录账号类型、头像', '登录时间、登录方式、设备类型、软件版本、在线状态、最近活跃时间', '仅在授权后记录用户提供的定位文字；未授权显示“未授权”', '用户主动提交的反馈与已脱敏日志', '用于 LF 完整性保护的本机随机设备 ID，以及仅限 LF 安装文件的文件标识、相对路径、预期/实际 SHA-256 和异常事件时间'],
-      neverCollected: ['明文密码', '音乐平台 Cookie', '未授权的精准位置', '用户私人文件内容', 'LF 安装目录之外的文件哈希或正文', '完整进程列表或用户代码内容'],
+      neverCollected: ['明文密码', '未授权的 GPS 精准位置', '未由用户选择的私人文件正文', 'LF 安装目录之外的完整性文件哈希或正文', '完整进程列表或用户代码内容'],
       retention: '会话最长 90 天；验证码 5 分钟失效且仅能使用一次；反馈和审计记录由管理员维护。',
-      contact: '请使用应用内“反馈问题”入口。',
+      contact: LumiFieldLegalContent.contact,
     };
   }
 }
