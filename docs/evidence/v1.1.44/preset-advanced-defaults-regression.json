@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "task": "v1.1.44-problem-10",
+  "description": "Original advanced defaults for the six particle-bearing built-in presets.",
+  "primarySource": {
+    "repository": "https://github.com/XxHuberrr/Mineradio",
+    "commit": "6b130103f759e5dcd1e133700071c8216b8fa5a6",
+    "path": "public/index.html",
+    "gitBlobSha1": "da5e47b41475b4401c45eb6b25f0ff60f72addd2",
+    "fileSha256": "78C6C7A760AC14326AF924A367A97DA94771A30E8072836F62B0745DAEABDFE2",
+    "observedDefaults": {
+      "point": 1,
+      "scatter": 0
+    },
+    "presetSelectionWritesAdvancedValues": false
+  },
+  "corroboration": [
+    {
+      "label": "LumiField v1.1.22 reliable source backup",
+      "fileSha256": "C66140C3F603D8E2CC0F9FEE5D671AEF6265E871D8F019F7543A514321DFD730",
+      "point": 1,
+      "scatter": 0,
+      "presetSelectionWritesAdvancedValues": false
+    },
+    {
+      "label": "LumiField v1.1.43 frozen release",
+      "commit": "f20b09f2ab27dab7cfebe4aa2ffa3e17b8736fab",
+      "gitBlobSha1": "44f75bba7100b9c43cae6a1024851f525d7b7348",
+      "fileSha256": "33C5050633A4119634AF110919E14494F52C8C70688BC27E20659AA23F19E668",
+      "point": 1,
+      "scatter": 0,
+      "presetSelectionWritesAdvancedValues": false
+    }
+  ],
+  "presets": [
+    { "index": 0, "id": "emily-cover", "name": "emily专辑封面", "point": 1, "scatter": 0 },
+    { "index": 6, "id": "requiem", "name": "安魂", "point": 1, "scatter": 0 },
+    { "index": 5, "id": "galaxy", "name": "星河", "point": 1, "scatter": 0 },
+    { "index": 4, "id": "record", "name": "唱片", "point": 1, "scatter": 0 },
+    { "index": 2, "id": "planet", "name": "星球", "point": 1, "scatter": 0 },
+    { "index": 1, "id": "roller", "name": "滚筒", "point": 1, "scatter": 0 }
+  ]
+}

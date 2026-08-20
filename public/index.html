@@ -22833,6 +22833,22 @@ function clonePresetDefaultValue(value) {
   Object.keys(value).forEach(function (key) { out[key] = clonePresetDefaultValue(value[key]); });
   return out;
 }
+var ORIGINAL_PRESET_ADVANCED_DEFAULT_SOURCE = deepFreezePresetDefault({
+  repository:'https://github.com/XxHuberrr/Mineradio',
+  commit:'6b130103f759e5dcd1e133700071c8216b8fa5a6',
+  path:'public/index.html',
+  gitBlobSha1:'da5e47b41475b4401c45eb6b25f0ff60f72addd2',
+  fileSha256:'78C6C7A760AC14326AF924A367A97DA94771A30E8072836F62B0745DAEABDFE2',
+  semantics:'The original shared advanced defaults are point=1.0 and scatter=0.0; preset selection does not overwrite either value.'
+});
+var ORIGINAL_PRESET_ADVANCED_DEFAULTS = deepFreezePresetDefault({
+  'emily-cover':{ point:1, scatter:0 },
+  'requiem':{ point:1, scatter:0 },
+  'galaxy':{ point:1, scatter:0 },
+  'record':{ point:1, scatter:0 },
+  'planet':{ point:1, scatter:0 },
+  'roller':{ point:1, scatter:0 }
+});
 var PRESET_ISOLATED_PARTICLE_KEYS = Object.freeze([
   'intensity','cinemaShake','depth','coverResolution','point','speed','twist','color','scatter','bgFade','bloomStrength',
   'floatLayer','cinema','edge','bloom','backCover'
@@ -22845,9 +22861,12 @@ var PRESET_ISOLATED_LYRIC_KEYS = Object.freeze([
 var PRESET_ISOLATED_VISUAL_KEYS = Object.freeze([
   'visualTintMode','visualTintColor','homeAccentColor','visualIconColor'
 ]);
-function presetDefaultFields(keys) {
+function presetDefaultFields(keys, overrides) {
   var out = {};
   keys.forEach(function (key) { out[key] = clonePresetDefaultValue(PACKAGED_DEFAULT_FX_SNAPSHOT[key]); });
+  Object.keys(overrides || {}).forEach(function (key) {
+    if (keys.indexOf(key) >= 0) out[key] = clonePresetDefaultValue(overrides[key]);
+  });
   return out;
 }
 function presetCameraDefault(index) {
@@ -22858,14 +22877,16 @@ function presetCameraDefault(index) {
   return { radius:values[0], phi:values[1], theta:values[2] };
 }
 var immutablePresetDefaults = deepFreezePresetDefault(presetMeta.map(function (meta, index) {
+  var presetId = ['emily-cover','roller','planet','void','record','galaxy','requiem'][index];
+  var originalAdvanced = ORIGINAL_PRESET_ADVANCED_DEFAULTS[presetId] || null;
   return {
-    id:['emily-cover','roller','planet','void','record','galaxy','requiem'][index],
+    id:presetId,
     index:index,
     name:String(meta.name || ''),
     renderer:{ preset:index },
     camera:presetCameraDefault(index),
     appearance:{
-      particles:presetDefaultFields(PRESET_ISOLATED_PARTICLE_KEYS),
+      particles:presetDefaultFields(PRESET_ISOLATED_PARTICLE_KEYS, originalAdvanced),
       lyrics:presetDefaultFields(PRESET_ISOLATED_LYRIC_KEYS),
       visual:presetDefaultFields(PRESET_ISOLATED_VISUAL_KEYS)
     }
@@ -22885,9 +22906,15 @@ function presetDefaultsDeepFrozen() {
   });
 }
 window.LumiFieldBuiltInPresetIsolation = Object.freeze({
-  version:1,
+  version:2,
   create:createBuiltInPresetRuntimeState,
   getDefaults:function () { return immutablePresetDefaults; },
+  getOriginalAdvancedDefaults:function () {
+    return {
+      source:clonePresetDefaultValue(ORIGINAL_PRESET_ADVANCED_DEFAULT_SOURCE),
+      presets:clonePresetDefaultValue(ORIGINAL_PRESET_ADVANCED_DEFAULTS)
+    };
+  },
   getDebug:function () {
     return {
       count:immutablePresetDefaults.length,
