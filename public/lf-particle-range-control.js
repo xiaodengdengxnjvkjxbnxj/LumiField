@@ -41,6 +41,11 @@
     emittedParticles:0,
     pointerEvents:0,
     inputEvents:0,
+    queuedTrailEvents:0,
+    coalescedTrailEvents:0,
+    visualFlushCount:0,
+    lastFrameEmissions:0,
+    maxFrameEmissions:0,
     frameCount:0,
     resizeCount:0,
     deleteEffect:null,
@@ -53,7 +58,9 @@
     listenerCount:0
   };
   var lastPointByControl = new WeakMap();
+  var pendingRecordByControl = new WeakMap();
   var activeVisualControls = new Set();
+  var pendingTrails = new Map();
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -111,10 +118,11 @@
     return 'control:' + index;
   }
 
-  function isVisibleControl(control) {
+  function isVisibleControl(control, knownRect) {
     if (!control || control.disabled || control.getAttribute('aria-disabled') === 'true') return false;
-    var rect = control.getBoundingClientRect();
+    var rect = knownRect || control.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return false;
+    if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= (global.innerWidth || 0) || rect.top >= (global.innerHeight || 0)) return false;
     var style = global.getComputedStyle ? global.getComputedStyle(control) : null;
     return !style || (style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0);
   }
@@ -232,8 +240,8 @@
     state.raf = global.requestAnimationFrame(frame);
   }
 
-  function emitTrail(control, x, y, pointer, force) {
-    if (!control || !isVisibleControl(control) || !isFinite(x) || !isFinite(y)) return false;
+  function emitTrail(control, x, y, pointer, force, knownRect) {
+    if (!control || !isVisibleControl(control, knownRect) || !isFinite(x) || !isFinite(y)) return false;
     var currentTime = nowMs();
     var previous = lastPointByControl.get(control);
     if (!previous) previous = { x:x, y:y, at:currentTime };
@@ -244,7 +252,7 @@
     var elapsed = Math.max(8, currentTime - previous.at);
     var speedX = dx / elapsed * 1000;
     var speedY = dy / elapsed * 1000;
-    var steps = clamp(Math.ceil(Math.max(1, distance) / (pointer ? 4.5 : 7)), 1, pointer ? 12 : 7);
+    var steps = clamp(Math.ceil(Math.max(1, distance) / (pointer ? 3 : 5)), 1, pointer ? 18 : 10);
     var palette = accentTriplet();
     var reduced = reducedMotion();
     if (reduced) steps = Math.min(steps, 2);
@@ -257,12 +265,12 @@
       var perpendicularX = distance > 0.01 ? -dy / distance : 0;
       var perpendicularY = distance > 0.01 ? dx / distance : -1;
       spawnParticle({
-        x:px + perpendicularX * side * (1 + random * 2.6),
-        y:py + perpendicularY * side * (1 + random * 2.6),
+        x:px + perpendicularX * side * (0.6 + random * 1.8),
+        y:py + perpendicularY * side * (0.6 + random * 1.8),
         vx:clamp(speedX * 0.11, -82, 82) + perpendicularX * side * (8 + Math.random() * 24),
         vy:clamp(speedY * 0.11, -82, 82) + perpendicularY * side * (8 + Math.random() * 24) - 4,
         life:reduced ? 0.22 : 0.42 + Math.random() * 0.38,
-        size:0.65 + Math.random() * 1.45,
+        size:0.38 + Math.random() * 0.72,
         alpha:0.58 + Math.random() * 0.36,
         drag:0.925 + Math.random() * 0.045,
         gravity:-2.5,
@@ -282,9 +290,9 @@
     return true;
   }
 
-  function valuePoint(control) {
+  function valuePoint(control, knownRect) {
     if (!control) return null;
-    var rect = control.getBoundingClientRect();
+    var rect = knownRect || control.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
     var min = Number(control.min != null && control.min !== '' ? control.min : control.getAttribute('aria-valuemin'));
     var max = Number(control.max != null && control.max !== '' ? control.max : control.getAttribute('aria-valuemax'));
@@ -310,19 +318,16 @@
     state.activeControl = control;
     state.activePointerId = event.pointerId;
     state.lastPointer = { x:event.clientX, y:event.clientY, at:nowMs() };
-    emitTrail(control, event.clientX, event.clientY, true, true);
+    lastPointByControl.set(control, { x:event.clientX, y:event.clientY, at:nowMs() });
+    queueTrail(control, event.clientX, event.clientY, true, true, true, false);
   }
 
   function onPointerMove(event) {
     state.pointerEvents += 1;
     var control = state.activeControl && (state.activePointerId == null || state.activePointerId === event.pointerId)
       ? state.activeControl : controlFromEvent(event);
-    if (!control || !isVisibleControl(control)) return;
-    var rect = control.getBoundingClientRect();
-    if (event.clientX < rect.left - 8 || event.clientX > rect.right + 8 || event.clientY < rect.top - 8 || event.clientY > rect.bottom + 8) {
-      if (control !== state.activeControl) return;
-    }
-    emitTrail(control, event.clientX, event.clientY, control === state.activeControl, false);
+    if (!control) return;
+    queueTrail(control, event.clientX, event.clientY, control === state.activeControl, false, control === state.activeControl, false);
     state.lastPointer = { x:event.clientX, y:event.clientY, at:nowMs() };
   }
 
@@ -335,10 +340,60 @@
 
   function onInput(event) {
     var control = closestControl(event.target);
-    if (!control || !control.matches('input[type="range"],[role="slider"]') || !isVisibleControl(control)) return;
+    if (!control || !control.matches('input[type="range"],[role="slider"]')) return;
     state.inputEvents += 1;
-    var point = valuePoint(control);
-    if (point) emitTrail(control, point.x, point.y, false, true);
+    queueTrail(control, 0, 0, false, true, false, true);
+  }
+
+  function queueTrail(control, x, y, pointer, force, allowOutside, fromValue) {
+    if (!control || state.disposed || document.hidden) return false;
+    var pending = pendingTrails.get(control);
+    if (!pending) {
+      pending = pendingRecordByControl.get(control);
+      if (!pending) {
+        pending = { control:control, x:0, y:0, pointer:false, force:false, allowOutside:false, fromValue:false, eventCount:0 };
+        pendingRecordByControl.set(control, pending);
+      }
+      pending.x = x;
+      pending.y = y;
+      pending.pointer = !!pointer;
+      pending.force = !!force;
+      pending.allowOutside = !!allowOutside;
+      pending.fromValue = !!fromValue;
+      pending.eventCount = 1;
+      pendingTrails.set(control, pending);
+    } else {
+      pending.x = x;
+      pending.y = y;
+      pending.pointer = pending.pointer || !!pointer;
+      pending.force = pending.force || !!force;
+      pending.allowOutside = pending.allowOutside || !!allowOutside;
+      pending.fromValue = pending.fromValue || !!fromValue;
+      pending.eventCount += 1;
+      state.coalescedTrailEvents += 1;
+    }
+    state.queuedTrailEvents += 1;
+    ensureCanvas();
+    ensureFrame();
+    return true;
+  }
+
+  function flushPendingTrails() {
+    if (!pendingTrails.size) return 0;
+    var emitted = 0;
+    pendingTrails.forEach(function(pending) {
+      var control = pending.control;
+      if (!control || !control.isConnected) return;
+      var rect = control.getBoundingClientRect();
+      if (!isVisibleControl(control, rect)) return;
+      var point = pending.fromValue ? valuePoint(control, rect) : pending;
+      if (!point) return;
+      if (!pending.allowOutside && (point.x < rect.left - 8 || point.x > rect.right + 8 || point.y < rect.top - 8 || point.y > rect.bottom + 8)) return;
+      if (emitTrail(control, point.x, point.y, pending.pointer, pending.force, rect)) emitted += 1;
+    });
+    pendingTrails.clear();
+    state.visualFlushCount += 1;
+    return emitted;
   }
 
   function onVisibilityChange() {
@@ -350,6 +405,7 @@
     if (state.raf) global.cancelAnimationFrame(state.raf);
     state.raf = 0;
     state.particles.forEach(function (particle) { particle.active = false; });
+    pendingTrails.clear();
     if (state.deleteEffect) finishDeleteEffect(false, 'document-hidden');
     clearCanvas();
   }
@@ -365,6 +421,7 @@
     if (!context) return 0;
     var alive = 0;
     context.save();
+    context.shadowBlur = 0;
     var compositeMode = '';
     for (var index = 0; index < state.particles.length; index += 1) {
       var particle = state.particles[index];
@@ -391,8 +448,6 @@
         context.globalCompositeOperation = compositeMode;
       }
       context.fillStyle = 'rgba(' + Math.round(particle.r) + ',' + Math.round(particle.g) + ',' + Math.round(particle.b) + ',' + alpha.toFixed(3) + ')';
-      context.shadowColor = 'rgba(' + Math.round(particle.r) + ',' + Math.round(particle.g) + ',' + Math.round(particle.b) + ',' + (alpha * 0.72).toFixed(3) + ')';
-      context.shadowBlur = particle.kind === 'delete' ? 0 : 3.5;
       context.beginPath();
       context.arc(particle.x, particle.y, particle.size * (0.72 + lifeRatio * 0.36), 0, Math.PI * 2);
       context.fill();
@@ -430,6 +485,9 @@
     var dt = clamp((time - state.lastFrameAt) / 1000, 0.001, 0.04);
     state.lastFrameAt = time;
     clearCanvas();
+    var emittedThisFrame = flushPendingTrails();
+    state.lastFrameEmissions = emittedThisFrame;
+    state.maxFrameEmissions = Math.max(state.maxFrameEmissions, emittedThisFrame);
     updateDeleteOriginal(time);
     var alive = updateAndDrawParticles(time, dt);
     state.frameCount += 1;
@@ -635,6 +693,12 @@
       canvasCount:document.querySelectorAll('#lf-particle-range-overlay').length,
       pointerEvents:state.pointerEvents,
       inputEvents:state.inputEvents,
+      queuedTrailEvents:state.queuedTrailEvents,
+      coalescedTrailEvents:state.coalescedTrailEvents,
+      pendingTrailCount:pendingTrails.size,
+      visualFlushCount:state.visualFlushCount,
+      lastFrameEmissions:state.lastFrameEmissions,
+      maxFrameEmissions:state.maxFrameEmissions,
       emissions:state.emissions,
       emittedParticles:state.emittedParticles,
       activeParticles:activeParticles,
@@ -657,6 +721,8 @@
       deleteCloneCount:0,
       deleteParticleColor:'rgb-white',
       deleteParticleShadowBlur:0,
+      rangeParticleMaxSize:1.1,
+      rangeParticleShadowBlur:0,
       deleteOriginalProgress:state.deleteEffect ? state.deleteEffect.progress : 0,
       viewport:{ width:state.width, height:state.height, dpr:state.dpr }
     };
@@ -687,6 +753,7 @@
     state.mediaQueryMode = '';
     state.listenerCount = 0;
     state.particles.forEach(function (particle) { particle.active = false; });
+    pendingTrails.clear();
     activeVisualControls.forEach(function (control) {
       if (control && control.removeAttribute) control.removeAttribute('data-lf-particle-range-active');
     });
