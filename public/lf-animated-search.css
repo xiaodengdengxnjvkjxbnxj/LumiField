@@ -71,6 +71,7 @@
   mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
   mask-composite:exclude;
   animation:lf-search-glow-orbit var(--lf-search-glow-duration) linear infinite;
+  animation-play-state:paused;
 }
 
 .lf-animated-search-glow::after{
@@ -80,12 +81,14 @@
   animation-duration:var(--lf-search-glow-duration);
 }
 
-#search-box[data-lf-animated-search="true"]:hover .lf-animated-search-glow,
-#search-box[data-lf-animated-search="true"]:focus-within .lf-animated-search-glow,
-#search-box[data-lf-animated-search="true"][data-has-value="true"] .lf-animated-search-glow,
-#search-box[data-lf-animated-search="true"]:has(#search-input:not(:placeholder-shown)) .lf-animated-search-glow{
+#search-box[data-lf-animated-search="true"]:hover .lf-animated-search-glow{
   opacity:var(--lf-search-glow-active-opacity);
   filter:drop-shadow(0 0 7px rgba(var(--lf-search-glow-violet-rgb),.26)) drop-shadow(0 0 10px rgba(var(--lf-search-glow-pink-rgb),.15));
+}
+
+body:not(.render-deep-sleep) #search-area.peek #search-box[data-lf-animated-search="true"]:hover .lf-animated-search-glow::before,
+body:not(.render-deep-sleep) #search-area.peek #search-box[data-lf-animated-search="true"]:hover .lf-animated-search-glow::after{
+  animation-play-state:running;
 }
 
 #search-box[data-lf-animated-search="true"][data-composing="true"] .lf-animated-search-glow{
