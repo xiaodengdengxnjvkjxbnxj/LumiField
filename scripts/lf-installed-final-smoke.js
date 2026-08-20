@@ -329,7 +329,7 @@ async function verifyMainAsarRuntime() {
     await waitFor(() => client.evaluate(`location.protocol==='http:'&&document.readyState==='complete'&&typeof doSearch==='function'&&typeof playSearchResult==='function'&&!!document.getElementById('t-wallpaperMode')&&!!document.getElementById('lf-qr-refresh')`), 60000);
     const origin = await client.evaluate('location.origin');
     const version = await json(origin, '/api/app/version', null, 15000); assert.equal(version.status, 200); assert.equal(version.body.version, expected.version);
-    const paused = await client.evaluate(`(()=>{const wall=document.getElementById('t-wallpaperMode'),opacity=document.getElementById('fx-wallpaperopacity'),qr=document.getElementById('lf-qr-refresh');return{title:document.title,wallpaperLocked:wall.classList.contains('dev-locked')&&/开发中/.test(wall.textContent),wallpaperOpacityDisabled:!!opacity.disabled,mobileQrPaused:!!qr.disabled&&/开发中/.test(qr.textContent),bridge:!!window.mineradio};})()`);
+    const paused = await client.evaluate(`(()=>{const wall=document.getElementById('t-wallpaperMode'),opacity=document.getElementById('fx-wallpaperopacity'),qr=document.getElementById('lf-qr-refresh');return{title:document.title,wallpaperLocked:wall.classList.contains('dev-locked')&&/开发中/.test(wall.textContent),wallpaperOpacityDisabled:!!opacity.disabled,mobileQrPaused:!!qr.disabled&&/开发中/.test(qr.textContent),bridge:!!window.desktopWindow};})()`);
     assert(/LumiField/i.test(paused.title)); assert(paused.wallpaperLocked && paused.wallpaperOpacityDisabled && paused.mobileQrPaused);
     const problem17 = await problem17Audit(client, origin);
     await client.screenshot(path.join(output, 'problem17-weather-installed-asar.png'));

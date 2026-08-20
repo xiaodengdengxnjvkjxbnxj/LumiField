@@ -1316,7 +1316,7 @@ async function run() {
     weatherInteraction.failure.city === '上海' && weatherInteraction.failure.label === '晴' && weatherInteraction.failure.savedCity === '上海',
     weatherInteraction);
   const hotCommentSvgGlass = /url\(/i.test(hotEmpty.glass.backdrop) &&
-    hotEmpty.glass.filterId === 'mineradio-control-glass-filter' && hotEmpty.glass.displacementScales.length >= 3 &&
+    hotEmpty.glass.filterId === 'lumifield-control-glass-filter' && hotEmpty.glass.displacementScales.length >= 3 &&
     new Set(hotEmpty.glass.displacementScales).size >= 3 && hotEmpty.glass.channelMatrices >= 3;
   const hotCommentNestedGlass = hotEmpty.glass.owner === 'weather-shell' && hotEmpty.glass.ownerMarker === 'weather' &&
     /blur|url\(/i.test(hotEmpty.glass.backdrop);

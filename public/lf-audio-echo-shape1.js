@@ -22,7 +22,7 @@
  * animation step consumes only the frame supplied by LumiField's shared audio
  * bridge. The 160x160 map, map GLSL, 512-bin eight-band analysis, 10 ripples,
  * 20 meteors, 200 impact particles, four themes and [35,25,35] camera remain
- * source-derived. Shape 3/Mineradio is intentionally absent.
+ * source-derived. The legacy third shape is intentionally absent.
  */
 (function () {
   'use strict';

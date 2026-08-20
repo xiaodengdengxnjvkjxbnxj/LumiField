@@ -365,7 +365,6 @@
     if (!plain(payload)) throw new Error('根节点必须是对象');
     var typeToken = token(payload.type);
     var schemaToken = token(payload.schema);
-    var legacyArchiveToken = token(['mine', 'radio'].join('') + '-user-fx-archive');
     var canonicalInput = typeToken === token(TYPE) || schemaToken === token(SCHEMA);
     if (canonicalInput && payload.type != null && typeToken !== token(TYPE)) throw new Error('CanonicalPresetSchema type 不匹配');
     if (canonicalInput && payload.schema != null && schemaToken !== token(SCHEMA)) throw new Error('CanonicalPresetSchema schema 不匹配');
@@ -373,7 +372,7 @@
     if (!isFinite(sourceVersion)) sourceVersion = 1;
     if (canonicalInput) {
       if (sourceVersion < 0 || sourceVersion > VERSION) throw new Error('不支持的 CanonicalPresetSchema 版本');
-    } else if ((typeToken === legacyArchiveToken || typeToken === 'lumifielduserfxarchive' || typeToken === 'lumifieldechopreset') && payload.schema != null) {
+    } else if ((typeToken === 'lumifielduserfxarchive' || typeToken === 'lumifieldechopreset') && payload.schema != null) {
       var oldSchema = Number(payload.schema);
       if (!isFinite(oldSchema) || oldSchema < 1 || oldSchema > 2) throw new Error('不支持的旧版预设版本');
     }

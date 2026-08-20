@@ -1,4 +1,4 @@
-# Mineradio SVG Glass Texture
+# LumiField SVG Glass Texture
 
 这是用户明确要求保存的播放器 SVG 玻璃质感基线。后续可以修补偏移、缺角、套用范围和响应式问题，但不要随意重写核心质感。
 
@@ -22,12 +22,12 @@
 :root{
   --saved-panel-glass-bg:rgba(0,0,0,.10);
   --saved-panel-glass-filter:blur(12px) saturate(1.8) brightness(1.16);
-  --saved-panel-glass-svg-filter:url(#mineradio-control-glass-filter) saturate(1);
+  --saved-panel-glass-svg-filter:url(#lumifield-control-glass-filter) saturate(1);
   --saved-panel-glass-shadow:inset 0 0 2px 1px rgba(255,255,255,.35),inset 0 0 10px 4px rgba(255,255,255,.15),0 4px 16px rgba(17,17,26,.05),0 8px 24px rgba(17,17,26,.05),0 16px 56px rgba(17,17,26,.05),inset 0 4px 16px rgba(17,17,26,.05),inset 0 8px 24px rgba(17,17,26,.05),inset 0 16px 56px rgba(17,17,26,.05);
   --saved-panel-glass-radius:50px;
   --saved-button-glass-bg:rgba(0,0,0,.10);
   --saved-button-glass-filter:blur(12px) saturate(1.8) brightness(1.16);
-  --saved-button-glass-svg-filter:url(#mineradio-control-glass-filter) saturate(1);
+  --saved-button-glass-svg-filter:url(#lumifield-control-glass-filter) saturate(1);
   --saved-button-glass-shadow:inset 0 0 2px 1px rgba(255,255,255,.34),inset 0 0 10px 4px rgba(255,255,255,.13),0 10px 30px rgba(0,0,0,.18);
   --saved-button-glass-hover-bg:rgba(255,255,255,.055);
   --saved-button-glass-hover-shadow:inset 0 0 2px 1px rgba(255,255,255,.42),inset 0 0 12px 5px rgba(255,255,255,.17),0 12px 34px rgba(0,0,0,.22),0 0 18px rgba(255,255,255,.06);
@@ -49,8 +49,8 @@
 }
 html.control-glass-svg-ok #bottom-bar{
   background:rgba(0,0,0,.10);
-  backdrop-filter:url(#mineradio-control-glass-filter) saturate(1);
-  -webkit-backdrop-filter:url(#mineradio-control-glass-filter) saturate(1);
+  backdrop-filter:url(#lumifield-control-glass-filter) saturate(1);
+  -webkit-backdrop-filter:url(#lumifield-control-glass-filter) saturate(1);
 }
 #bottom-bar::before{content:none}
 #bottom-bar::after{content:none}
@@ -63,7 +63,7 @@ html.control-glass-svg-ok #bottom-bar{
 关键点：
 
 - `color-interpolation-filters="sRGB"`
-- 主 filter：`id="mineradio-control-glass-filter"`
+- 主 filter：`id="lumifield-control-glass-filter"`
 - filter 区域：`x="-12%" y="-28%" width="124%" height="156%"`
 - RGB 三通道 displacement scale：Red `180`、Green `170`、Blue `160`
 - RGB 偏移：`dx="-90" dy="0"`

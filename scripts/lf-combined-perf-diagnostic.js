@@ -155,7 +155,7 @@ async function measure(label, config, duration = 2200) {
     const quantile = value => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * value))] || 0;
     const video = document.getElementById('lf-stage-wallpaper-video');
     const quality = video && video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : {};
-    const snapshot = window.__mineradioPerfSnapshot ? window.__mineradioPerfSnapshot() : null;
+    const snapshot = window.__lumifieldPerfSnapshot ? window.__lumifieldPerfSnapshot() : null;
     const spectrum = LumiFieldTask13.getSpectrumDebug();
     const echo = LumiFieldTask13.getEchoDebug();
     return {

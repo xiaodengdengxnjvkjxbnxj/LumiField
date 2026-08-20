@@ -365,7 +365,7 @@ async function installInstrumentation() {
       return { count: entries.length, types: types, transferSize: transferSize, decodedBodySize: decodedBodySize };
     };
     var snapshot = function () {
-      var runtime = typeof window.__mineradioPerfSnapshot === 'function' ? window.__mineradioPerfSnapshot() : null;
+      var runtime = typeof window.__lumifieldPerfSnapshot === 'function' ? window.__lumifieldPerfSnapshot() : null;
       var rendererInfo = window.renderer && renderer.info ? renderer.info : null;
       var audio = knownAudioContexts();
       var gpu = null;

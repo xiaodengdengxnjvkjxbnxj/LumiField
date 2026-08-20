@@ -1,5 +1,5 @@
 // ====================================================================
-//  粒子音乐可视化播放器 — Server v2
+//  LumiField Local Music Service
 //  - 网易云搜索 / 歌曲URL / 封面/音频代理
 //  - 扫码登录 (login_qr_*) + 进程内会话
 //  - 试听检测 (freeTrialInfo) + 全 quality 探测
@@ -605,25 +605,13 @@ function safeBeatMapCacheFile(key) {
   const label = raw.replace(/[^a-z0-9_.-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'beatmap';
   return path.join(ensureBeatMapCacheDir(), `${label}-${hash}.json`);
 }
-function legacyBeatCacheModeToken() {
-  return ['m', 'r'].join('');
-}
 function normalizeBeatCacheMode(value) {
   const raw = String(value || '').trim().toLowerCase();
-  if (!raw || raw === legacyBeatCacheModeToken()) return 'cinema';
+  if (!raw) return 'cinema';
   return raw === 'dj' ? 'dj' : raw.slice(0, 32);
 }
 function canonicalBeatMapCacheKey(value) {
-  const raw = String(value || '').trim();
-  const suffix = ':' + legacyBeatCacheModeToken();
-  if (raw.toLowerCase().endsWith(suffix)) return raw.slice(0, -suffix.length) + ':cinema';
-  return raw;
-}
-function legacyBeatMapCacheKey(value) {
-  const canonical = canonicalBeatMapCacheKey(value);
-  const suffix = ':cinema';
-  if (!canonical.toLowerCase().endsWith(suffix)) return '';
-  return canonical.slice(0, -suffix.length) + ':' + legacyBeatCacheModeToken();
+  return String(value || '').trim();
 }
 function canonicalBeatMapCachePayload(source, key) {
   const meta = source && source.meta && typeof source.meta === 'object' ? source.meta : source || {};
@@ -690,16 +678,7 @@ function readBeatMapCache(key) {
     return verifiedBeatMapCacheWrite(file, payload);
   }
 
-  const legacyKey = legacyBeatMapCacheKey(canonicalKey);
-  const legacyFile = legacyKey ? safeBeatMapCacheFile(legacyKey) : null;
-  const legacy = readValidatedBeatMapCacheFile(legacyFile, legacyKey);
-  if (!legacy) return null;
-  const migrated = canonicalBeatMapCachePayload(legacy, canonicalKey);
-  if (!migrated) return null;
-  migrated.meta.mode = 'cinema';
-  const verified = verifiedBeatMapCacheWrite(file, migrated);
-  fs.unlinkSync(legacyFile);
-  return verified;
+  return null;
 }
 function writeBeatMapCache(body) {
   const payload = compactBeatMapCachePayload(body);
@@ -707,9 +686,6 @@ function writeBeatMapCache(body) {
   const file = safeBeatMapCacheFile(payload.key);
   if (!file) return { ok: false, error: 'INVALID_BEATMAP_CACHE_KEY' };
   const verified = verifiedBeatMapCacheWrite(file, payload);
-  const legacyKey = legacyBeatMapCacheKey(payload.key);
-  const legacyFile = legacyKey ? safeBeatMapCacheFile(legacyKey) : null;
-  if (legacyFile && legacyFile !== file && fs.existsSync(legacyFile)) fs.unlinkSync(legacyFile);
   return { ok: true, key: verified.key, savedAt: verified.savedAt, dir: path.dirname(file) };
 }
 function readRequestBody(req) {
@@ -5091,7 +5067,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log('======================================================');
-  console.log(' 粒子音乐可视化 v2  →  http://localhost:' + PORT);
+  console.log(' LumiField Local Music Service  →  http://localhost:' + PORT);
   console.log(' 登录态: ' + (userCookie ? '已登录(cookie已加载)' : '未登录'));
   console.log('======================================================');
 });

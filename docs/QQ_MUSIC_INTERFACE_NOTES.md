@@ -35,7 +35,7 @@
 
 ## 后续同类问题优先检查
 
-1. 先看 `C:\Users\Administrator\AppData\Roaming\Mineradio\.qq-cookie` 是否有 `qm_keyst`、`qqmusic_key`、`music_key` 或 `wxskey`。
+1. 先通过 LumiField 当前账户作用域的 QQ 登录状态调试接口确认 `credentialPresent` 与 `sessionValid`；不要再读取历史产品目录中的明文 Cookie 文件，当前运行时也不会访问该目录。
 2. 调 `/api/qq/login/status`，确认 `loggedIn`、昵称、头像和 `playbackKeyReady`。
 3. 调 `/api/qq/song/url?mid=<songmid>&mediaMid=<media_mid>&quality=highest`，检查 `reason`、`qqCode`、`playbackKeyReady`。
 4. 如果 `playbackKeyReady=false` 且 `qqCode=104003`，优先重新跑 QQ 官方登录窗口，不要先改搜索或播放器 audio 逻辑。

@@ -16,7 +16,6 @@ const { loadSecureLoginConfig } = require('./lf-secure-login-config');
 const { LFStemService, AUDIO_EXTENSIONS } = require('./lf-stem-service');
 const { loadLFEnvironment } = require('./lf-env');
 const { createIntegrityVerifier, createIntegrityStatusHook } = require('./lf-integrity');
-const { migrateLegacyPlatformSessions } = require('./lf-legacy-platform-session-migration');
 const { createWindowStateCoordinator } = require('./lf-window-state-coordinator');
 const { createVoiceAssistantController } = require('./lf-voice-assistant-main');
 const { createAIAssistantController } = require('./lf-ai-provider-main');
@@ -4303,14 +4302,6 @@ if (!gotSingleInstanceLock) {
       authorizeDeveloperAccess: currentLFDeveloperAuthorization,
       openDeveloperTools: openAuthorizedAIDeveloperTools,
     });
-    try {
-      migrateLegacyPlatformSessions({
-        appDataPath: app.getPath('appData'),
-        userDataPath: app.getPath('userData'),
-      });
-    } catch (_) {
-      writeStartupLog('LF legacy upstream platform-session migration failed; source data was preserved.');
-    }
     await migrateLegacyPlaintextCookies().catch(error => {
       writeStartupLog('LF legacy plaintext cookie migration failed; source data was preserved.', error);
     });

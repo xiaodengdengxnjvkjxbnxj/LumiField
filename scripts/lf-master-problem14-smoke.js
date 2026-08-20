@@ -444,7 +444,7 @@ async function verifyPlayerConsoleBaselineAppearance() {
     consoleState.backgroundImage === 'none' && consoleState.borderWidth === '0px' &&
     consoleState.borderRadius === '22px' && consoleState.before.content === 'none' &&
     consoleState.after.content === 'none' && consoleState.backgroundColor === 'rgba(8, 14, 24, 0.28)' &&
-    /mineradio-control-glass-filter/.test(consoleState.backdropFilter) &&
+    /lumifield-control-glass-filter/.test(consoleState.backdropFilter) &&
     /0px 18px 50px/.test(consoleState.boxShadow),
     consoleState);
   pass('restored player console remains visible, interactive and keeps the original control geometry',
