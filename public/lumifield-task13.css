@@ -211,15 +211,3 @@ body.lf-bg-opacity-dragging #custom-bg-video{transition:none;will-change:opacity
   .lf-t13-import-diff{grid-template-columns:1fr}.lf-t13-import-apply>div{grid-template-columns:1fr}.lf-t13-import-diff i{display:none}
 }
 @media (prefers-reduced-motion:reduce){#lf-t13-translation-toast,#lf-t13-spectrum-main,#lf-t13-spectrum,#lf-t13-echo,#fx-fab,.lf-console-fold-clip,.lf-console-fold-body,.lf-console-fold-toggle i{transition-duration:.01ms}}
-.lf-t13-golden-controls{display:grid;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,217,160,.18)}
-.lf-t13-golden-controls[hidden]{display:none!important}
-.lf-t13-golden-controls .fx-slider{display:grid;grid-template-columns:minmax(92px,.78fr) minmax(0,1.22fr);align-items:center;gap:8px}
-.lf-t13-golden-dynamic-controls .fx-slider{grid-template-columns:minmax(118px,.9fr) minmax(0,1fr) 42px}
-.lf-t13-golden-dynamic-controls .fx-slider input[type="range"]{width:100%;min-width:0;accent-color:#f1d19a}
-.lf-t13-golden-dynamic-controls .fx-slider output{font:10px/1 ui-monospace,Consolas,monospace;text-align:right;color:#f1d19a}
-.lf-t13-golden-toggle{display:flex!important;align-items:center;justify-content:space-between;min-height:34px;padding:7px 9px}
-.lf-t13-golden-toggle input{width:18px;height:18px;accent-color:#f1d19a}
-.lf-t13-golden-controls input[type="number"],.lf-t13-golden-controls textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(255,217,160,.2);border-radius:8px;background:rgba(7,10,18,.72);color:#fff1c9;padding:6px 8px;font:11px/1.35 ui-monospace,Consolas,monospace}
-.lf-t13-golden-controls textarea{resize:vertical;min-height:46px}
-.lf-t13-golden-depth{display:flex!important;align-items:center;justify-content:space-between;min-height:34px;padding:7px 9px}
-.lf-t13-golden-depth input{width:18px;height:18px;accent-color:#f1d19a}

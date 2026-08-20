@@ -34,7 +34,6 @@
     "test:lf-problem8": "node scripts/lf-problem8-smoke.js",
     "test:lf-master-problem9": "node scripts/lf-master-problem9-smoke.js",
     "test:lf-master-problem10": "node scripts/lf-master-problem10-smoke.js",
-    "test:lf-master-problem11": "node scripts/lf-master-problem11-smoke.js",
     "test:lf-master-problem12": "node scripts/lf-master-problem12-smoke.js",
     "test:lf-master-problem13": "node scripts/lf-master-problem13-smoke.js",
     "test:lf-master-problem14": "node scripts/lf-master-problem14-smoke.js",

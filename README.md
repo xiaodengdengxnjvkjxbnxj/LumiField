@@ -50,7 +50,7 @@ LumiField 以 GNU GPL v3（`GPL-3.0-only`）发布，完整文本见 [LICENSE](.
 - [MODIFICATIONS.md](./MODIFICATIONS.md)
 - [docs/licenses](./docs/licenses)
 
-金色星轨粒子预设与 LumiField 签名动画均已记录为项目所有者原创素材；其来源证据见 [原创素材记录](./docs/licenses/lumifield-original-assets/PROVENANCE.md)。
+已从 v1.1.44 产品中移除的金色星轨粒子预设与仍在使用的 LumiField 签名动画均保留项目所有者原创来源记录；历史证据见 [原创素材记录](./docs/licenses/lumifield-original-assets/PROVENANCE.md)，不表示已移除预设仍被打包或加载。
 
 ## 隐私与第三方平台
 

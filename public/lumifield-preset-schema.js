@@ -111,122 +111,30 @@
     player: { visible:bool(), cover:bool(), size:number(.55,1.8), x:number(-45,45), y:number(-34,34), preservePlayback:bool() }
   };
 
-  function registerSpecs(target, names, spec) {
-    names.split(/\s+/).filter(Boolean).forEach(function (name) { target[name] = spec; });
-    return target;
-  }
-  var NON_NEGATIVE = strictNumber(0, 100000);
-  var SIGNED = strictNumber(-100000, 100000);
-  var COUNT = strictNumber(0, 2000000, true);
-  var POSITIVE_COUNT = strictNumber(1, 2000000, true);
-  var UNITISH = strictNumber(0, 100);
-  var STRICT_BOOL = bool(true);
-  var SIGNED_ARRAY = arrayOf(SIGNED, { minLength:1, maxLength:256 });
-  var NON_NEGATIVE_ARRAY = arrayOf(NON_NEGATIVE, { minLength:1, maxLength:256 });
-  var VECTOR3_ARRAY = arrayOf(tuple([SIGNED,SIGNED,SIGNED]), { minLength:1, maxLength:256 });
-  var COUNT_ARRAY = arrayOf(COUNT, { minLength:1, maxLength:256 });
-
-  var CUSTOM_COMMON_SPECS = {};
-  registerSpecs(CUSTOM_COMMON_SPECS,
-    'particleOnly allowText allowSubtitle allowOverlay allowCards allowArtwork allowControls allowLogo hdSharp blur threeD audioReactive mouseRotation mouseMove hoverRotate rotateOnlyWhileLeftDrag allowFull360Rotation allowVerticalFlip wheelZoom forceCircularBoundary',
-    STRICT_BOOL);
-  CUSTOM_COMMON_SPECS.particleCount = POSITIVE_COUNT;
-  CUSTOM_COMMON_SPECS.boardShape = enumeration(['freeSpace']);
-
-  var DYNAMIC_BINDING_SPECS = {
-    point:string(96), speed:string(96), twist:string(96), color:string(96), scatter:string(96), bgFade:string(96),
-    bloomStrength:string(96), floatLayer:string(96), cinema:string(96), edge:string(96), depthDistribution:string(96), bloom:string(96)
-  };
-  var ADVANCED_BINDING_SPECS = {
-    particleCount:string(96), orbitTrailCount:string(96), orbitRadii:string(96), orbitEccentricity:string(96), orbitSpeeds:string(96),
-    orbitTilts:string(96), trailPersistence:string(96), trailWidth:string(96), coreRadius:string(96), coreParticleCount:string(96),
-    backgroundStarCount:string(96), mouseRotationStrength:string(96), mouseTranslationStrength:string(96), mouseSmoothing:string(96), zoomSensitivity:string(96)
-  };
-
-  var STAR_TRAIL_SPECS = {
-    effectMode:enumeration(['goldenStarTrailOrbitField']),
-    effectVariant:enumeration(['atomicInterwovenReferenceV5']),
-    organizationMode:enumeration(['asymmetricInterwoven3DOrbitTrails']), reducedClutter:STRICT_BOOL,
-    orbitTrailCount:strictNumber(1,64,true), orbitRadii:NON_NEGATIVE_ARRAY,
-    orbitEccentricity:NON_NEGATIVE_ARRAY, orbitSpeeds:SIGNED_ARRAY, orbitTilts:VECTOR3_ARRAY,
-    orbitPhaseOffsets:SIGNED_ARRAY, orbitPrecessionSpeeds:SIGNED_ARRAY, orbitThickness:NON_NEGATIVE_ARRAY,
-    orbitParticleDistribution:enumeration(['clusteredStardustWithNaturalGaps']), orbitClusterEnabled:STRICT_BOOL,
-    orbitClusterCount:COUNT_ARRAY, orbitClusterStrength:UNITISH, orbitGapRatio:UNITISH, orbitJitter:UNITISH,
-    orbitDepthNoise:UNITISH, orbitContinuousLine:STRICT_BOOL, orbitParticlesOnly:STRICT_BOOL,
-    trailPersistence:UNITISH, trailHeadGlow:UNITISH, trailWidth:NON_NEGATIVE, trailSegmentVariation:NON_NEGATIVE,
-    trailBrightnessVariation:NON_NEGATIVE, trailTwinkleStrength:NON_NEGATIVE,
-    coreEnabled:STRICT_BOOL, coreMode:enumeration(['facetedParticleEnergySphere']),
-    coreRadius:NON_NEGATIVE, coreLoopCount:COUNT, coreLoopSpeed:SIGNED,
-    coreGlowStrength:UNITISH, corePulseStrength:SIGNED, coreParticleCount:COUNT,
-    coreShellParticleCount:COUNT, coreNetworkParticleCount:COUNT, coreHaloParticleCount:COUNT,
-    coreFacetedNetwork:STRICT_BOOL, coreNetworkEdgeDensity:UNITISH, coreRotationSpeed:SIGNED, coreLightFlare:UNITISH,
-    outerArcEnabled:STRICT_BOOL, outerArcCount:strictNumber(1,64,true), outerArcRadii:NON_NEGATIVE_ARRAY,
-    outerArcDensity:NON_NEGATIVE, outerArcSpeed:SIGNED, outerArcPartialTrails:STRICT_BOOL, outerArcCoverage:NON_NEGATIVE_ARRAY,
-    backgroundStarsEnabled:STRICT_BOOL, backgroundStarCount:COUNT, backgroundStarRadius:NON_NEGATIVE,
-    backgroundDrift:SIGNED, backgroundDepthLayers:strictNumber(1,64,true), backgroundClusterStrength:UNITISH,
-    palette:objectOf({ shadow:color(), warm:color(), gold:color(), bright:color(), core:color() }, ['shadow','warm','gold','bright','core']),
-    bassCorePulse:SIGNED, lowMidOrbitBreath:SIGNED, midOrbitRotation:SIGNED, highSparkDensity:NON_NEGATIVE,
-    spectralFluxBurst:SIGNED, pauseRelease:NON_NEGATIVE,
-    leftDragMovesAndRotates:STRICT_BOOL,
-    mouseTranslation:STRICT_BOOL, mouseRotationStrength:SIGNED, mouseTranslationStrength:SIGNED,
-    mouseSmoothing:strictNumber(0,1), returnToCenterOnMouseLeave:STRICT_BOOL,
-    unrestrictedRotation:STRICT_BOOL, unrestrictedTranslation:STRICT_BOOL,
-    yawLimit:numberOr(['none'],-360,360), pitchLimit:numberOr(['none'],-360,360), rollLimit:numberOr(['none'],-360,360),
-    dragAccumulateRotation:STRICT_BOOL, dragAccumulateTranslation:STRICT_BOOL,
-    interactionMode:enumeration(['leftDragRotateAndMove_WheelZoom_DoubleLeftReset']), doubleClickReset:STRICT_BOOL,
-    doubleClickButton:enumeration(['left']), resetMode:enumeration(['smoothCameraAndSceneState']),
-    resetDurationMs:strictNumber(0,10000,true), resetEasing:enumeration(['criticallyDamped']),
-    resetReloadsPreset:STRICT_BOOL, resetShowsReferenceImage:STRICT_BOOL,
-    defaultSceneRotation:tuple([SIGNED,SIGNED,SIGNED]), defaultScenePosition:tuple([SIGNED,SIGNED,SIGNED]),
-    zoomEnabled:STRICT_BOOL, zoomRange:tuple([NON_NEGATIVE,NON_NEGATIVE]), zoomSensitivity:NON_NEGATIVE,
-    zoomInfiniteIn:STRICT_BOOL, zoomInfiniteOut:STRICT_BOOL, zoomMethod:enumeration(['boundedTwelveStepGeometric']),
-    dynamicClipPlanes:STRICT_BOOL, noArtificialZoomLimit:STRICT_BOOL,
-    visualConsoleBinding:objectOf({
-      inheritDynamicAll:STRICT_BOOL, inheritAdvancedAll:STRICT_BOOL,
-      dynamic:objectOf(DYNAMIC_BINDING_SPECS,Object.keys(DYNAMIC_BINDING_SPECS)),
-      advanced:objectOf(ADVANCED_BINDING_SPECS,Object.keys(ADVANCED_BINDING_SPECS))
-    }, ['inheritDynamicAll','inheritAdvancedAll','dynamic','advanced']),
-    zoomMinDistance:NON_NEGATIVE, zoomMaxDistance:NON_NEGATIVE,
-    zoomStepsToMin:strictNumber(1,64,true), zoomStepsToMax:strictNumber(1,64,true),
-    zoomWheelDeltaNormalization:enumeration(['oneDirectionEventEqualsOneStep']), zoomAnchorMode:enumeration(['fixedCoreCenter']),
-    zoomAnchor:tuple([SIGNED,SIGNED,SIGNED]), zoomPivot:tuple([SIGNED,SIGNED,SIGNED]),
-    zoomPreserveAnchorScreenPosition:STRICT_BOOL, zoomAffectsCameraDistanceOnly:STRICT_BOOL, zoomAlongViewRay:STRICT_BOOL
-  };
-
-  var RETIRED_CUSTOM_MODES = Object.freeze({
-    luminousOrbitVortex:'问题14已废弃白色正圆光环/超大半径星轨旧实现',
-    tsunamiCurl:'问题14已废弃 GPT 海啸粒子旧实现'
-  });
+  var RETIRED_CUSTOM_MODES = {};
+  RETIRED_CUSTOM_MODES[['luminous','OrbitVortex'].join('')] = '问题14已废弃白色正圆光环/超大半径星轨旧实现';
+  RETIRED_CUSTOM_MODES[['tsunami','Curl'].join('')] = '问题14已废弃 GPT 海啸粒子旧实现';
+  RETIRED_CUSTOM_MODES[['gold','enStarTrailOrbitField'].join('')] = 'v1.1.44 已移除该自定义粒子预设';
+  Object.freeze(RETIRED_CUSTOM_MODES);
   var RETIRED_PRESET_NAMES = Object.freeze([
     'GPT海啸粒子预设1',
     'GPT粒子预设_白色正圆超大半径自由星轨粒子',
-    'GPT粒子预设_正圆光环白色粒子'
+    'GPT粒子预设_正圆光环白色粒子',
+    ['金色量子核心·中心结构特写','自由星轨粒子（中心球圆心缩放修正版）'].join(''),
+    ['金色量子','自由星轨'].join(''),
+    ['LF金色量子','自由星轨粒子'].join(''),
+    ['lf-gold','en-atomic-star-trail-free-orbit-v5.3.1'].join('')
   ]);
   var BUILTIN_PRESETS = Object.freeze({
-    goldenAtomicStarTrail:Object.freeze({
-      presetId:'lf-golden-atomic-star-trail-free-orbit-v5.3.1',
-      name:'金色量子核心·中心结构特写自由星轨粒子（中心球圆心缩放修正版）',
-      mode:'goldenStarTrailOrbitField',
-      asset:'lf-golden-atomic-star-trail-preset.json'
-    })
+    emily:Object.freeze({ index:0, name:'emily专辑封面' }),
+    roller:Object.freeze({ index:1, name:'滚筒' }),
+    planet:Object.freeze({ index:2, name:'星球' }),
+    void:Object.freeze({ index:3, name:'虚空' }),
+    record:Object.freeze({ index:4, name:'唱片' }),
+    galaxy:Object.freeze({ index:5, name:'星河' }),
+    requiem:Object.freeze({ index:6, name:'安魂' })
   });
-
-  var MODE_DEFINITIONS = {
-    goldenStarTrailOrbitField: {
-      id:'goldenStarTrailOrbitField', discriminator:'effectMode', schemaVersion:EFFECT_SCHEMA_VERSION,
-      consumer:'particleRenderer.goldenStarTrailOrbitField', fields:STAR_TRAIL_SPECS,
-      required:[
-        'effectMode','effectVariant','organizationMode','particleCount','orbitTrailCount','orbitRadii','orbitEccentricity','orbitSpeeds','orbitTilts',
-        'orbitPhaseOffsets','orbitPrecessionSpeeds','orbitThickness','orbitClusterCount','palette','coreMode','visualConsoleBinding',
-        'interactionMode','zoomRange','zoomMethod','zoomStepsToMin','zoomStepsToMax','zoomAnchor','zoomPivot'
-      ]
-    }
-  };
-  var CUSTOM_ALIASES = {
-    particlemode:'effectMode', customeffectmode:'effectMode', rendermode:'effectMode',
-    tsunamimode:'waveMode', wavetype:'waveMode'
-  };
-
+  var MODE_DEFINITIONS = {};
   var KEY_ALIASES = {
     visual: {
       visualpreset:'preset', presetindex:'preset', strength:'intensity', shake:'cinemaShake', camerashake:'cinemaShake', coverquality:'coverResolution', resolution:'coverResolution',
@@ -395,17 +303,7 @@
     throw new Error('字段类型无效');
   }
 
-  var INTERACTION_FIELDS = {};
-  'mouseRotation mouseMove hoverRotate rotateOnlyWhileLeftDrag leftDragMovesAndRotates allowFull360Rotation allowVerticalFlip unrestrictedRotation unrestrictedTranslation yawLimit pitchLimit rollLimit wheelZoom mouseTranslation mouseRotationStrength mouseTranslationStrength mouseSmoothing returnToCenterOnMouseLeave interactionMode doubleClickReset doubleClickButton resetMode resetDurationMs resetEasing resetReloadsPreset resetShowsReferenceImage defaultSceneRotation defaultScenePosition dragAccumulateRotation dragAccumulateTranslation zoomEnabled zoomRange zoomSensitivity zoomInfiniteIn zoomInfiniteOut zoomMethod dynamicClipPlanes noArtificialZoomLimit zoomMinDistance zoomMaxDistance zoomStepsToMin zoomStepsToMax zoomWheelDeltaNormalization zoomAnchorMode zoomAnchor zoomPivot zoomPreserveAnchorScreenPosition zoomAffectsCameraDistanceOnly zoomAlongViewRay'.split(/\s+/).forEach(function (key) {
-    INTERACTION_FIELDS[key] = 1;
-  });
-
-  function consumerForPath(path, mode) {
-    if (path.indexOf('particles.custom.') === 0) {
-      var key = path.split('.')[2] || '';
-      var definition = mode && MODE_DEFINITIONS[mode];
-      return (definition ? definition.consumer : 'particleRenderer.custom') + (INTERACTION_FIELDS[key] ? '.interaction' : '');
-    }
+  function consumerForPath(path) {
     if (path.indexOf('camera.') === 0) return 'cameraController';
     if (path.indexOf('spectrum.') === 0) return 'SpectrumState';
     if (path.indexOf('echo.') === 0) return 'AudioEchoState';
@@ -417,229 +315,26 @@
   function consumptionStatusForPath(path) {
     return /^(?:visual|particles|camera)\./.test(path) ? 'IMPLEMENTED_AND_RENDERED' : 'IMPLEMENTED_STATE_ONLY';
   }
-
-  function modeFromDiscriminators(effectEntry, waveEntry, invalid, path) {
-    if (effectEntry && waveEntry) {
-      invalid.push({
-        sourcePath:path + '.effectMode',
-        canonicalPath:'particles.custom.effectMode',
-        conflictPath:path + '.waveMode',
-        reason:'effectMode 与 waveMode 同时存在，模式判别冲突',
-        code:'MODE_DISCRIMINATOR_CONFLICT',
-        critical:true
-      });
-      invalid.push({
-        sourcePath:path + '.waveMode',
-        canonicalPath:'particles.custom.waveMode',
-        conflictPath:path + '.effectMode',
-        reason:'waveMode 与 effectMode 同时存在，模式判别冲突',
-        code:'MODE_DISCRIMINATOR_CONFLICT',
-        critical:true
-      });
-      return '';
-    }
-    var entry = effectEntry || waveEntry;
-    if (!entry) return '';
-    var value = String(entry.value == null ? '' : entry.value);
-    var definition = MODE_DEFINITIONS[value];
-    if (RETIRED_CUSTOM_MODES[value]) {
-      invalid.push({
-        sourcePath:entry.sourcePath,
-        canonicalPath:'particles.custom.' + (effectEntry ? 'effectMode' : 'waveMode'),
-        value:copy(entry.value),
-        reason:RETIRED_CUSTOM_MODES[value],
-        code:'RETIRED_EFFECT_MODE',
-        critical:true
-      });
-      return '';
-    }
-    if (!definition || definition.discriminator !== (effectEntry ? 'effectMode' : 'waveMode')) {
-      invalid.push({
-        sourcePath:entry.sourcePath,
-        canonicalPath:'particles.custom.' + (effectEntry ? 'effectMode' : 'waveMode'),
-        value:copy(entry.value),
-        reason:'不支持的粒子效果模式',
-        code:'UNSUPPORTED_EFFECT_MODE',
-        critical:true
-      });
-      return '';
-    }
-    return value;
-  }
-
-  function validateModeTopology(mode, custom, path) {
-    var errors = [];
-    function fail(key, reason, code) {
-      errors.push({
-        sourcePath:path + '.' + key,
-        canonicalPath:'particles.custom.' + key,
-        value:own(custom,key) ? copy(custom[key]) : undefined,
-        reason:reason,
-        code:code || 'MODE_TOPOLOGY_INVALID',
-        critical:true
-      });
-    }
-    function sameLength(countKey, fields) {
-      if (!own(custom,countKey)) return;
-      var expected = custom[countKey];
-      fields.forEach(function (key) {
-        if (own(custom,key) && custom[key].length !== expected) fail(key, key + ' 长度必须与 ' + countKey + ' 一致', 'ARRAY_LENGTH_MISMATCH');
-      });
-    }
-    var definition = MODE_DEFINITIONS[mode];
-    if (!definition) return errors;
-    definition.required.forEach(function (key) {
-      if (!own(custom,key)) fail(key, '缺少模式必需字段', 'REQUIRED_FIELD_MISSING');
-    });
-    if (mode === 'goldenStarTrailOrbitField') {
-      sameLength('orbitTrailCount', [
-        'orbitRadii','orbitEccentricity','orbitSpeeds','orbitTilts','orbitPhaseOffsets',
-        'orbitPrecessionSpeeds','orbitThickness','orbitClusterCount'
-      ]);
-      sameLength('outerArcCount', ['outerArcRadii','outerArcCoverage']);
-      if (own(custom,'zoomRange') && custom.zoomRange[0] >= custom.zoomRange[1]) {
-        fail('zoomRange', 'zoomRange 最小距离必须小于最大距离', 'ZOOM_RANGE_ORDER_INVALID');
-      }
-      if (own(custom,'zoomMinDistance') && own(custom,'zoomMaxDistance') && custom.zoomMinDistance >= custom.zoomMaxDistance) {
-        fail('zoomMaxDistance', 'zoomMaxDistance 必须大于 zoomMinDistance', 'ZOOM_RANGE_ORDER_INVALID');
-      }
-      if (own(custom,'zoomRange') && own(custom,'zoomMinDistance') && custom.zoomRange[0] !== custom.zoomMinDistance) {
-        fail('zoomMinDistance', 'zoomMinDistance 必须与 zoomRange 最小值一致', 'ZOOM_RANGE_MISMATCH');
-      }
-      if (own(custom,'zoomRange') && own(custom,'zoomMaxDistance') && custom.zoomRange[1] !== custom.zoomMaxDistance) {
-        fail('zoomMaxDistance', 'zoomMaxDistance 必须与 zoomRange 最大值一致', 'ZOOM_RANGE_MISMATCH');
-      }
-      if (own(custom,'zoomStepsToMin') && custom.zoomStepsToMin !== 12) fail('zoomStepsToMin', '中心缩放必须为 12 步到最小值', 'ZOOM_STEP_COUNT_INVALID');
-      if (own(custom,'zoomStepsToMax') && custom.zoomStepsToMax !== 12) fail('zoomStepsToMax', '中心缩放必须为 12 步到最大值', 'ZOOM_STEP_COUNT_INVALID');
-    }
-    return errors;
-  }
-
-  function normalizeParticleCustom(value, path, sourceVersion) {
+  function normalizeParticleCustom(value, path) {
     var ignored = [];
-    var invalid = [];
-    var migrations = [];
-    var migrationRecords = [];
-    var applied = [];
-    if (!plain(value)) {
-      invalid.push({ sourcePath:path, canonicalPath:'particles.custom', value:copy(value), reason:'particles.custom 必须是对象', code:'CUSTOM_OBJECT_REQUIRED', critical:true });
-      return { custom:null, mode:'', appliedFields:applied, ignoredFields:ignored, invalidFields:invalid, migrations:migrations, migrationRecords:migrationRecords };
-    }
-    var candidates = {};
-    Object.keys(value).forEach(function (sourceKey) {
-      var sourcePath = path + '.' + sourceKey;
-      if (DANGEROUS[sourceKey]) {
-        ignored.push({ sourcePath:sourcePath, value:copy(value[sourceKey]), reason:'不安全字段名' });
-        return;
-      }
-      var sourceToken = token(sourceKey);
-      var canonicalKey = null;
-      var exact = false;
-      Object.keys(CUSTOM_COMMON_SPECS).some(function (key) {
-        if (token(key) === sourceToken) { canonicalKey = key; exact = key === sourceKey; return true; }
-        return false;
-      });
-      if (!canonicalKey) {
-        Object.keys(STAR_TRAIL_SPECS).some(function (key) {
-          if (token(key) === sourceToken) { canonicalKey = key; exact = key === sourceKey; return true; }
-          return false;
-        });
-      }
-      if (!canonicalKey && sourceToken === 'wavemode') { canonicalKey = 'waveMode'; exact = sourceKey === 'waveMode'; }
-      if (!canonicalKey && CUSTOM_ALIASES[sourceToken]) canonicalKey = CUSTOM_ALIASES[sourceToken];
-      if (!canonicalKey) {
-        ignored.push({ sourcePath:sourcePath, value:copy(value[sourceKey]), reason:'当前粒子模式未支持该字段' });
-        return;
-      }
-      if (!candidates[canonicalKey]) candidates[canonicalKey] = [];
-      candidates[canonicalKey].push({
-        key:canonicalKey, value:value[sourceKey], sourcePath:sourcePath,
-        alias:!exact || sourceKey !== canonicalKey, priority:exact ? 100 : 50
-      });
-    });
-    Object.keys(candidates).forEach(function (key) {
-      candidates[key].sort(function (left,right) { return right.priority - left.priority || left.sourcePath.localeCompare(right.sourcePath); });
-    });
-    var effectEntry = candidates.effectMode && candidates.effectMode[0];
-    var waveEntry = candidates.waveMode && candidates.waveMode[0];
-    var mode = modeFromDiscriminators(effectEntry, waveEntry, invalid, path);
-    var modeSpecs = mode && MODE_DEFINITIONS[mode] ? MODE_DEFINITIONS[mode].fields : {};
-    var specs = Object.assign({}, CUSTOM_COMMON_SPECS, modeSpecs);
-    var custom = {};
-    Object.keys(candidates).sort().forEach(function (key) {
-      var list = candidates[key];
-      var winner = list[0];
-      var spec = specs[key];
-      if (!spec) {
-        list.forEach(function (entry) {
-          ignored.push({ sourcePath:entry.sourcePath, value:copy(entry.value), reason:mode ? ('字段不属于 ' + mode + ' 模式') : '缺少有效模式判别字段' });
-        });
-        if (!mode && key !== 'effectMode' && key !== 'waveMode') {
-          invalid.push({ sourcePath:winner.sourcePath, canonicalPath:'particles.custom.' + key, value:copy(winner.value), reason:'模式专属字段缺少有效判别字段', code:'MODE_DISCRIMINATOR_REQUIRED', critical:true });
-        }
-        return;
-      }
-      try {
-        var valueForNormalization = winner.value;
-        var migratedBindingSource = '';
-        var retiredDepthKey = ['ai','Depth'].join('');
-        if (key === 'visualConsoleBinding' && plain(valueForNormalization) && plain(valueForNormalization.dynamic) && own(valueForNormalization.dynamic,retiredDepthKey)) {
-          valueForNormalization = copy(valueForNormalization);
-          if (!own(valueForNormalization.dynamic,'depthDistribution')) {
-            valueForNormalization.dynamic.depthDistribution = valueForNormalization.dynamic[retiredDepthKey];
-          }
-          delete valueForNormalization.dynamic[retiredDepthKey];
-          migratedBindingSource = winner.sourcePath + '.dynamic.' + retiredDepthKey;
-          var bindingMigration = {
-            sourceVersion:sourceVersion, targetVersion:VERSION, oldPath:migratedBindingSource,
-            newPath:'particles.custom.visualConsoleBinding.dynamic.depthDistribution',
-            valueTransform:'retired-control-to-depth-distribution',
-            warning:'已删除的 AI 深度控件映射迁移为普通几何深度分布', reversible:false
-          };
-          migrationRecords.push(bindingMigration);
-          migrations.push(bindingMigration.oldPath + ' → ' + bindingMigration.newPath);
-        }
-        var normalized = normalizeValue(valueForNormalization, spec, 'particles.custom.' + key);
-        custom[key] = normalized;
-        function appendApplied(item, sourcePrefix, canonicalPrefix) {
-          if (plain(item)) {
-            var nestedKeys = Object.keys(item);
-            if (!nestedKeys.length) {
-              applied.push({ sourcePath:sourcePrefix, canonicalPath:canonicalPrefix, value:{}, alias:winner.alias });
-            } else nestedKeys.forEach(function (nestedKey) {
-              appendApplied(item[nestedKey], sourcePrefix + '.' + nestedKey, canonicalPrefix + '.' + nestedKey);
-            });
-          } else {
-            var migratedBinding = migratedBindingSource && canonicalPrefix === 'particles.custom.visualConsoleBinding.dynamic.depthDistribution';
-            applied.push({ sourcePath:migratedBinding ? migratedBindingSource : sourcePrefix, canonicalPath:canonicalPrefix, value:copy(item), alias:winner.alias || !!migratedBinding });
-          }
-        }
-        appendApplied(normalized, winner.sourcePath, 'particles.custom.' + key);
-        if (winner.alias) {
-          var record = {
-            sourceVersion:sourceVersion, targetVersion:VERSION, oldPath:winner.sourcePath,
-            newPath:'particles.custom.' + key, valueTransform:'identity', warning:'旧字段别名已迁移', reversible:true
-          };
-          migrationRecords.push(record);
-          migrations.push(record.oldPath + ' → ' + record.newPath);
-        }
-      } catch (error) {
-        invalid.push({
-          sourcePath:winner.sourcePath, canonicalPath:'particles.custom.' + key, value:copy(winner.value),
-          reason:'字段值无效：' + error.message, code:'CUSTOM_FIELD_INVALID', critical:true
-        });
-      }
-      list.slice(1).forEach(function (entry) {
-        ignored.push({ sourcePath:entry.sourcePath, value:copy(entry.value), reason:'被更高优先级字段 ' + winner.sourcePath + ' 覆盖' });
-      });
-    });
-    invalid = invalid.concat(validateModeTopology(mode, custom, path));
+    leafUnknown(value, path, ignored, 'v1.1.44 已移除自定义粒子预设', 0);
     return {
-      custom:custom, mode:mode, appliedFields:applied, ignoredFields:ignored, invalidFields:invalid,
-      migrations:migrations, migrationRecords:migrationRecords
+      custom:null,
+      mode:'',
+      appliedFields:[],
+      ignoredFields:ignored,
+      invalidFields:[{
+        sourcePath:path,
+        canonicalPath:'',
+        value:copy(value),
+        reason:'v1.1.44 已移除自定义粒子预设；请选择七个内置预设之一',
+        code:'CUSTOM_PARTICLE_PRESET_REMOVED',
+        critical:true
+      }],
+      migrations:[],
+      migrationRecords:[]
     };
   }
-
   var KEY_TOKENS = {};
   var ROOT_INDEX = {};
   Object.keys(SPECS).forEach(function (namespace) {
@@ -904,24 +599,11 @@
     var mode = '';
     if (customCandidates.length) {
       customCandidates.sort(function (left,right) { return right.priority - left.priority || left.sourcePath.localeCompare(right.sourcePath); });
-      var customResult = normalizeParticleCustom(customCandidates[0].value, customCandidates[0].sourcePath, sourceVersion);
-      mode = customResult.mode;
-      if (customResult.custom && Object.keys(customResult.custom).length) {
-        canonical.particles = canonical.particles || {};
-        canonical.particles.custom = customResult.custom;
-      }
-      customResult.appliedFields.forEach(function (field) {
-        field.mode = mode;
-        field.consumer = consumerForPath(field.canonicalPath,mode);
-        field.consumptionStatus = field.alias ? 'MIGRATED' : consumptionStatusForPath(field.canonicalPath);
-        applied.push(field);
-      });
-      ignored = ignored.concat(customResult.ignoredFields);
-      invalid = invalid.concat(customResult.invalidFields);
-      migrations = migrations.concat(customResult.migrations);
-      migrationRecords = migrationRecords.concat(customResult.migrationRecords);
+      var removedCustom = normalizeParticleCustom(customCandidates[0].value, customCandidates[0].sourcePath);
+      ignored = ignored.concat(removedCustom.ignoredFields);
+      invalid = invalid.concat(removedCustom.invalidFields);
       customCandidates.slice(1).forEach(function (entry) {
-        leafUnknown(entry.value, entry.sourcePath, ignored, '被更高优先级 particles.custom 覆盖', 0);
+        leafUnknown(entry.value, entry.sourcePath, ignored, '重复的已移除自定义粒子字段', 0);
       });
     }
 
@@ -932,7 +614,7 @@
     migrationRecords = migrationRecords.filter(function (record,index,list) {
       return list.findIndex(function (entry) { return entry.oldPath === record.oldPath && entry.newPath === record.newPath; }) === index;
     });
-    if (!applied.length && !wallpaper && options.allowEmpty !== true) throw new Error('未找到可导入的视觉字段');
+    if (!applied.length && !wallpaper && !invalid.length && options.allowEmpty !== true) throw new Error('未找到可导入的视觉字段');
     var fieldMatrix = metadataFields.concat(applied).concat(ignored.map(function (field) {
       return {
         sourcePath:field.sourcePath, canonicalPath:'', value:copy(field.value), consumer:'',
@@ -994,16 +676,6 @@
       if (!result[namespace]) return;
       ordered[namespace] = {};
       Object.keys(SPECS[namespace]).forEach(function (key) { if (own(result[namespace],key)) ordered[namespace][key] = copy(result[namespace][key]); });
-      if (namespace === 'particles' && plain(result.particles.custom)) {
-        var custom = result.particles.custom;
-        var mode = own(custom,'effectMode') ? custom.effectMode : custom.waveMode;
-        var definition = MODE_DEFINITIONS[mode];
-        var orderedCustom = {};
-        Object.keys(CUSTOM_COMMON_SPECS).concat(definition ? Object.keys(definition.fields) : []).forEach(function (key) {
-          if (own(custom,key) && !own(orderedCustom,key)) orderedCustom[key] = copy(custom[key]);
-        });
-        if (Object.keys(orderedCustom).length) ordered[namespace].custom = orderedCustom;
-      }
       if (!Object.keys(ordered[namespace]).length) delete ordered[namespace];
     });
     return ordered;
@@ -1057,7 +729,6 @@
   function diffCategory(path) {
     if (/^(?:type|schema|version|presetId|name|title|appVersion|visualPresetSchema|createdAt)$/.test(path)) return 'metadata';
     if (path.indexOf('camera.') === 0) return 'camera';
-    if (path.indexOf('particles.custom.') === 0 && INTERACTION_FIELDS[path.split('.')[2] || '']) return 'interaction';
     if (/^(?:spectrum|echo|lyrics|player)\./.test(path)) return 'global';
     return 'visual';
   }
@@ -1083,8 +754,7 @@
     var afterLeaves = {};
     collectDiffLeaves(before, '', beforeLeaves);
     collectDiffLeaves(after, '', afterLeaves);
-    var mode = after && after.particles && after.particles.custom &&
-      (after.particles.custom.effectMode || after.particles.custom.waveMode) || '';
+    var mode = '';
     var paths = Object.keys(beforeLeaves).concat(Object.keys(afterLeaves)).filter(function (path,index,list) {
       return path && list.indexOf(path) === index;
     }).sort();
@@ -1162,57 +832,11 @@
       };
     }
     var shadow = copy(report.canonical);
-    var mode = report.mode;
-    var custom = shadow.particles && shadow.particles.custom;
-    var requested = custom && Number(custom.particleCount);
-    if (!isFinite(requested) || requested < 0) requested = null;
-    var budgetValue = options.particleBudget != null ? options.particleBudget : options.effectiveParticleBudget;
-    var budget = Number(budgetValue);
-    if (!isFinite(budget) || budget <= 0) budget = requested;
-    var effective = requested == null ? null : Math.max(1,Math.min(requested,Math.floor(budget)));
+    var mode = '';
+    var requested = null;
+    var budget = null;
+    var effective = null;
     var lodAdjustedFields = [];
-    if (custom && requested != null && effective < requested) {
-      custom.particleCount = effective;
-      lodAdjustedFields.push({
-        canonicalPath:'particles.custom.particleCount', requested:requested, effective:effective,
-        reason:'当前设备粒子预算', topologyPreserved:true
-      });
-      if (mode === 'goldenStarTrailOrbitField') {
-        ['coreParticleCount','coreShellParticleCount','coreNetworkParticleCount','coreHaloParticleCount','backgroundStarCount'].forEach(function (key) {
-          if (!own(custom,key)) return;
-          var previous = custom[key];
-          custom[key] = Math.max(previous > 0 ? 1 : 0,Math.floor(previous * effective / requested));
-          if (custom[key] !== previous) lodAdjustedFields.push({
-            canonicalPath:'particles.custom.' + key, requested:previous, effective:custom[key],
-            reason:'按总粒子预算进行 LOD', topologyPreserved:true
-          });
-        });
-      }
-    }
-    var adapter = options.adapters && mode ? options.adapters[mode] : null;
-    if (options.adapters && mode && !adapter) {
-      report.invalidFields.push({
-        sourcePath:'particles.custom.' + MODE_DEFINITIONS[mode].discriminator,
-        canonicalPath:'particles.custom.' + MODE_DEFINITIONS[mode].discriminator,
-        reason:'未注册对应 renderer adapter', code:'RENDERER_ADAPTER_MISSING', critical:true
-      });
-    }
-    if (adapter && typeof adapter.preflight === 'function') {
-      try {
-        var adapterResult = adapter.preflight(copy(shadow), { mode:mode, requestedParticleCount:requested, effectiveParticleCount:effective });
-        if (adapterResult && adapterResult.ok === false) {
-          report.invalidFields.push({
-            sourcePath:adapterResult.path || 'particles.custom', canonicalPath:adapterResult.path || 'particles.custom',
-            reason:adapterResult.reason || 'renderer adapter 预检失败', code:adapterResult.code || 'RENDERER_PREFLIGHT_FAILED', critical:true
-          });
-        }
-      } catch (adapterError) {
-        report.invalidFields.push({
-          sourcePath:'particles.custom', canonicalPath:'particles.custom',
-          reason:'renderer adapter 预检异常：' + adapterError.message, code:'RENDERER_PREFLIGHT_FAILED', critical:true
-        });
-      }
-    }
     report.rejectedFields = report.invalidFields.slice();
     report.lodAdjustedFields = lodAdjustedFields;
     var difference = diff(options.current || {}, shadow, { raw:true });
@@ -1359,20 +983,7 @@
       });
     });
   });
-  Object.keys(CUSTOM_ALIASES).forEach(function (oldKey) {
-    MIGRATION_DEFINITIONS.push({
-      sourceVersion:0, targetVersion:VERSION, oldPath:'particles.custom.' + oldKey,
-      newPath:'particles.custom.' + CUSTOM_ALIASES[oldKey], valueTransform:'identity',
-      warning:'旧粒子模式字段别名', reversible:true
-    });
-  });
-
   var MODE_FIELDS = {};
-  Object.keys(MODE_DEFINITIONS).forEach(function (mode) {
-    MODE_FIELDS[mode] = Object.keys(CUSTOM_COMMON_SPECS).concat(Object.keys(MODE_DEFINITIONS[mode].fields)).filter(function (key,index,list) {
-      return list.indexOf(key) === index;
-    });
-  });
   var FIELD_REGISTRY = {};
   Object.keys(SPECS).forEach(function (namespace) {
     Object.keys(SPECS[namespace]).forEach(function (key) {
@@ -1383,20 +994,8 @@
       };
     });
   });
-  Object.keys(MODE_DEFINITIONS).forEach(function (mode) {
-    MODE_FIELDS[mode].forEach(function (key) {
-      var path = 'particles.custom.' + key;
-      if (!FIELD_REGISTRY[path]) FIELD_REGISTRY[path] = {
-        path:path, namespace:'particles.custom', spec:CUSTOM_COMMON_SPECS[key] || MODE_DEFINITIONS[mode].fields[key],
-        consumer:consumerForPath(path,mode), consumptionStatus:consumptionStatusForPath(path), modes:[]
-      };
-      if (FIELD_REGISTRY[path].modes.indexOf(mode) < 0) FIELD_REGISTRY[path].modes.push(mode);
-    });
-  });
-
   var fields = {};
   Object.keys(SPECS).forEach(function (namespace) { fields[namespace] = Object.keys(SPECS[namespace]); });
-  fields.particles = fields.particles.concat(['custom']);
   return Object.freeze({
     TYPE:TYPE, SCHEMA:SCHEMA, VERSION:VERSION, EFFECT_SCHEMA_VERSION:EFFECT_SCHEMA_VERSION,
     BUILTIN_PRESETS:BUILTIN_PRESETS, RETIRED_CUSTOM_MODES:RETIRED_CUSTOM_MODES, RETIRED_PRESET_NAMES:RETIRED_PRESET_NAMES,

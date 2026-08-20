@@ -13,7 +13,7 @@ This file is the public release summary. The canonical detailed notice is [NOTIC
 | Splash kinetic grid | `public/lf-splash.js` | `satoriui/kinetic-grid` | MIT (item and Marketplace) | `MIT_OR_PERMISSIVE_PASS` |
 | Lyric vapour | stage-lyric integration in `public/index.html` | `jatin-yadav05/vapour-text-effect`, catalog 2189 | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Voice assistant | `public/lf-voice-assistant.*`, `desktop/lf-voice-assistant-main.js` | eIsland behavior review only | No eIsland code/assets packaged; LF independent implementation | `LUMIFIELD_ORIGINAL_PASS` |
-| Golden star trail | `public/lf-golden-atomic-star-trail-preset.json` and LF renderer | Project-owner ChatGPT-generated LF preset | Owner-originated configuration, no third-party payload | `LUMIFIELD_ORIGINAL_PASS` |
+| Golden star trail (removed from product in v1.1.44) | Historical provenance record only; no v1.1.44 runtime file or renderer entry | Project-owner ChatGPT-generated LF preset | Owner-originated configuration, no third-party payload; evidence retained without packaging the removed preset | `LUMIFIELD_ORIGINAL_PASS` |
 | Signature animation | `public/assets/splash/lf-signature.mp4` | Project-owner Adobe After Effects render | Owner attestation; exact source/package hash recorded | `LUMIFIELD_ORIGINAL_PASS` |
 | Three.js r128 | `public/vendor/three.r128.min.js` | Three.js r128 | MIT | `MIT_OR_PERMISSIVE_PASS` |
 | FFmpeg | `ffmpeg-static@5.3.0` | npm locked dependency | GPL-3.0-or-later | `GPL_NATIVE_PASS` |

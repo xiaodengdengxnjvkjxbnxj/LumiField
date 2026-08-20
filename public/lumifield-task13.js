@@ -14,7 +14,7 @@
     imports: 'lumifield-task13-imports-v1',
     canonicalPresets: 'lumifield-canonical-presets-v1',
     currentPreset: 'lumifield-task13-current-preset-v1',
-    particleRuntime: 'lumifield-task13-particle-runtime-v1',
+    retiredParticleRuntime: 'lumifield-task13-particle-runtime-v1',
     presetShares: 'lumifield-preset-shares-v1',
     consoleFolds: 'lumifield-task15-console-folds-v1',
     translationPrefix: 'lumifield-task13-translation:'
@@ -293,8 +293,7 @@
     getState: function () {
       return {
         lyrics: Object.assign({}, lyricState), spectrum: Object.assign({}, spectrumState),
-        echo: Object.assign({}, echoState, { visualEq:echoState.visualEq.slice() }),
-        particles: customParticleDebugSnapshot()
+        echo: Object.assign({}, echoState, { visualEq:echoState.visualEq.slice() })
       };
     },
     getSpectrumDebug: function () { return spectrumDebugSnapshot(); },
@@ -328,132 +327,63 @@
       var manager = window.LumiFieldAudioEchoManager;
       if (manager && typeof manager.disposeMode === 'function') manager.disposeMode();
       return true;
-    },
-    prepareParticlePreset: function (value) { return prepareCustomParticlePreset(value); },
-    applyParticlePreset: function (value, options) { return applyCustomParticlePreset(value, options || {}); },
-    captureParticleRuntime: function () { return captureCustomParticleRuntime(); },
-    restoreParticleRuntime: function (snapshot, options) { return restoreCustomParticleRuntime(snapshot, options || {}); },
-    destroyParticleRuntime: function () { return destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true }); },
-    getParticleRuntime: function () { return captureCustomParticleRuntime(); },
-    getParticleDebug: function () { return customParticleDebugSnapshot(); },
-    setParticleTestUser: function (userId) { return setCustomParticleTestUser(userId); }
-  };
-
-  // ---------- Canonical custom particle runtime (shared scene / renderer / main rAF) ----------
-  var CUSTOM_PARTICLE_MODES = {
-    goldenStarTrailOrbitField: 'goldenStarTrailOrbitField'
-  };
-  var customParticleRuntime = null;
-  var customParticleScopeOverride = '';
-  var customParticleScopeReady = false;
-  var customParticlePersistTimer = 0;
-  var customParticleBuildCount = 0;
-  var customParticleDisposeCount = 0;
-  var customParticleGeneration = 0;
-  var customParticleLastDisposed = null;
-  var customParticleLastEnergy = 0;
-  var customParticleFieldConsumption = {};
-  var CUSTOM_SCOPE_SCHEMA = 'lumifield-user-scoped-v1';
-  var CUSTOM_PARTICLE_MAX = 100000;
-  var CUSTOM_PARTICLE_MIN = 256;
-
-  function defined(value, fallback) { return value === undefined || value === null ? fallback : value; }
-  function finite(value, fallback) {
-    value = Number(value);
-    return isFinite(value) ? value : Number(fallback) || 0;
-  }
-  function finiteInt(value, fallback, min, max) {
-    value = Math.round(finite(value, fallback));
-    return Math.max(min == null ? -2147483648 : min, Math.min(max == null ? 2147483647 : max, value));
-  }
-  function bool(value, fallback) { return value === undefined || value === null ? fallback === true : value === true; }
-  function own(object, key) { return !!object && Object.prototype.hasOwnProperty.call(object, key); }
-  function arrayOf(value, length, fallback) {
-    var source = Array.isArray(value) ? value.slice(0, length) : [];
-    while (source.length < length) source.push(typeof fallback === 'function' ? fallback(source.length) : fallback);
-    return source;
-  }
-  function finiteArray(value, length, fallback) {
-    return arrayOf(value, length, fallback).map(function (entry, index) {
-      var number = Number(entry);
-      if (!isFinite(number)) throw new Error('数组第 ' + index + ' 项必须是数值');
-      return number;
-    });
-  }
-  function colorValue(value, fallback) {
-    value = String(defined(value, fallback || '#ffffff'));
-    if (!/^#[0-9a-f]{6}$/i.test(value)) throw new Error('粒子颜色无效：' + value);
-    return value.toLowerCase();
-  }
-  function customParticleClone(value) {
-    return value == null ? value : JSON.parse(JSON.stringify(value));
-  }
-  function customParticleHash(value) {
-    var text = String(value || 'lumifield');
-    var hash = 2166136261 >>> 0;
-    for (var index = 0; index < text.length; index++) {
-      hash ^= text.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
     }
-    return hash >>> 0;
-  }
-  function customParticleRandom(seed) {
-    var state = seed >>> 0 || 0x9e3779b9;
-    return function () {
-      state += 0x6d2b79f5;
-      var value = state;
-      value = Math.imul(value ^ value >>> 15, value | 1);
-      value ^= value + Math.imul(value ^ value >>> 7, value | 61);
-      return ((value ^ value >>> 14) >>> 0) / 4294967296;
-    };
-  }
-  function customParticleUserId() {
-    if (customParticleScopeOverride) return customParticleScopeOverride;
+  };
+
+  // ---------- User-scoped canonical preset storage ----------
+  var PRESET_SCOPE_SCHEMA = 'lumifield-user-scoped-v1';
+  var presetScopeOverride = '';
+  var presetScopeReady = false;
+
+  function own(object, key) { return !!object && Object.prototype.hasOwnProperty.call(object, key); }
+  function presetClone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
+  function presetScopeUserId() {
+    if (presetScopeOverride) return presetScopeOverride;
     try {
       var user = window.LFAuth && typeof window.LFAuth.getUser === 'function' ? window.LFAuth.getUser() : null;
       return String(user && (user.id || user.userId || user.email) || '').trim();
     } catch (_) { return ''; }
   }
-  function customParticleOwnerReady() {
-    if (customParticleScopeOverride || customParticleUserId()) return true;
-    if (customParticleScopeReady) return true;
+  function presetScopeOwnerReady() {
+    if (presetScopeOverride || presetScopeUserId()) return true;
+    if (presetScopeReady) return true;
     return !(window.desktopWindow && typeof window.desktopWindow.lfAuthStatus === 'function');
   }
-  function customParticleScopeKey() {
-    var owner = customParticleScopeOverride || customParticleUserId();
+  function presetScopeKey() {
+    var owner = presetScopeOverride || presetScopeUserId();
     return owner ? 'user:' + encodeURIComponent(owner).slice(0, 180) : 'device:anonymous';
   }
-  function emptyScopedRoot() { return { schema:CUSTOM_SCOPE_SCHEMA, version:1, scopes:{} }; }
+  function emptyScopedRoot() { return { schema:PRESET_SCOPE_SCHEMA, version:1, scopes:{} }; }
   function readRawJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
   }
   function readScopedValue(key, fallback) {
     var raw = readRawJson(key);
-    if (raw && raw.schema === CUSTOM_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)) {
-      return own(raw.scopes, customParticleScopeKey()) ? customParticleClone(raw.scopes[customParticleScopeKey()]) : customParticleClone(fallback);
+    if (raw && raw.schema === PRESET_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)) {
+      return own(raw.scopes, presetScopeKey()) ? presetClone(raw.scopes[presetScopeKey()]) : presetClone(fallback);
     }
-    if (raw == null) return customParticleClone(fallback);
-    if (!customParticleOwnerReady()) return customParticleClone(raw);
+    if (raw == null) return presetClone(fallback);
+    if (!presetScopeOwnerReady()) return presetClone(raw);
     var root = emptyScopedRoot();
-    root.scopes[customParticleScopeKey()] = customParticleClone(raw);
+    root.scopes[presetScopeKey()] = presetClone(raw);
     try { localStorage.setItem(key, JSON.stringify(root)); } catch (_) {}
-    return customParticleClone(raw);
+    return presetClone(raw);
   }
   function writeScopedValue(key, value) {
-    if (!customParticleOwnerReady()) return false;
+    if (!presetScopeOwnerReady()) return false;
     var raw = readRawJson(key);
-    var root = raw && raw.schema === CUSTOM_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)
+    var root = raw && raw.schema === PRESET_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)
       ? raw : emptyScopedRoot();
-    root = { schema:CUSTOM_SCOPE_SCHEMA, version:1, scopes:Object.assign({}, root.scopes) };
-    if (value === undefined) delete root.scopes[customParticleScopeKey()];
-    else root.scopes[customParticleScopeKey()] = customParticleClone(value);
+    root = { schema:PRESET_SCOPE_SCHEMA, version:1, scopes:Object.assign({}, root.scopes) };
+    if (value === undefined) delete root.scopes[presetScopeKey()];
+    else root.scopes[presetScopeKey()] = presetClone(value);
     try { localStorage.setItem(key, JSON.stringify(root)); return true; } catch (_) { return false; }
   }
   function readScopedCurrentPresetId() {
     var rawText = '';
     try { rawText = localStorage.getItem(STORE.currentPreset) || ''; } catch (_) {}
     var raw = readRawJson(STORE.currentPreset);
-    if (raw == null && rawText && customParticleOwnerReady()) {
+    if (raw == null && rawText && presetScopeOwnerReady()) {
       var legacyId = String(rawText).trim();
       if (legacyId) {
         writeScopedValue(STORE.currentPreset, legacyId);
@@ -466,1683 +396,19 @@
   function writeScopedCurrentPresetId(value) {
     return writeScopedValue(STORE.currentPreset, String(value || ''));
   }
-  function particleLodScale(requested) {
-    requested = Math.max(CUSTOM_PARTICLE_MIN, finiteInt(requested, CUSTOM_PARTICLE_MIN, CUSTOM_PARTICLE_MIN, CUSTOM_PARTICLE_MAX));
-    var quality = String(window.fx && window.fx.performanceQuality || 'high');
-    var scale = quality === 'eco' ? 0.48 : (quality === 'balanced' ? 0.72 : 1);
-    var cores = Number(navigator.hardwareConcurrency) || 8;
-    if (cores <= 4 && quality !== 'high' && quality !== 'ultra') scale = Math.min(scale, 0.58);
-    return { requested:requested, scale:scale, actual:Math.max(CUSTOM_PARTICLE_MIN, Math.min(requested, Math.round(requested * scale))) };
-  }
-  function proportionalAllocation(total, requested, order) {
-    order = order || Object.keys(requested);
-    var sum = order.reduce(function (value, key) { return value + Math.max(0, finite(requested[key], 0)); }, 0);
-    var result = {}, fractions = [], used = 0;
-    order.forEach(function (key) {
-      var exact = sum > 0 ? total * Math.max(0, finite(requested[key], 0)) / sum : total / Math.max(1, order.length);
-      result[key] = Math.floor(exact);
-      used += result[key];
-      fractions.push({ key:key, fraction:exact - result[key] });
-    });
-    fractions.sort(function (left, right) { return right.fraction - left.fraction; });
-    for (var index = 0; used < total; index++, used++) result[fractions[index % fractions.length].key]++;
-    return result;
-  }
-  function consumeParticleField(path, consumer, effect, status) {
-    customParticleFieldConsumption[path] = {
-      status:status || 'IMPLEMENTED_AND_RENDERED',
-      consumer:consumer,
-      effect:effect || ''
-    };
-  }
-  function walkParticleFields(value, prefix, callback) {
-    if (!value || typeof value !== 'object') return;
-    Object.keys(value).forEach(function (key) {
-      var path = prefix ? prefix + '.' + key : key;
-      callback(path, value[key]);
-      if (value[key] && typeof value[key] === 'object' && !Array.isArray(value[key])) walkParticleFields(value[key], path, callback);
-    });
-  }
-  function buildFieldConsumption(canonical, mode) {
-    customParticleFieldConsumption = {};
-    function declarationOnly(path, value) {
-      return !!(value && typeof value === 'object' && !Array.isArray(value)) ||
-        /(?:visualConsoleBinding|organizationMode|boardShape|forceCircularBoundary|reducedClutter|ParticleDistribution|ParticlesOnly|resetMode|resetEasing|resetReloadsPreset|resetShowsReferenceImage|interactionMode|zoomMethod|zoomWheelDeltaNormalization|zoomAnchorMode|zoomPreserveAnchorScreenPosition|zoomAffectsCameraDistanceOnly|zoomAlongViewRay|yawLimit|pitchLimit|rollLimit)$/.test(path);
-    }
-    walkParticleFields(canonical.visual || {}, 'visual', function (path, value) {
-      consumeParticleField(path, declarationOnly(path, value) ? 'GoldenPresetInvariantValidator' : 'CustomParticleMaterial',
-        declarationOnly(path, value) ? '已验证并持久化的视觉约束' : '视觉强度、深度、颜色或相机冲击',
-        declarationOnly(path, value) ? 'IMPLEMENTED_STATE_ONLY' : 'IMPLEMENTED_AND_RENDERED');
-    });
-    walkParticleFields(canonical.particles || {}, 'particles', function (path, value) {
-      var consumer = 'CustomParticleMaterial';
-      if (/particles\.custom\.(?:orbit|trail|background|outerArc|palette|organization|core|effectVariant|visualConsoleBinding)/.test(path)) consumer = 'GoldenAtomicStarTrailBuilder';
-      else if (/mouse|drag|wheel|zoom|interaction|Full360|VerticalFlip|hoverRotate|freeOrbit/.test(path)) consumer = 'CustomParticleInteractionController';
-      else if (path === 'particles.depthDistribution') consumer = 'GoldenAtomicGeometryDepthDistribution';
-      var stateOnly = declarationOnly(path, value);
-      consumeParticleField(path, stateOnly ? 'GoldenPresetInvariantValidator' : consumer,
-        stateOnly ? '已验证并持久化的拓扑、交互或控制台约束' : '几何、着色器、层策略或交互控制',
-        stateOnly ? 'IMPLEMENTED_STATE_ONLY' : 'IMPLEMENTED_AND_RENDERED');
-    });
-    walkParticleFields(canonical.camera || {}, 'camera', function (path, value) {
-      var stateOnly = declarationOnly(path, value);
-      consumeParticleField(path, stateOnly ? 'GoldenPresetInvariantValidator' : 'CustomParticleCameraController',
-        stateOnly ? '已验证并持久化的共享相机约束' : '共享相机初始姿态、阻尼和交互能力',
-        stateOnly ? 'IMPLEMENTED_STATE_ONLY' : 'IMPLEMENTED_AND_RENDERED');
-    });
-    ['spectrum','echo','lyrics','player'].forEach(function (namespace) {
-      walkParticleFields(canonical[namespace] || {}, namespace, function (path) {
-        consumeParticleField(path, 'LumiFieldUnifiedState', '复用 LF 统一功能状态', 'IMPLEMENTED_STATE_ONLY');
-      });
-    });
-    consumeParticleField('particles.custom.effectMode', 'CustomParticleModeDispatcher', mode);
-    return customParticleClone(customParticleFieldConsumption);
-  }
-
-  function normalizeParticleCamera(camera, mode, custom) {
-    camera = camera && typeof camera === 'object' && !Array.isArray(camera) ? customParticleClone(camera) : {};
-    var fixedPosition = Array.isArray(camera.fixedPosition) ? finiteArray(camera.fixedPosition, 3, 0) : null;
-    var fixedTarget = Array.isArray(camera.fixedTarget) ? finiteArray(camera.fixedTarget, 3, 0) : [0, 0, 0];
-    var defaultRadius = mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField ? 64 : 30;
-    var yaw = finite(camera.mouseYaw, 0) * Math.PI / 180;
-    var pitch = finite(camera.mousePitch, -7.5) * Math.PI / 180;
-    var radius = defaultRadius;
-    if (fixedPosition) {
-      var dx = fixedPosition[0] - fixedTarget[0], dy = fixedPosition[1] - fixedTarget[1], dz = fixedPosition[2] - fixedTarget[2];
-      radius = Math.max(0.03, Math.sqrt(dx * dx + dy * dy + dz * dz));
-      yaw = Math.atan2(dx, dz);
-      pitch = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
-    }
-    var zoomRange = Array.isArray(custom.zoomRange) ? custom.zoomRange.slice(0, 2) : [0.35, 120];
-    var zoomMin = Math.max(0.001, finite(zoomRange[0], 0.35));
-    var zoomUnbounded = zoomRange[1] === 'unbounded' || custom.zoomInfiniteIn === true || custom.zoomMethod === 'exponentialUnbounded';
-    var zoomMax = zoomUnbounded ? 1000000 : Math.max(zoomMin, finite(zoomRange[1], 120));
-    var initialRoll = finiteArray(camera.defaultRotation || [0,0,0], 3, 0)[2] * Math.PI / 180;
-    return {
-      mode:String(camera.mode || (mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField ? 'freeOrbitDrag' : 'freeOrbit')),
-      yaw:yaw, pitch:pitch, roll:initialRoll, target:fixedTarget,
-      radius:radius, targetYaw:yaw, targetPitch:pitch, targetRoll:initialRoll, targetRadius:radius,
-      pan:[0, 0, 0], targetPan:[0, 0, 0],
-      smoothing:Math.max(0.01, Math.min(1, finite(camera.smoothing, finite(custom.mouseSmoothing, 0.11)))),
-      freeOrbit:bool(camera.freeOrbit, true),
-      unrestrictedPitch:bool(camera.unrestrictedPitch, camera.pitchLimit === 'none'),
-      pitchLimit:defined(camera.pitchLimit, 'none'),
-      allowVerticalFlip:bool(camera.allowVerticalFlip, bool(custom.allowVerticalFlip, true)),
-      allowFull360Rotation:bool(camera.allowFull360Rotation, bool(custom.allowFull360Rotation, true)),
-      allowRoll:bool(camera.allowRoll, true),
-      allowPan:bool(camera.allowPan, custom.mouseTranslation === true),
-      mouseRotation:bool(custom.mouseRotation, true),
-      mouseMove:bool(custom.mouseMove, false),
-      mouseFollowRotation:bool(camera.mouseFollowRotation, false),
-      leftDragOrbit:bool(camera.leftDragOrbit, bool(custom.mouseRotation, true)),
-      leftDragPan:bool(camera.leftDragPan, bool(custom.leftDragMovesAndRotates, false)),
-      rightDragPan:bool(camera.rightDragPan, false),
-      middleDragRoll:bool(camera.middleDragRoll, false),
-      wheelZoom:bool(custom.zoomEnabled, true) && bool(camera.wheelZoom, bool(custom.wheelZoom, true)),
-      resetKeepsFreeControls:bool(camera.resetKeepsFreeControls, true),
-      preserveFreeOrbit:bool(camera.preserveFreeOrbit, true),
-      hoverRotate:bool(camera.hoverRotate, bool(custom.hoverRotate, false)),
-      rotateOnlyWhileLeftDrag:bool(camera.rotateOnlyWhileLeftDrag, bool(custom.rotateOnlyWhileLeftDrag, true)),
-      defaultTopDownBias:bool(camera.defaultTopDownBias, false),
-      fov:Math.max(18, Math.min(95, finite(camera.fieldOfView, 50))),
-      zoomMin:zoomMin, zoomMax:zoomMax, zoomUnbounded:zoomUnbounded,
-      zoomSensitivity:Math.max(0.005, Math.min(2, finite(custom.zoomSensitivity, 0.16))),
-      zoomEnabled:bool(custom.zoomEnabled, true),
-      zoomInfiniteIn:bool(custom.zoomInfiniteIn, false),
-      zoomMethod:String(custom.zoomMethod || (zoomUnbounded ? 'exponentialUnbounded' : 'exponentialClamped')),
-      rotationStrength:Math.max(0, finite(custom.mouseRotationStrength, 1)),
-      translationStrength:Math.max(0, finite(custom.mouseTranslationStrength, 1)),
-      mouseTranslation:bool(custom.mouseTranslation, bool(custom.mouseMove, false)),
-      returnToCenterOnMouseLeave:bool(custom.returnToCenterOnMouseLeave, false),
-      dragAccumulateRotation:bool(custom.dragAccumulateRotation, true),
-      dragAccumulateTranslation:bool(custom.dragAccumulateTranslation, true),
-      interactionMode:String(custom.interactionMode || ''),
-      doubleClickReset:bool(custom.doubleClickReset, bool(camera.doubleLeftClickReset, true)),
-      resetDurationMs:finiteInt(custom.resetDurationMs, finiteInt(camera.resetDurationMs, 420, 0, 5000), 0, 5000),
-      zoomStepsToMin:finiteInt(custom.zoomStepsToMin, 12, 1, 120),
-      zoomStepsToMax:finiteInt(custom.zoomStepsToMax, 12, 1, 120),
-      zoomAnchor:Array.isArray(custom.zoomAnchor) ? finiteArray(custom.zoomAnchor, 3, 0) : (Array.isArray(camera.zoomTarget) ? finiteArray(camera.zoomTarget, 3, 0) : fixedTarget.slice()),
-      initialRadius:radius,
-      zoomStep:0
-    };
-  }
-  function normalizeParticleCommon(canonical, custom) {
-    var particles = canonical.particles || {};
-    var visual = canonical.visual || {};
-    return {
-      point:Math.max(0.25, Math.min(8, finite(particles.point, 1.6))),
-      speed:Math.max(0, Math.min(5, finite(particles.speed, 1))),
-      twist:Math.max(-4, Math.min(4, finite(particles.twist, 0))),
-      color:Math.max(0, Math.min(3, finite(particles.color, 1))),
-      scatter:Math.max(0, Math.min(3, finite(particles.scatter, 0))),
-      bgFade:Math.max(0, Math.min(1.5, finite(particles.bgFade, 0.08))),
-      bloomStrength:Math.max(0, Math.min(3, finite(particles.bloomStrength, 0.8))),
-      bloom:bool(particles.bloom, true),
-      edge:bool(particles.edge, true),
-      cinema:bool(particles.cinema, true),
-      floatLayer:bool(particles.floatLayer, false),
-      particleLyrics:bool(particles.particleLyrics, false),
-      backCover:bool(particles.backCover, false),
-      intensity:Math.max(0.1, Math.min(4, finite(visual.intensity, 1))),
-      depth:Math.max(0.1, Math.min(4, finite(visual.depth, 1))),
-      cinemaShake:Math.max(0, Math.min(2, finite(visual.cinemaShake, 0))),
-      coverResolution:Math.max(0.75, Math.min(1.55, finite(visual.coverResolution, window.fx && window.fx.coverResolution || 1.15))),
-      visualTintMode:String(visual.visualTintMode || 'custom'),
-      visualTintColor:colorValue(visual.visualTintColor, '#ffffff'),
-      depthDistribution:bool(particles.depthDistribution, true),
-      particleOnly:bool(custom.particleOnly, true),
-      allowText:bool(custom.allowText, false),
-      allowSubtitle:bool(custom.allowSubtitle, false),
-      allowOverlay:bool(custom.allowOverlay, false),
-      allowCards:bool(custom.allowCards, false),
-      allowArtwork:bool(custom.allowArtwork, false),
-      allowControls:bool(custom.allowControls, false),
-      allowLogo:bool(custom.allowLogo, false),
-      hdSharp:bool(custom.hdSharp, true),
-      blur:bool(custom.blur, false),
-      threeD:bool(custom.threeD, true),
-      audioReactive:bool(custom.audioReactive, true),
-      boardShape:String(custom.boardShape || 'circle'),
-      forceCircularBoundary:bool(custom.forceCircularBoundary, true)
-    };
-  }
-  function validateExactArray(name, value, length, nested) {
-    if (!Array.isArray(value) || value.length !== length) throw new Error(name + ' 长度必须为 ' + length);
-    return value.map(function (entry, index) {
-      if (nested) {
-        if (!Array.isArray(entry) || entry.length !== nested) throw new Error(name + '[' + index + '] 必须含 ' + nested + ' 个数值');
-        return finiteArray(entry, nested, 0);
-      }
-      var number = Number(entry);
-      if (!isFinite(number)) throw new Error(name + '[' + index + '] 必须是数值');
-      return number;
-    });
-  }
-  function normalizeRingPreset(custom, lod) {
-    var count = finiteInt(custom.ringCount, 4, 1, 16);
-    var ringRadii = validateExactArray('ringRadii', custom.ringRadii, count);
-    var ringThickness = validateExactArray('ringThickness', custom.ringThickness, count);
-    var ringSpeeds = validateExactArray('ringSpeeds', custom.ringSpeeds, count);
-    var ringVerticalWave = validateExactArray('ringVerticalWave', custom.ringVerticalWave, count);
-    var ringDensity = validateExactArray('ringDensity', custom.ringDensity, count);
-    var requestedAllocation = Object.assign({
-      rings:Math.max(0, lod.requested - finiteInt(custom.outerHaloDensity * lod.requested * 0.18, 0, 0, lod.requested)),
-      core:0, innerCrown:0, outerHalo:0
-    }, custom.particleAllocation || {});
-    Object.keys(requestedAllocation).forEach(function (key) { requestedAllocation[key] = finiteInt(requestedAllocation[key], 0, 0, CUSTOM_PARTICLE_MAX); });
-    var allocationSum = requestedAllocation.rings + requestedAllocation.core + requestedAllocation.innerCrown + requestedAllocation.outerHalo;
-    if (allocationSum !== lod.requested) throw new Error('particleAllocation 总和必须等于 particleCount');
-    if (custom.coreEnabled === false && requestedAllocation.core !== 0) throw new Error('coreEnabled=false 时 core allocation 必须为 0');
-    if (custom.innerCrownEnabled === false && requestedAllocation.innerCrown !== 0) throw new Error('innerCrownEnabled=false 时 innerCrown allocation 必须为 0');
-    var allocation = proportionalAllocation(lod.actual, requestedAllocation, ['rings','core','innerCrown','outerHalo']);
-    var ringAllocation = proportionalAllocation(allocation.rings, ringDensity.reduce(function (out, density, index) {
-      out['ring' + index] = Math.max(0.0001, density); return out;
-    }, {}), ringDensity.map(function (_, index) { return 'ring' + index; }));
-    return {
-      ringCount:count, ringRadii:ringRadii, ringThickness:ringThickness, ringSpeeds:ringSpeeds,
-      ringVerticalWave:ringVerticalWave, ringDensity:ringDensity,
-      ringEllipticity:finite(custom.ringEllipticity, 1),
-      ringRippleStrength:finite(custom.ringRippleStrength, 0.28),
-      ringPhaseStagger:finite(custom.ringPhaseStagger, 0.92),
-      coreEnabled:bool(custom.coreEnabled, false), coreRadius:finite(custom.coreRadius, 0),
-      coreHeight:finite(custom.coreHeight, 0), coreDensity:finite(custom.coreDensity, 0),
-      coreSpinSpeed:finite(custom.coreSpinSpeed, 0), corePulseStrength:finite(custom.corePulseStrength, 0),
-      coreCurlStrength:finite(custom.coreCurlStrength, 0), coreMoundShape:String(custom.coreMoundShape || 'disabled'),
-      innerCrownEnabled:bool(custom.innerCrownEnabled, false), innerCrownRadius:finite(custom.innerCrownRadius, 0),
-      innerCrownHeight:finite(custom.innerCrownHeight, 0), innerCrownArms:finiteInt(custom.innerCrownArms, 0, 0, 128),
-      innerCrownSpinSpeed:finite(custom.innerCrownSpinSpeed, 0),
-      outerHaloEnabled:bool(custom.outerHaloEnabled, true), outerHaloRadius:finite(custom.outerHaloRadius, 11.2),
-      outerHaloDensity:finite(custom.outerHaloDensity, 0.48), outerHaloDrift:finite(custom.outerHaloDrift, 0.035),
-      whitePalette:(Array.isArray(custom.whitePalette) ? custom.whitePalette : ['#ffffff']).map(function (color) { return colorValue(color, '#ffffff'); }),
-      foamHighlight:colorValue(custom.foamHighlight, '#ffffff'),
-      bassCorePulse:finite(custom.bassCorePulse, 0), bassCoreHeight:finite(custom.bassCoreHeight, 0),
-      lowMidRingRipple:finite(custom.lowMidRingRipple, 0.72), midRingRotation:finite(custom.midRingRotation, 0.54),
-      highSparkDensity:finite(custom.highSparkDensity, 0.62), spectralFluxBurst:finite(custom.spectralFluxBurst, 0.48),
-      pauseRelease:finite(custom.pauseRelease, 0.88), coreShape:String(custom.coreShape || 'none'),
-      coreVerticalRise:finite(custom.coreVerticalRise, 0), coreFlatness:finite(custom.coreFlatness, 0),
-      removeCentralCone:bool(custom.removeCentralCone, true), centralConeEnabled:bool(custom.centralConeEnabled, false),
-      outerHaloShape:String(custom.outerHaloShape || 'circle'),
-      annularVoidEnabled:bool(custom.annularVoidEnabled, false),
-      annularVoidInnerRadius:finite(custom.annularVoidInnerRadius, 0),
-      annularVoidOuterRadius:finite(custom.annularVoidOuterRadius, 0),
-      removedInnermostRing:bool(custom.removedInnermostRing, false),
-      removedRingRadius:finite(custom.removedRingRadius, 0),
-      removedRingOrderFromOutside:finiteInt(custom.removedRingOrderFromOutside, 0, 0, 128),
-      redistributeRemovedRingParticles:bool(custom.redistributeRemovedRingParticles, false),
-      centerParticlesEnabled:bool(custom.centerParticlesEnabled, false),
-      centerFilledDiskEnabled:bool(custom.centerFilledDiskEnabled, false),
-      centerVoidEnabled:bool(custom.centerVoidEnabled, false),
-      centerVoidRadius:finite(custom.centerVoidRadius, 0),
-      forceCenterClear:bool(custom.forceCenterClear, false),
-      requestedAllocation:requestedAllocation, allocation:allocation, ringAllocation:ringAllocation
-    };
-  }
-  function normalizeOrbitPreset(custom, lod) {
-    var count = finiteInt(custom.orbitTrailCount, 11, 1, 64);
-    var radii = validateExactArray('orbitRadii', custom.orbitRadii, count);
-    var eccentricity = validateExactArray('orbitEccentricity', custom.orbitEccentricity, count);
-    var speeds = validateExactArray('orbitSpeeds', custom.orbitSpeeds, count);
-    var tilts = validateExactArray('orbitTilts', custom.orbitTilts, count, 3);
-    var phaseOffsets = validateExactArray('orbitPhaseOffsets', custom.orbitPhaseOffsets, count);
-    var precessionSpeeds = validateExactArray('orbitPrecessionSpeeds', custom.orbitPrecessionSpeeds, count);
-    var thickness = validateExactArray('orbitThickness', custom.orbitThickness, count);
-    var clusterCounts = validateExactArray('orbitClusterCount', custom.orbitClusterCount, count).map(function (value) {
-      return finiteInt(value, 1, 1, 256);
-    });
-    var coreRequested = bool(custom.coreEnabled, true) ? finiteInt(custom.coreParticleCount, 0, 0, lod.requested) : 0;
-    var backgroundRequested = bool(custom.backgroundStarsEnabled, true) ? finiteInt(custom.backgroundStarCount, 0, 0, lod.requested) : 0;
-    var remaining = Math.max(0, lod.requested - coreRequested - backgroundRequested);
-    var arcRequested = bool(custom.outerArcEnabled, true)
-      ? Math.min(remaining, Math.round(remaining * Math.max(0, finite(custom.outerArcDensity, 0.34)) / (6 + Math.max(0, finite(custom.outerArcDensity, 0.34)))))
-      : 0;
-    var requestedAllocation = { trails:remaining - arcRequested, core:coreRequested, outerArc:arcRequested, backgroundStars:backgroundRequested };
-    var allocation = proportionalAllocation(lod.actual, requestedAllocation, ['trails','core','outerArc','backgroundStars']);
-    var orbitWeights = {};
-    for (var index = 0; index < count; index++) orbitWeights['orbit' + index] = Math.max(0.01, clusterCounts[index] * Math.sqrt(Math.max(1, radii[index])));
-    var perOrbit = proportionalAllocation(allocation.trails, orbitWeights, Object.keys(orbitWeights));
-    var coreRequestedParts = {
-      shell:finiteInt(custom.coreShellParticleCount, Math.round(coreRequested * 0.42), 0, lod.requested),
-      network:finiteInt(custom.coreNetworkParticleCount, Math.round(coreRequested * 0.35), 0, lod.requested),
-      halo:finiteInt(custom.coreHaloParticleCount, Math.round(coreRequested * 0.23), 0, lod.requested)
-    };
-    var coreAllocation = proportionalAllocation(allocation.core, coreRequestedParts, ['shell','network','halo']);
-    var outerArcCount = bool(custom.outerArcEnabled, true) ? finiteInt(custom.outerArcCount, 4, 1, 32) : 0;
-    var outerArcRadii = outerArcCount ? validateExactArray('outerArcRadii', custom.outerArcRadii, outerArcCount) : [];
-    var outerArcCoverage = outerArcCount ? validateExactArray('outerArcCoverage', custom.outerArcCoverage, outerArcCount) : [];
-    var outerArcWeights = {};
-    for (var arcIndex = 0; arcIndex < outerArcCount; arcIndex++) outerArcWeights['arc' + arcIndex] = Math.max(0.001, outerArcCoverage[arcIndex]);
-    var perOuterArc = outerArcCount ? proportionalAllocation(allocation.outerArc, outerArcWeights, Object.keys(outerArcWeights)) : {};
-    var palette = custom.palette && typeof custom.palette === 'object' && !Array.isArray(custom.palette) ? custom.palette : {};
-    return {
-      orbitTrailCount:count, orbitRadii:radii, orbitEccentricity:eccentricity, orbitSpeeds:speeds, orbitTilts:tilts,
-      orbitPhaseOffsets:phaseOffsets, orbitPrecessionSpeeds:precessionSpeeds, orbitThickness:thickness,
-      orbitParticleDistribution:String(custom.orbitParticleDistribution || 'clusteredStardustWithNaturalGaps'),
-      orbitClusterEnabled:bool(custom.orbitClusterEnabled, true), orbitClusterCount:clusterCounts,
-      orbitClusterStrength:finite(custom.orbitClusterStrength, 0.72), orbitGapRatio:finite(custom.orbitGapRatio, 0.16),
-      orbitJitter:finite(custom.orbitJitter, 0.11), orbitDepthNoise:finite(custom.orbitDepthNoise, 0.08),
-      orbitContinuousLine:bool(custom.orbitContinuousLine, false), orbitParticlesOnly:bool(custom.orbitParticlesOnly, true),
-      trailPersistence:finite(custom.trailPersistence, 0.86), trailHeadGlow:finite(custom.trailHeadGlow, 1.18),
-      trailWidth:finite(custom.trailWidth, 0.2), trailSegmentVariation:finite(custom.trailSegmentVariation, 0.08),
-      trailBrightnessVariation:finite(custom.trailBrightnessVariation, 0.1), trailTwinkleStrength:finite(custom.trailTwinkleStrength, 0.13),
-      coreEnabled:bool(custom.coreEnabled, true), coreMode:String(custom.coreMode || 'facetedParticleEnergySphere'),
-      coreRadius:finite(custom.coreRadius, 2.25), coreLoopCount:finiteInt(custom.coreLoopCount, 8, 1, 32),
-      coreLoopSpeed:finite(custom.coreLoopSpeed, 0.24), coreGlowStrength:finite(custom.coreGlowStrength, 1.22),
-      corePulseStrength:finite(custom.corePulseStrength, 0.08),
-      coreParticleCount:coreRequested, coreShellParticleCount:coreRequestedParts.shell,
-      coreNetworkParticleCount:coreRequestedParts.network, coreHaloParticleCount:coreRequestedParts.halo,
-      coreFacetedNetwork:bool(custom.coreFacetedNetwork, true), coreNetworkEdgeDensity:finite(custom.coreNetworkEdgeDensity, 0.72),
-      coreRotationSpeed:finite(custom.coreRotationSpeed, 0.17), coreLightFlare:finite(custom.coreLightFlare, 0.18),
-      outerArcEnabled:bool(custom.outerArcEnabled, true), outerArcCount:outerArcCount,
-      outerArcRadii:outerArcRadii, outerArcCoverage:outerArcCoverage,
-      outerArcDensity:finite(custom.outerArcDensity, 0.34), outerArcSpeed:finite(custom.outerArcSpeed, 0.022),
-      outerArcPartialTrails:bool(custom.outerArcPartialTrails, true),
-      backgroundStarsEnabled:bool(custom.backgroundStarsEnabled, true),
-      backgroundStarRadius:finite(custom.backgroundStarRadius, 27), backgroundDrift:finite(custom.backgroundDrift, 0.006),
-      backgroundDepthLayers:finiteInt(custom.backgroundDepthLayers, 5, 1, 24),
-      backgroundClusterStrength:finite(custom.backgroundClusterStrength, 0.38),
-      palette:{
-        shadow:colorValue(palette.shadow, '#bfc1c5'), warm:colorValue(palette.warm, '#d8d9dc'),
-        gold:colorValue(palette.gold, '#ecedef'), bright:colorValue(palette.bright, '#f8f8f8'),
-        core:colorValue(palette.core, '#ffffff')
-      },
-      effectVariant:String(custom.effectVariant || 'atomicInterwovenReferenceV5'),
-      organizationMode:String(custom.organizationMode || 'asymmetricInterwoven3DOrbitTrails'),
-      reducedClutter:bool(custom.reducedClutter, false),
-      bassCorePulse:finite(custom.bassCorePulse, 0.11), lowMidOrbitBreath:finite(custom.lowMidOrbitBreath, 0.1),
-      midOrbitRotation:finite(custom.midOrbitRotation, 0.18), highSparkDensity:finite(custom.highSparkDensity, 0.18),
-      spectralFluxBurst:finite(custom.spectralFluxBurst, 0.09), pauseRelease:finite(custom.pauseRelease, 0.9),
-      defaultSceneRotation:Array.isArray(custom.defaultSceneRotation) ? finiteArray(custom.defaultSceneRotation, 3, 0) : [0,0,0],
-      defaultScenePosition:Array.isArray(custom.defaultScenePosition) ? finiteArray(custom.defaultScenePosition, 3, 0) : [0,0,0],
-      visualConsoleBinding:customParticleClone(custom.visualConsoleBinding || {}),
-      requestedAllocation:requestedAllocation, allocation:allocation, perOrbit:perOrbit,
-      coreAllocation:coreAllocation, perOuterArc:perOuterArc
-    };
-  }
-  function normalizeTsunamiPreset(custom, lod) {
-    var rows = finiteInt(custom.logicalRowCount, finiteInt(custom.multiCrestCount, 5, 1, 16), 1, 16);
-    var subRows = finiteInt(custom.subRowsPerLogicalRow, 2, 1, 4);
-    var bands = finiteInt(custom.physicalCrestBandCount, rows * subRows, 1, 64);
-    if (bands !== rows * subRows) throw new Error('physicalCrestBandCount 必须等于 logicalRowCount × subRowsPerLogicalRow');
-    var rowSpeed = validateExactArray('rowSpeedMultipliers', custom.rowSpeedMultipliers, rows);
-    var mainSpeed = validateExactArray('mainCrestSpeedMultipliers', custom.mainCrestSpeedMultipliers, rows);
-    var subSpeed = validateExactArray('subCrestSpeedMultipliers', custom.subCrestSpeedMultipliers, rows);
-    var mainDirections = validateExactArray('mainCrestDirections', custom.mainCrestDirections, rows);
-    var subDirections = validateExactArray('subCrestDirections', custom.subCrestDirections, rows);
-    mainDirections.concat(subDirections).forEach(function (direction) { if (direction !== 1 && direction !== -1) throw new Error('波峰方向必须是 1 或 -1'); });
-    var bandWeights = {};
-    var subEnabled = bool(custom.subCrestEnabled, true);
-    for (var index = 0; index < bands; index++) {
-      var isSubBand = index % subRows !== 0;
-      bandWeights['band' + index] = isSubBand && !subEnabled
-        ? 0
-        : Math.max(0.1, finite(isSubBand ? custom.subCrestWidth : custom.mainCrestWidth, isSubBand ? 0.78 : 1.08));
-    }
-    return {
-      waveAmplitude:finite(custom.waveAmplitude, 4.1), waveCrestSharpness:finite(custom.waveCrestSharpness, 1.68),
-      waveImpact:finite(custom.waveImpact, 1.42),
-      palette:(Array.isArray(custom.coldBluePalette) ? custom.coldBluePalette : ['#ffffff']).map(function (color) { return colorValue(color, '#ffffff'); }),
-      foamHighlight:colorValue(custom.foamHighlight, '#ffffff'),
-      multiCrestEnabled:bool(custom.multiCrestEnabled, true), multiCrestCount:finiteInt(custom.multiCrestCount, rows, 1, 32),
-      crestSpacing:finite(custom.crestSpacing, 4.6), valleyDepth:finite(custom.valleyDepth, 0),
-      crestJitter:finite(custom.crestJitter, 0.1), crestDrift:finite(custom.crestDrift, 0.18),
-      crestWidth:finite(custom.crestWidth, 1.16), secondaryRipple:finite(custom.secondaryRipple, 0.36),
-      distributedFieldEnabled:bool(custom.distributedFieldEnabled, true),
-      fieldDistributionMode:String(custom.fieldDistributionMode || 'fiveRowsIndependentMainSub'),
-      fieldFrequencyX:finite(custom.fieldFrequencyX, 0.68), fieldFrequencyZ:finite(custom.fieldFrequencyZ, 0.42),
-      fieldDiagonalMix:finite(custom.fieldDiagonalMix, 0.34), fieldPhaseDrift:finite(custom.fieldPhaseDrift, 0.24),
-      fieldPeakDensity:finite(custom.fieldPeakDensity, 0.92), crestHeightScale:finite(custom.crestHeightScale, 1.95),
-      foamIntensity:finite(custom.foamIntensity, 1.42), crestOnlyRows:bool(custom.crestOnlyRows, true),
-      logicalRowCount:rows, subRowsPerLogicalRow:subRows, physicalCrestBandCount:bands,
-      doubleTrackEnabled:bool(custom.doubleTrackEnabled, false), doubleTrackMode:String(custom.doubleTrackMode || 'staggeredParallel'),
-      logicalRowSpacing:finite(custom.logicalRowSpacing, 3.65), subRowOffset:finite(custom.subRowOffset, 0.56),
-      subRowPhaseOffset:finite(custom.subRowPhaseOffset, 0.68), subRowLongitudinalOffset:finite(custom.subRowLongitudinalOffset, 0.48),
-      subRowWidthScale:finite(custom.subRowWidthScale, 0.76), staggerAmount:finite(custom.staggerAmount, 0.42),
-      preserveCrestHeight:bool(custom.preserveCrestHeight, true), subCrestEnabled:subEnabled,
-      subCrestPerRow:finiteInt(custom.subCrestPerRow, 1, 0, 3), rowCoverage:String(custom.rowCoverage || 'edgeToEdge'),
-      crestSpansFullWidth:bool(custom.crestSpansFullWidth, true), mainCrestWidth:finite(custom.mainCrestWidth, 1.08),
-      subCrestWidth:finite(custom.subCrestWidth, 0.78), subCrestOffset:finite(custom.subCrestOffset, 0.84),
-      subCrestLongitudinalOffset:finite(custom.subCrestLongitudinalOffset, 1.18),
-      subCrestPhaseOffset:finite(custom.subCrestPhaseOffset, 1.14), subCrestHeightRatio:finite(custom.subCrestHeightRatio, 0.74),
-      rowSpeedMode:String(custom.rowSpeedMode || 'staggeredDifferent'), rowSpeedMultipliers:rowSpeed,
-      mainCrestSpeedMultipliers:mainSpeed, subCrestSpeedMultipliers:subSpeed,
-      mainCrestDirections:mainDirections, subCrestDirections:subDirections,
-      independentMainSubTime:bool(custom.independentMainSubTime, true),
-      independentMainSubDirection:bool(custom.independentMainSubDirection, true),
-      independentMainSubPhase:bool(custom.independentMainSubPhase, true),
-      independentMainSubWavelength:bool(custom.independentMainSubWavelength, true),
-      staggeredMotionStrength:finite(custom.staggeredMotionStrength, 1),
-      allocation:proportionalAllocation(lod.actual, bandWeights, Object.keys(bandWeights))
-    };
-  }
-  function prepareCustomParticlePreset(value) {
-    if (value && value.kind === 'lumifield-custom-particle-prepared') return value;
-    var canonical = value && value.canonical && value.patch ? value.canonical : value;
-    if (!canonical || typeof canonical !== 'object' || Array.isArray(canonical)) throw new Error('自定义粒子预设必须是对象');
-    var particles = canonical.particles && typeof canonical.particles === 'object' ? canonical.particles : {};
-    var custom = particles.custom && typeof particles.custom === 'object' && !Array.isArray(particles.custom) ? customParticleClone(particles.custom) : null;
-    if (!custom) return null;
-    var effectMode = String(custom.effectMode || '');
-    var waveMode = String(custom.waveMode || '');
-    if (effectMode && waveMode) throw new Error('effectMode 与 waveMode 冲突，禁止同时应用');
-    var mode = waveMode || effectMode;
-    if (!own(CUSTOM_PARTICLE_MODES, mode)) return null;
-    var common = normalizeParticleCommon(canonical, custom);
-    if (!common.threeD) throw new Error(mode + ' 必须启用真实 threeD');
-    var target = finiteInt(custom.particleCount, 0, CUSTOM_PARTICLE_MIN, CUSTOM_PARTICLE_MAX);
-    var lod = particleLodScale(target);
-    var topology = normalizeOrbitPreset(custom, lod);
-    var camera = normalizeParticleCamera(canonical.camera || {}, mode, custom);
-    var prepared = {
-      kind:'lumifield-custom-particle-prepared', mode:mode,
-      presetId:String(canonical.presetId || mode),
-      canonical:customParticleClone(canonical), custom:custom, common:common, camera:camera,
-      topology:topology, lod:lod, fieldConsumption:buildFieldConsumption(canonical, mode),
-      estimatedBytes:lod.actual * 20 * 4 + 65536,
-      preparedAt:Date.now()
-    };
-    return prepared;
-  }
-
-  function CustomParticleGeometryWriter(count) {
-    this.count = count;
-    this.index = 0;
-    this.position = new Float32Array(count * 3);
-    this.data0 = new Float32Array(count * 4);
-    this.data1 = new Float32Array(count * 4);
-    this.data2 = new Float32Array(count * 4);
-    this.color = new Float32Array(count * 3);
-    this.size = new Float32Array(count);
-  }
-  CustomParticleGeometryWriter.prototype.add = function (position, data0, data1, data2, color, size) {
-    if (this.index >= this.count) return;
-    var index = this.index++, p3 = index * 3, p4 = index * 4;
-    this.position[p3] = finite(position && position[0], 0);
-    this.position[p3 + 1] = finite(position && position[1], 0);
-    this.position[p3 + 2] = finite(position && position[2], 0);
-    for (var lane = 0; lane < 4; lane++) {
-      this.data0[p4 + lane] = finite(data0 && data0[lane], 0);
-      this.data1[p4 + lane] = finite(data1 && data1[lane], 0);
-      this.data2[p4 + lane] = finite(data2 && data2[lane], 0);
-    }
-    var parsed = new window.THREE.Color(color || '#ffffff');
-    this.color[p3] = parsed.r; this.color[p3 + 1] = parsed.g; this.color[p3 + 2] = parsed.b;
-    this.size[index] = Math.max(0.05, finite(size, 1));
-  };
-  CustomParticleGeometryWriter.prototype.finish = function () {
-    if (this.index !== this.count) throw new Error('粒子拓扑构建数量不一致：' + this.index + '/' + this.count);
-    var geometry = new window.THREE.BufferGeometry();
-    geometry.setAttribute('position', new window.THREE.BufferAttribute(this.position, 3));
-    geometry.setAttribute('aData0', new window.THREE.BufferAttribute(this.data0, 4));
-    geometry.setAttribute('aData1', new window.THREE.BufferAttribute(this.data1, 4));
-    geometry.setAttribute('aData2', new window.THREE.BufferAttribute(this.data2, 4));
-    geometry.setAttribute('aColor', new window.THREE.BufferAttribute(this.color, 3));
-    geometry.setAttribute('aSize', new window.THREE.BufferAttribute(this.size, 1));
-    geometry.computeBoundingSphere();
-    return geometry;
-  };
-  function ringSafeRadius(value, topology, random) {
-    var radius = Math.max(0, value);
-    if (topology.centerVoidEnabled || topology.forceCenterClear) radius = Math.max(radius, topology.centerVoidRadius + 0.015);
-    if (topology.annularVoidEnabled && radius >= topology.annularVoidInnerRadius && radius <= topology.annularVoidOuterRadius) {
-      radius = topology.annularVoidOuterRadius + 0.015 + random() * 0.08;
-    }
-    return radius;
-  }
-  function buildLuminousOrbitGeometry(prepared) {
-    var topology = prepared.topology, random = customParticleRandom(customParticleHash(prepared.presetId + ':rings'));
-    var writer = new CustomParticleGeometryWriter(prepared.lod.actual);
-    var palette = topology.whitePalette;
-    for (var ringIndex = 0; ringIndex < topology.ringCount; ringIndex++) {
-      var count = topology.ringAllocation['ring' + ringIndex] || 0;
-      for (var item = 0; item < count; item++) {
-        var sequence = (item + random() * 0.32) / Math.max(1, count);
-        var angle = sequence * Math.PI * 2;
-        var thicknessOffset = (random() - 0.5) * topology.ringThickness[ringIndex] * (0.34 + random() * 0.66);
-        var radius = ringSafeRadius(topology.ringRadii[ringIndex] + thicknessOffset, topology, random);
-        var spark = random() < Math.max(0, Math.min(1, topology.highSparkDensity * 0.12)) ? 1 : 0;
-        writer.add([0,0,0],
-          [radius, angle, topology.ringThickness[ringIndex], 0],
-          [topology.ringSpeeds[ringIndex], topology.ringVerticalWave[ringIndex], random(), spark],
-          [topology.ringEllipticity, topology.ringPhaseStagger * ringIndex, ringIndex, topology.ringDensity[ringIndex]],
-          palette[(ringIndex + Math.floor(random() * palette.length)) % palette.length],
-          0.72 + random() * 0.58 + spark * 0.38);
-      }
-    }
-    for (var haloIndex = 0; haloIndex < topology.allocation.outerHalo; haloIndex++) {
-      var haloAngle = (haloIndex + random() * 0.8) / Math.max(1, topology.allocation.outerHalo) * Math.PI * 2;
-      var haloRadius = ringSafeRadius(topology.outerHaloRadius + (random() - 0.5) * (0.35 + topology.outerHaloDensity), topology, random);
-      writer.add([0,0,0], [haloRadius, haloAngle, 0.42, 1],
-        [topology.outerHaloDrift * (random() < 0.5 ? -1 : 1), 0.08, random(), random() < 0.04 ? 1 : 0],
-        [1, random() * Math.PI * 2, topology.ringCount, topology.outerHaloDensity],
-        palette[Math.floor(random() * palette.length)], 0.48 + random() * 0.48);
-    }
-    for (var coreIndex = 0; coreIndex < topology.allocation.core; coreIndex++) {
-      var coreAngle = random() * Math.PI * 2;
-      var coreRadius = ringSafeRadius(Math.sqrt(random()) * Math.max(0.05, topology.coreRadius), topology, random);
-      writer.add([0,0,0], [coreRadius, coreAngle, topology.coreHeight, 2],
-        [topology.coreSpinSpeed, topology.coreVerticalRise, random(), 0],
-        [1, topology.coreCurlStrength, -1, topology.corePulseStrength],
-        palette[Math.floor(random() * palette.length)], 0.65 + random() * 0.45);
-    }
-    for (var crownIndex = 0; crownIndex < topology.allocation.innerCrown; crownIndex++) {
-      var crownAngle = random() * Math.PI * 2;
-      var arm = topology.innerCrownArms ? crownIndex % topology.innerCrownArms : 0;
-      writer.add([0,0,0], [ringSafeRadius(topology.innerCrownRadius, topology, random), crownAngle, topology.innerCrownHeight, 3],
-        [topology.innerCrownSpinSpeed, topology.innerCrownHeight, random(), 0],
-        [1, arm, -2, topology.innerCrownArms],
-        palette[Math.floor(random() * palette.length)], 0.66 + random() * 0.42);
-    }
-    return writer.finish();
-  }
-  function buildGoldenOrbitGeometry(prepared) {
-    var topology = prepared.topology, random = customParticleRandom(customParticleHash(prepared.presetId + ':orbits'));
-    var writer = new CustomParticleGeometryWriter(prepared.lod.actual);
-    var trailColors = [topology.palette.shadow, topology.palette.warm, topology.palette.gold, topology.palette.bright];
-    for (var orbitIndex = 0; orbitIndex < topology.orbitTrailCount; orbitIndex++) {
-      var count = topology.perOrbit['orbit' + orbitIndex] || 0;
-      var tilt = topology.orbitTilts[orbitIndex];
-      var clusters = topology.orbitClusterEnabled ? topology.orbitClusterCount[orbitIndex] : 1;
-      for (var item = 0; item < count; item++) {
-        var clusterIndex = item % clusters;
-        var itemInCluster = Math.floor(item / clusters);
-        var clusterSize = Math.max(1, Math.ceil(count / clusters));
-        var within = (itemInCluster + random() * topology.orbitJitter) / clusterSize;
-        var clusterSpan = Math.max(0.02, (1 - topology.orbitGapRatio) / clusters);
-        var sequence = clusterIndex / clusters + within * clusterSpan;
-        sequence = sequence - Math.floor(sequence);
-        var clusterPull = topology.orbitClusterStrength * Math.sin(within * Math.PI);
-        var angle = topology.orbitPhaseOffsets[orbitIndex] + sequence * Math.PI * 2;
-        var widthNoise = (random() - 0.5) * (topology.orbitThickness[orbitIndex] + topology.trailWidth) * (0.34 + clusterPull * 0.66);
-        var depthNoise = (random() - 0.5) * topology.orbitDepthNoise * topology.orbitRadii[orbitIndex];
-        var segmentNoise = random();
-        writer.add([0,0,depthNoise],
-          [topology.orbitRadii[orbitIndex], angle, widthNoise, 0],
-          [topology.orbitSpeeds[orbitIndex], topology.orbitEccentricity[orbitIndex], sequence, segmentNoise],
-          [tilt[0] * Math.PI / 180, tilt[1] * Math.PI / 180, tilt[2] * Math.PI / 180, topology.orbitPrecessionSpeeds[orbitIndex]],
-          trailColors[(orbitIndex + Math.floor(random() * trailColors.length)) % trailColors.length],
-          0.54 + random() * 0.62);
-      }
-    }
-    var goldenRatio = (1 + Math.sqrt(5)) * 0.5;
-    var coreVertices = [
-      [-1,goldenRatio,0],[1,goldenRatio,0],[-1,-goldenRatio,0],[1,-goldenRatio,0],
-      [0,-1,goldenRatio],[0,1,goldenRatio],[0,-1,-goldenRatio],[0,1,-goldenRatio],
-      [goldenRatio,0,-1],[goldenRatio,0,1],[-goldenRatio,0,-1],[-goldenRatio,0,1]
-    ].map(function (value) {
-      var length = Math.sqrt(value[0]*value[0]+value[1]*value[1]+value[2]*value[2]);
-      return value.map(function (lane) { return lane / length * topology.coreRadius; });
-    });
-    var coreEdges = [];
-    for (var va = 0; va < coreVertices.length; va++) for (var vb = va + 1; vb < coreVertices.length; vb++) {
-      var ex = coreVertices[va][0]-coreVertices[vb][0], ey=coreVertices[va][1]-coreVertices[vb][1], ez=coreVertices[va][2]-coreVertices[vb][2];
-      var edgeLength = Math.sqrt(ex*ex+ey*ey+ez*ez);
-      if (edgeLength < topology.coreRadius * 1.12) coreEdges.push([va,vb]);
-    }
-    for (var shellIndex = 0; shellIndex < topology.coreAllocation.shell; shellIndex++) {
-      var shellSequence = (shellIndex + 0.5) / Math.max(1, topology.coreAllocation.shell);
-      var shellY = 1 - 2 * shellSequence;
-      var shellRadius = Math.sqrt(Math.max(0, 1 - shellY * shellY));
-      var shellAngle = shellIndex * 2.399963229728653;
-      var shellPoint = [Math.cos(shellAngle)*shellRadius, shellY, Math.sin(shellAngle)*shellRadius];
-      var nearest = coreVertices[Math.floor(random()*coreVertices.length)];
-      var facetMix = topology.coreFacetedNetwork ? 0.12 + topology.coreNetworkEdgeDensity * 0.13 : 0;
-      shellPoint = shellPoint.map(function (lane,index) { return lane*topology.coreRadius*(1-facetMix)+nearest[index]*facetMix; });
-      writer.add(shellPoint, [topology.coreRadius, shellAngle, 0, 1],
-        [topology.coreLoopSpeed, 0, shellSequence, random()], [0,0,0,shellIndex % topology.coreLoopCount], topology.palette.gold, 0.72+random()*0.52);
-    }
-    for (var networkIndex = 0; networkIndex < topology.coreAllocation.network; networkIndex++) {
-      var edgeCount = Math.max(1, coreEdges.length);
-      var edge = coreEdges[networkIndex % edgeCount] || [0,1];
-      var start = coreVertices[edge[0]], end = coreVertices[edge[1]];
-      var edgeSample = Math.floor(networkIndex / edgeCount);
-      var samplesPerEdge = Math.max(1, Math.ceil(topology.coreAllocation.network / edgeCount));
-      var edgeT = Math.min(1, (edgeSample + 0.5 + (random() - 0.5) * 0.18) / samplesPerEdge);
-      var networkPoint = [0,1,2].map(function (lane) { return start[lane]+(end[lane]-start[lane])*edgeT; });
-      writer.add(networkPoint, [topology.coreRadius, edgeT*Math.PI*2, 0, 1],
-        [-topology.coreLoopSpeed*0.72, 1, edgeT, random()], [0,0,0,networkIndex % topology.coreLoopCount], topology.palette.core, 0.66+random()*0.48);
-    }
-    for (var haloIndex = 0; haloIndex < topology.coreAllocation.halo; haloIndex++) {
-      var haloTheta=random()*Math.PI*2, haloCos=random()*2-1, haloSin=Math.sqrt(Math.max(0,1-haloCos*haloCos));
-      var haloRadius=topology.coreRadius*(1.12+random()*0.38);
-      writer.add([Math.cos(haloTheta)*haloSin*haloRadius,haloCos*haloRadius,Math.sin(haloTheta)*haloSin*haloRadius],
-        [haloRadius,haloTheta,0,1],[topology.coreLoopSpeed*0.34,2,random(),random()],[0,0,0,haloIndex % topology.coreLoopCount],topology.palette.bright,0.48+random()*0.44);
-    }
-    for (var outerIndex = 0; outerIndex < topology.outerArcCount; outerIndex++) {
-      var outerCount = topology.perOuterArc['arc' + outerIndex] || 0;
-      for (var arcIndex = 0; arcIndex < outerCount; arcIndex++) {
-        var arcSequence = (arcIndex + random()*0.18) / Math.max(1, outerCount);
-        var coverage = topology.outerArcPartialTrails ? topology.outerArcCoverage[outerIndex] : 1;
-        var arcAngle = topology.orbitPhaseOffsets[outerIndex % topology.orbitTrailCount] + (arcSequence - 0.5) * Math.PI * 2 * coverage;
-        var outerTilt = topology.orbitTilts[(outerIndex * 2 + 3) % topology.orbitTrailCount];
-        writer.add([0,0,(random()-0.5)*topology.orbitDepthNoise*topology.outerArcRadii[outerIndex]],
-          [topology.outerArcRadii[outerIndex], arcAngle, (random() - 0.5) * topology.trailWidth, 2],
-          [topology.outerArcSpeed*(outerIndex%2?-1:1), 1.08+outerIndex*0.07, arcSequence, random()],
-          [outerTilt[0]*Math.PI/180,outerTilt[1]*Math.PI/180,outerTilt[2]*Math.PI/180,topology.orbitPrecessionSpeeds[outerIndex%topology.orbitTrailCount]],
-          outerIndex%2 ? topology.palette.bright : topology.palette.gold, 0.48 + random() * 0.54);
-      }
-    }
-    for (var starIndex = 0; starIndex < topology.allocation.backgroundStars; starIndex++) {
-      var theta = random() * Math.PI * 2;
-      var cosPhi = random() * 2 - 1;
-      var sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi));
-      var layer = starIndex % topology.backgroundDepthLayers;
-      var layerRatio = topology.backgroundDepthLayers > 1 ? layer / (topology.backgroundDepthLayers - 1) : 0;
-      var radius = topology.backgroundStarRadius * (0.54 + layerRatio * 0.43 + random() * 0.03);
-      theta += Math.sin(layer * 2.17) * topology.backgroundClusterStrength;
-      writer.add([Math.cos(theta) * sinPhi * radius, cosPhi * radius, Math.sin(theta) * sinPhi * radius],
-        [radius, theta, 0, 3], [topology.backgroundDrift, 1, random(), random()],
-        [0,0,0,layer], layer%3===0 ? topology.palette.warm : topology.palette.shadow, 0.34 + random() * 0.66);
-    }
-    return { geometry:writer.finish(), coreAllocation:customParticleClone(topology.coreAllocation), perOuterArc:customParticleClone(topology.perOuterArc) };
-  }
-  function buildTsunamiGeometry(prepared) {
-    var topology = prepared.topology, random = customParticleRandom(customParticleHash(prepared.presetId + ':tsunami'));
-    var writer = new CustomParticleGeometryWriter(prepared.lod.actual);
-    var span = topology.crestSpansFullWidth && topology.rowCoverage === 'edgeToEdge' ? 22 : 17;
-    var rowSpacing = (topology.logicalRowSpacing + topology.crestSpacing) * 0.5;
-    for (var band = 0; band < topology.physicalCrestBandCount; band++) {
-      var count = topology.allocation['band' + band] || 0;
-      var row = Math.floor(band / topology.subRowsPerLogicalRow);
-      var subIndex = band % topology.subRowsPerLogicalRow;
-      var isSub = subIndex > 0;
-      var width = topology.crestWidth * (isSub ? topology.subCrestWidth * topology.subRowWidthScale : topology.mainCrestWidth);
-      var heightRatio = isSub && topology.preserveCrestHeight ? topology.subCrestHeightRatio : 1;
-      var mainTime = topology.mainCrestSpeedMultipliers[row];
-      var timeMultiplier = isSub && topology.independentMainSubTime ? topology.subCrestSpeedMultipliers[row] : mainTime;
-      var speedMultiplier = topology.rowSpeedMultipliers[row] * timeMultiplier * topology.staggeredMotionStrength;
-      var direction = isSub && topology.independentMainSubDirection ? topology.subCrestDirections[row] : topology.mainCrestDirections[row];
-      var rowZ = (row - (topology.logicalRowCount - 1) * 0.5) * rowSpacing;
-      if (isSub) rowZ += topology.subCrestLongitudinalOffset + topology.subRowLongitudinalOffset * subIndex;
-      if (topology.doubleTrackEnabled) rowZ += (band % 2 ? 1 : -1) * topology.staggerAmount;
-      for (var item = 0; item < count; item++) {
-        var sequence = (item + random()) / Math.max(1, count);
-        var x = (sequence * 2 - 1) * span + (random() - 0.5) * topology.crestJitter;
-        var lateral = (random() - 0.5) * width + (isSub ? topology.subRowOffset * subIndex : 0);
-        var phase = row * topology.fieldPhaseDrift + (isSub && topology.independentMainSubPhase ? topology.subCrestPhaseOffset + topology.subRowPhaseOffset * subIndex : 0);
-        var wavelengthNoise = isSub && topology.independentMainSubWavelength ? (1 + topology.subCrestOffset * 0.08) : 1;
-        writer.add([0,0,0], [x, lateral, rowZ, isSub ? 1 : 0],
-          [phase, speedMultiplier, direction, row],
-          [width, heightRatio, wavelengthNoise, random()],
-          topology.palette[(row + subIndex + Math.floor(random() * topology.palette.length)) % topology.palette.length],
-          0.62 + random() * 0.72);
-      }
-    }
-    return writer.finish();
-  }
-  function customParticleUniforms(prepared) {
-    var common = prepared.common;
-    return {
-      uTime:{ value:0 }, uBass:{ value:0 }, uMid:{ value:0 }, uTreble:{ value:0 }, uFlux:{ value:0 },
-      uPointSize:{ value:common.point }, uPixel:{ value:1 }, uOpacity:{ value:Math.max(0.08, 1 - common.bgFade * 0.54) },
-      uBloom:{ value:common.bloom ? common.bloomStrength : 0 }, uSharp:{ value:common.hdSharp && !common.blur ? 1 : 0 },
-      uSpeed:{ value:common.speed }, uDepth:{ value:common.depth }, uIntensity:{ value:common.intensity },
-      uTwist:{ value:common.twist }, uScatter:{ value:common.scatter }, uAudioReactive:{ value:common.audioReactive ? 1 : 0 },
-      uColorStrength:{ value:common.color }, uTint:{ value:new window.THREE.Color(common.visualTintColor) },
-      uFloatLayer:{ value:common.floatLayer ? 1 : 0 }, uResolutionScale:{ value:common.coverResolution / 1.15 }
-    };
-  }
-  var CUSTOM_PARTICLE_FRAGMENT_SHADER = [
-    'precision highp float;',
-    'uniform float uOpacity, uBloom, uSharp, uIntensity, uColorStrength; uniform vec3 uTint;',
-    'varying vec3 vColor;',
-    'varying float vAlpha, vGlow;',
-    'void main(){',
-    '  vec2 p=gl_PointCoord-vec2(0.5); float d=length(p);',
-    '  float edge=uSharp>0.5?smoothstep(0.50,0.405,d):smoothstep(0.54,0.18,d);',
-    '  if(edge<0.01) discard;',
-    '  float core=smoothstep(0.34,0.0,d);',
-    '  vec3 color=mix(vColor,vColor*uTint,0.42)*uColorStrength*(0.82+core*0.34+vGlow*uBloom*0.26)*uIntensity;',
-    '  gl_FragColor=vec4(color,edge*vAlpha*uOpacity);',
-    '}'
-  ].join('\n');
-  function luminousOrbitVertexShader() {
-    return [
-      'precision highp float;',
-      'attribute vec4 aData0,aData1,aData2; attribute vec3 aColor; attribute float aSize;',
-      'uniform float uTime,uBass,uMid,uTreble,uFlux,uPointSize,uPixel,uSpeed,uDepth,uTwist,uScatter,uAudioReactive,uFloatLayer;',
-      'uniform float uRingRipple,uLowMidRipple,uMidRotation,uFluxBurst,uPauseRelease;',
-      'varying vec3 vColor; varying float vAlpha,vGlow;',
-      'void main(){',
-      ' float radius=aData0.x; float type=aData0.w; float audio=uAudioReactive;',
-      ' float signedMid=sign(aData1.x)*uMid*uMidRotation*audio;',
-      ' float angle=aData0.y+uTime*(aData1.x+signedMid)*uSpeed;',
-      ' float ripple=sin(angle*4.0+aData1.z*6.283+uTime*0.42)*(uBass+uMid)*uLowMidRipple*uRingRipple*audio;',
-      ' radius+=ripple*aData0.z*0.72+(aData1.z-0.5)*uScatter*0.14;',
-      ' float ellipse=max(0.08,aData2.x);',
-      ' vec3 p=vec3(cos(angle)*radius,sin(angle*3.0+aData2.y+uTime*0.18)*aData1.y*(1.0+uBass*audio),sin(angle)*radius*ellipse);',
-      ' if(type>1.5&&type<2.5){ p.y+=aData0.z*sin(angle*2.0+aData1.z*5.0); }',
-      ' if(type>2.5){ p.y+=aData0.z*abs(sin(angle*max(1.0,aData2.w))); }',
-      ' float twist=angle*uTwist*0.04; p.xz=mat2(cos(twist),-sin(twist),sin(twist),cos(twist))*p.xz;',
-      ' p.y*=uDepth;',
-      ' vec4 mv=modelViewMatrix*vec4(p,1.0);',
-      ' float spark=aData1.w*audio*(uTreble+uFlux*uFluxBurst);',
-      ' gl_PointSize=max(0.8,aSize*uPointSize*uPixel*(1.0+spark*1.8)*clamp(28.0/max(1.0,-mv.z),0.55,3.5));',
-      ' gl_Position=projectionMatrix*mv;',
-      ' vColor=aColor; vAlpha=0.64+0.34*aData1.z+spark*0.34; vGlow=0.22+spark;',
-      '}'
-    ].join('\n');
-  }
-  function goldenOrbitVertexShader() {
-    return [
-      'precision highp float;',
-      'attribute vec4 aData0,aData1,aData2; attribute vec3 aColor; attribute float aSize;',
-      'uniform float uTime,uBass,uMid,uTreble,uFlux,uPointSize,uPixel,uSpeed,uDepth,uTwist,uScatter,uAudioReactive,uResolutionScale;',
-      'uniform float uTrailPersistence,uTrailHeadGlow,uTrailVariation,uTrailBrightness,uTrailTwinkle,uContinuousLine,uCoreGlow,uCorePulse,uBassCorePulse,uCoreRotation,uCoreFlare,uBackgroundDrift,uDepthDistribution,uFloatLayer;',
-      'uniform float uLowMidBreath,uMidRotation,uHighSpark,uFluxBurst;',
-      'varying vec3 vColor; varying float vAlpha,vGlow;',
-      'vec3 rotX(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(p.x,p.y*c-p.z*s,p.y*s+p.z*c);}',
-      'vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(p.x*c+p.z*s,p.y,-p.x*s+p.z*c);}',
-      'vec3 rotZ(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(p.x*c-p.y*s,p.x*s+p.y*c,p.z);}',
-      'void main(){',
-      ' float type=aData0.w; vec3 p=position; float alpha=1.0; float glow=0.18;',
-      ' if(type<0.5){',
-      '  float breath=1.0+(uBass*0.62+uMid*0.38)*uLowMidBreath*uAudioReactive;',
-      '  float angle=aData0.y+uTime*(aData1.x+sign(aData1.x)*uMid*uMidRotation*uAudioReactive)*uSpeed;',
-      '  float radius=(aData0.x+aData0.z+(aData1.w-0.5)*uScatter*0.18)*breath;',
-      '  p=vec3(cos(angle)*radius*aData1.y,sin(angle)*radius,position.z*(0.35+uDepthDistribution*0.65));',
-      '  p=rotY(p,uTime*aData2.w*uSpeed+uTwist*0.025*sin(angle));',
-      '  p=rotZ(rotY(rotX(p,aData2.x),aData2.y),aData2.z);',
-      '  float trail=fract(aData1.z-uTime*abs(aData1.x)*uSpeed*0.055);',
-      '  alpha=mix(pow(max(0.0,1.0-trail),max(0.25,2.4-uTrailPersistence*2.0)),1.0,uContinuousLine);',
-      '  float head=exp(-trail*30.0)*uTrailHeadGlow; glow=head;',
-      '  alpha*=1.0-uTrailVariation*step(0.72,aData1.w);',
-      '  alpha*=1.0+(aData1.w-0.5)*2.0*uTrailBrightness;',
-      '  alpha*=0.84+sin(uTime*(0.7+aData1.w*1.4)+aData1.z*28.0)*uTrailTwinkle*0.16;',
-      ' } else if(type<1.5){',
-      '  float subtype=aData1.y; float idlePulse=sin(uTime*aData1.x+aData2.w*0.3927)*uCorePulse; float pulse=1.0+idlePulse+uBass*uBassCorePulse*uAudioReactive;',
-      '  p*=pulse; p=rotY(rotX(p,uTime*uCoreRotation*0.37),uTime*uCoreRotation*(subtype>0.5?-0.72:1.0));',
-      '  alpha=subtype>1.5?0.42+0.30*aData1.z:(subtype>0.5?0.72:0.62+0.32*aData1.z);',
-      '  glow=uCoreGlow+uCoreFlare*(subtype>0.5?1.0:0.55)+uBass*uCorePulse*uAudioReactive;',
-      ' } else if(type<2.5){',
-      '  float angle=aData0.y+uTime*aData1.x*uSpeed; float radius=aData0.x+aData0.z;',
-      '  p=vec3(cos(angle)*radius*aData1.y,sin(angle)*radius,position.z);',
-      '  p=rotY(p,uTime*aData2.w*uSpeed); p=rotZ(rotY(rotX(p,aData2.x),aData2.y),aData2.z);',
-      '  float arcTrail=fract(aData1.z-uTime*abs(aData1.x)*uSpeed*0.04); alpha=pow(1.0-arcTrail,1.15); glow=uTrailHeadGlow*0.45;',
-      ' } else {',
-      '  float drift=uTime*(aData1.x+uBackgroundDrift)*uSpeed; p.xz=mat2(cos(drift),-sin(drift),sin(drift),cos(drift))*p.xz;',
-      '  p.y+=sin(uTime*0.12+aData2.w*1.7+aData1.w*6.283)*uFloatLayer*(0.35+aData2.w*0.12); alpha=0.34+0.55*aData1.z; glow=0.08;',
-      ' }',
-      ' p.z*=mix(1.0,max(0.2,uDepth),0.22+uDepthDistribution*0.18); vec4 mv=modelViewMatrix*vec4(p,1.0);',
-      ' float spark=(uTreble*uHighSpark+uFlux*uFluxBurst)*uAudioReactive;',
-      ' gl_PointSize=max(0.7,aSize*uPointSize*uPixel*uResolutionScale*(1.0+glow*0.25+spark)*clamp(32.0/max(1.0,-mv.z),0.52,3.3));',
-      ' gl_Position=projectionMatrix*mv; vColor=aColor; vAlpha=clamp(alpha,0.05,1.25); vGlow=glow;',
-      '}'
-    ].join('\n');
-  }
-  function tsunamiVertexShader() {
-    return [
-      'precision highp float;',
-      'attribute vec4 aData0,aData1,aData2; attribute vec3 aColor; attribute float aSize;',
-      'uniform float uTime,uBass,uMid,uTreble,uFlux,uPointSize,uPixel,uSpeed,uDepth,uScatter,uAudioReactive;',
-      'uniform float uAmplitude,uSharpness,uImpact,uSecondary,uFreqX,uFreqZ,uDiagonal,uPeakDensity,uHeightScale,uFoam,uValley,uDrift,uCrestCount;',
-      'uniform vec3 uFoamColor;',
-      'varying vec3 vColor; varying float vAlpha,vGlow;',
-      'void main(){',
-      ' float kind=aData0.w; float phase=aData0.x*uFreqX/aData2.z+aData0.z*uFreqZ+uDiagonal*(aData0.x+aData0.z)*0.10+aData1.x;',
-      ' phase+=uTime*aData1.y*aData1.z*uSpeed*(1.0+kind*0.08)+uTime*uDrift;',
-      ' float raw=sin(phase*uCrestCount*0.20);',
-      ' float crest=pow(max(0.0,raw),max(0.2,uSharpness/uPeakDensity));',
-      ' float valley=min(0.0,raw)*uValley;',
-      ' float audio=1.0+uAudioReactive*(uBass*0.42+uMid*0.20+uFlux*0.18);',
-      ' float height=(crest*uAmplitude*uHeightScale*aData2.y*audio)+valley;',
-      ' float secondary=sin(phase*2.7+aData2.w*6.283+uTime*0.36)*uSecondary*(0.18+crest);',
-      ' vec3 p=vec3(aData0.x+aData0.y*0.16,height+secondary,aData0.z+aData0.y+cos(phase)*crest*uImpact);',
-      ' p.x+=sin(uTime*0.18+aData1.w)*uDrift; p.z+=(aData2.w-0.5)*uScatter*0.12; p.y*=uDepth;',
-      ' vec4 mv=modelViewMatrix*vec4(p,1.0); float foam=pow(crest,2.2)*uFoam;',
-      ' gl_PointSize=max(0.85,aSize*uPointSize*uPixel*(1.0+foam*0.34+uTreble*uAudioReactive*0.16)*clamp(30.0/max(1.0,-mv.z),0.58,3.4));',
-      ' gl_Position=projectionMatrix*mv; vColor=mix(aColor,uFoamColor,clamp(foam*0.28,0.0,0.72));',
-      ' vAlpha=0.56+crest*0.42+foam*0.08; vGlow=0.12+foam;',
-      '}'
-    ].join('\n');
-  }
-  function createCustomParticleMaterial(prepared) {
-    var uniforms = customParticleUniforms(prepared), topology = prepared.topology, vertexShader;
-    if (prepared.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField) {
-      Object.assign(uniforms, {
-        uTrailPersistence:{ value:topology.trailPersistence }, uTrailHeadGlow:{ value:topology.trailHeadGlow },
-        uTrailVariation:{ value:topology.trailSegmentVariation }, uTrailBrightness:{ value:topology.trailBrightnessVariation },
-        uContinuousLine:{ value:topology.orbitContinuousLine ? 1 : 0 }, uCoreGlow:{ value:topology.coreGlowStrength },
-        uCorePulse:{ value:topology.corePulseStrength }, uBassCorePulse:{ value:topology.bassCorePulse }, uCoreRotation:{ value:topology.coreRotationSpeed },
-        uCoreFlare:{ value:topology.coreLightFlare }, uTrailTwinkle:{ value:topology.trailTwinkleStrength },
-        uBackgroundDrift:{ value:topology.backgroundDrift }, uDepthDistribution:{ value:prepared.common.depthDistribution ? 1 : 0 },
-        uLowMidBreath:{ value:topology.lowMidOrbitBreath }, uMidRotation:{ value:topology.midOrbitRotation },
-        uHighSpark:{ value:topology.highSparkDensity }, uFluxBurst:{ value:topology.spectralFluxBurst }
-      });
-      vertexShader = goldenOrbitVertexShader();
-    } else throw new Error('不支持的自定义粒子模式');
-    var material = new window.THREE.ShaderMaterial({
-      uniforms:uniforms, vertexShader:vertexShader, fragmentShader:CUSTOM_PARTICLE_FRAGMENT_SHADER,
-      transparent:true, depthWrite:false, depthTest:false,
-      blending:prepared.common.bloom ? window.THREE.AdditiveBlending : window.THREE.NormalBlending
-    });
-    material.toneMapped = false;
-    return material;
-  }
-  function buildCustomParticleResources(prepared) {
-    if (!window.THREE || !window.scene || !window.renderer) throw new Error('LF 共享 Three renderer 尚未就绪');
-    var extra = {}, geometry;
-    if (prepared.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField) {
-      extra = buildGoldenOrbitGeometry(prepared); geometry = extra.geometry;
-    } else throw new Error('不支持的自定义粒子模式');
-    var material = null, points = null, group = null;
-    try {
-      material = createCustomParticleMaterial(prepared);
-      points = new window.THREE.Points(geometry, material);
-      points.name = 'LumiFieldCanonicalParticles:' + prepared.mode;
-      points.frustumCulled = false;
-      points.renderOrder = 30;
-      group = new window.THREE.Group();
-      group.name = 'LumiFieldCanonicalParticleRuntime';
-      group.renderOrder = 30;
-      group.userData.lumiFieldParticleOnly = true;
-      group.userData.effectMode = prepared.mode;
-      group.userData.presetId = prepared.presetId;
-      if (prepared.topology.defaultSceneRotation) group.rotation.set(
-        prepared.topology.defaultSceneRotation[0] * Math.PI / 180,
-        prepared.topology.defaultSceneRotation[1] * Math.PI / 180,
-        prepared.topology.defaultSceneRotation[2] * Math.PI / 180
-      );
-      if (prepared.topology.defaultScenePosition) group.position.fromArray(prepared.topology.defaultScenePosition);
-      group.add(points);
-      return { group:group, points:points, geometry:geometry, material:material, extra:extra };
-    } catch (error) {
-      if (geometry && geometry.dispose) geometry.dispose();
-      if (material && material.dispose) material.dispose();
-      throw error;
-    }
-  }
-  function captureLegacyParticleVisibility(common) {
-    var entries = ['particles','bloomParticles','floatGroup','backCoverGroup','skullParticleGroup'].map(function (name) {
-      var object = window[name];
-      return { name:name, object:object || null, visible:!!(object && object.visible) };
-    });
-    return entries;
-  }
-  function setLegacyParticleVisibility(entries, hidden) {
-    (entries || []).forEach(function (entry) {
-      var object = window[entry.name] || entry.object;
-      if (object) object.visible = hidden ? false : entry.visible;
-    });
-  }
-  function captureSharedCamera() {
-    var camera = window.camera;
-    if (!camera) return null;
-    return {
-      position:camera.position.toArray(), quaternion:camera.quaternion.toArray(), up:camera.up.toArray(),
-      fov:camera.fov, near:camera.near, far:camera.far, zoom:camera.zoom,
-      rotationOrder:camera.rotation.order
-    };
-  }
-  function restoreSharedCamera(snapshot) {
-    var camera = window.camera;
-    if (!camera || !snapshot) return;
-    camera.position.fromArray(snapshot.position);
-    camera.quaternion.fromArray(snapshot.quaternion);
-    camera.up.fromArray(snapshot.up);
-    camera.fov = snapshot.fov; camera.near = snapshot.near; camera.far = snapshot.far; camera.zoom = snapshot.zoom;
-    camera.rotation.order = snapshot.rotationOrder || 'XYZ';
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld(true);
-  }
-  function serializableCameraState(camera) {
-    if (!camera) return null;
-    return {
-      mode:camera.mode, yaw:camera.yaw, pitch:camera.pitch, roll:camera.roll, radius:camera.radius,
-      targetYaw:camera.targetYaw, targetPitch:camera.targetPitch, targetRoll:camera.targetRoll, targetRadius:camera.targetRadius,
-      target:camera.target.slice(), pan:camera.pan.slice(), targetPan:camera.targetPan.slice(),
-      fov:camera.fov, smoothing:camera.smoothing, freeOrbit:camera.freeOrbit,
-      unrestrictedPitch:camera.unrestrictedPitch, pitchLimit:camera.pitchLimit,
-      allowVerticalFlip:camera.allowVerticalFlip, allowFull360Rotation:camera.allowFull360Rotation,
-      allowRoll:camera.allowRoll, allowPan:camera.allowPan, leftDragOrbit:camera.leftDragOrbit, leftDragPan:camera.leftDragPan,
-      rightDragPan:camera.rightDragPan, middleDragRoll:camera.middleDragRoll, wheelZoom:camera.wheelZoom,
-      zoomMin:camera.zoomMin, zoomMax:camera.zoomMax, zoomUnbounded:camera.zoomUnbounded,
-      zoomEnabled:camera.zoomEnabled, zoomInfiniteIn:camera.zoomInfiniteIn, zoomMethod:camera.zoomMethod,
-      zoomSensitivity:camera.zoomSensitivity, rotationStrength:camera.rotationStrength,
-      translationStrength:camera.translationStrength, mouseTranslation:camera.mouseTranslation,
-      mouseRotation:camera.mouseRotation, mouseMove:camera.mouseMove,
-      hoverRotate:camera.hoverRotate, rotateOnlyWhileLeftDrag:camera.rotateOnlyWhileLeftDrag,
-      returnToCenterOnMouseLeave:camera.returnToCenterOnMouseLeave,
-      dragAccumulateRotation:camera.dragAccumulateRotation,
-      dragAccumulateTranslation:camera.dragAccumulateTranslation,
-      resetKeepsFreeControls:camera.resetKeepsFreeControls, preserveFreeOrbit:camera.preserveFreeOrbit,
-      interactionMode:camera.interactionMode, doubleClickReset:camera.doubleClickReset,
-      resetDurationMs:camera.resetDurationMs, zoomStepsToMin:camera.zoomStepsToMin,
-      zoomStepsToMax:camera.zoomStepsToMax, zoomAnchor:camera.zoomAnchor.slice(),
-      initialRadius:camera.initialRadius, zoomStep:camera.zoomStep
-    };
-  }
-  function restoreCameraControllerState(camera, snapshot) {
-    if (!camera || !snapshot) return;
-    ['yaw','pitch','roll','radius','targetYaw','targetPitch','targetRoll','targetRadius','zoomStep'].forEach(function (key) {
-      if (isFinite(Number(snapshot[key]))) camera[key] = Number(snapshot[key]);
-    });
-    ['pan','targetPan'].forEach(function (key) {
-      if (Array.isArray(snapshot[key]) && snapshot[key].length === 3) camera[key] = finiteArray(snapshot[key], 3, 0);
-    });
-  }
-  function customParticleStageVisible() {
-    return !!(customParticleRuntime && document.body && !document.body.classList.contains('lf-auth-locked') &&
-      !document.body.classList.contains('splash-active') && document.visibilityState !== 'hidden');
-  }
-  function customParticleOwnsCanvasInput() {
-    return !!(customParticleRuntime && customParticleStageVisible());
-  }
-  function customParticleWorldUiTransform() {
-    var runtime = customParticleRuntime;
-    if (!runtime || !customParticleStageVisible()) return { scale:1, center:[0,0,0] };
-    var state = runtime.camera;
-    return {
-      scale:Math.max(0.08, Math.min(80, state.radius / 6.6)),
-      center:[state.target[0] + state.pan[0], state.target[1] + state.pan[1], state.target[2] + state.pan[2]]
-    };
-  }
-  function scheduleCustomParticlePersist() {
-    if (customParticlePersistTimer) return;
-    customParticlePersistTimer = setTimeout(function () {
-      customParticlePersistTimer = 0;
-      persistCustomParticleRuntime();
-    }, 420);
-  }
-  function persistCustomParticleRuntime() {
-    if (!customParticleOwnerReady()) return false;
-    return writeScopedValue(STORE.particleRuntime, captureCustomParticleRuntime());
-  }
-  function addCustomParticleListener(runtime, target, name, handler, options) {
-    target.addEventListener(name, handler, options);
-    runtime.listeners.push([target, name, handler, options]);
-  }
-  function removeCustomParticleListeners(runtime) {
-    (runtime && runtime.listeners || []).forEach(function (entry) {
-      try { entry[0].removeEventListener(entry[1], entry[2], entry[3]); } catch (_) {}
-    });
-    if (runtime) runtime.listeners = [];
-  }
-  function resetCustomParticleCamera(runtime) {
-    if (!runtime) return;
-    var initial = runtime.initialCamera;
-    runtime.resetTransition = {
-      startedAt:performance.now(), duration:Math.max(0, runtime.camera.resetDurationMs),
-      from:{ yaw:runtime.camera.yaw, pitch:runtime.camera.pitch, roll:runtime.camera.roll, radius:runtime.camera.radius, pan:runtime.camera.pan.slice() }
-    };
-    runtime.camera.targetYaw = initial.yaw; runtime.camera.targetPitch = initial.pitch;
-    runtime.camera.targetRoll = initial.roll; runtime.camera.targetRadius = initial.radius;
-    runtime.camera.targetPan = initial.pan.slice();
-    runtime.camera.zoomStep = 0;
-    if (!runtime.camera.preserveFreeOrbit && !runtime.camera.resetKeepsFreeControls) runtime.camera.freeOrbit = false;
-    scheduleCustomParticlePersist();
-  }
-  function bindCustomParticleInteraction(runtime) {
-    var canvas = window.renderer && window.renderer.domElement;
-    if (!canvas) throw new Error('LF 共享 renderer canvas 不存在');
-    var drag = { active:false, button:-1, x:0, y:0, startX:0, startY:0, moved:false, pointerId:null };
-    runtime.drag = drag;
-    function active() { return customParticleRuntime === runtime && customParticleStageVisible(); }
-    function pointerDown(event) {
-      if (!active()) return;
-      var camera = runtime.camera;
-      var supported = event.button === 0 && camera.leftDragOrbit ||
-        event.button === 1 && camera.middleDragRoll || event.button === 2 && camera.rightDragPan;
-      if (!supported) return;
-      drag.active = true; drag.button = event.button; drag.x = event.clientX; drag.y = event.clientY;
-      drag.startX = event.clientX; drag.startY = event.clientY; drag.moved = false; drag.pointerId = event.pointerId;
-      if (window.mouseDownAt) window.mouseDownAt.hadDrag = false;
-      try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
-      event.preventDefault();
-      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-    }
-    function pointerMove(event) {
-      if (!active()) return;
-      var camera = runtime.camera;
-      if (!drag.active) {
-        if (camera.hoverRotate && !camera.rotateOnlyWhileLeftDrag && camera.mouseFollowRotation) {
-          var nx = event.clientX / Math.max(1, innerWidth) - 0.5;
-          var ny = event.clientY / Math.max(1, innerHeight) - 0.5;
-          camera.targetYaw = runtime.initialCamera.yaw + nx * camera.rotationStrength;
-          camera.targetPitch = runtime.initialCamera.pitch - ny * camera.rotationStrength * 0.72;
-        }
-        return;
-      }
-      var dx = event.clientX - drag.x, dy = event.clientY - drag.y;
-      drag.x = event.clientX; drag.y = event.clientY;
-      if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 6) {
-        drag.moved = true;
-        if (window.mouseDownAt) window.mouseDownAt.hadDrag = true;
-      }
-      if (drag.button === 0 && camera.leftDragOrbit) {
-        camera.targetYaw -= dx * 0.0062 * camera.rotationStrength;
-        camera.targetPitch += dy * 0.0056 * camera.rotationStrength;
-        if (!camera.unrestrictedPitch && !camera.allowVerticalFlip) camera.targetPitch = Math.max(-Math.PI * 0.495, Math.min(Math.PI * 0.495, camera.targetPitch));
-        if (camera.mouseTranslation && (camera.leftDragPan || /Rotate(?:And)?Move/i.test(camera.interactionMode))) {
-          camera.targetPan[0] += dx * 0.004 * camera.translationStrength;
-          camera.targetPan[1] -= dy * 0.004 * camera.translationStrength;
-        }
-      } else if (drag.button === 2 && camera.rightDragPan && camera.allowPan) {
-        camera.targetPan[0] -= dx * 0.012 * camera.translationStrength;
-        camera.targetPan[1] += dy * 0.012 * camera.translationStrength;
-      } else if (drag.button === 1 && camera.middleDragRoll && camera.allowRoll) {
-        camera.targetRoll += dx * 0.006;
-      }
-      event.preventDefault();
-    }
-    function pointerUp(event) {
-      if (!drag.active || event.pointerId !== drag.pointerId) return;
-      drag.active = false; drag.button = -1; drag.pointerId = null;
-      if (drag.moved && window.mouseDownAt) window.mouseDownAt.hadDrag = true;
-      try { canvas.releasePointerCapture(event.pointerId); } catch (_) {}
-      scheduleCustomParticlePersist();
-    }
-    function wheel(event) {
-      if (!active() || !runtime.camera.wheelZoom) return;
-      var camera = runtime.camera;
-      var direction = event.deltaY === 0 ? 0 : (event.deltaY > 0 ? 1 : -1);
-      if (!direction) return;
-      var previousRadius = Math.max(0.001, camera.targetRadius);
-      camera.zoomStep = Math.max(-camera.zoomStepsToMin, Math.min(camera.zoomStepsToMax, camera.zoomStep + direction));
-      var linearProgress = camera.zoomStep < 0
-        ? -camera.zoomStep / camera.zoomStepsToMin
-        : camera.zoomStep / camera.zoomStepsToMax;
-      var curvedProgress = Math.pow(Math.max(0, Math.min(1, linearProgress)), 1 / Math.max(0.05, camera.zoomSensitivity));
-      var ratio = camera.zoomStep < 0
-        ? Math.pow(camera.zoomMin / camera.initialRadius, curvedProgress)
-        : Math.pow(camera.zoomMax / camera.initialRadius, curvedProgress);
-      var next = Math.max(camera.zoomMin, Math.min(camera.zoomMax, camera.initialRadius * ratio));
-      var preserveScale = next / previousRadius;
-      camera.targetPan = camera.targetPan.map(function (lane) { return lane * preserveScale; });
-      camera.pan = camera.pan.map(function (lane) { return lane * preserveScale; });
-      camera.targetRadius = next;
-      event.preventDefault();
-      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
-      scheduleCustomParticlePersist();
-    }
-    function leave() {
-      if (!runtime.camera.returnToCenterOnMouseLeave || drag.active) return;
-      runtime.camera.targetYaw = runtime.initialCamera.yaw;
-      runtime.camera.targetPitch = runtime.initialCamera.pitch;
-      runtime.camera.targetPan = runtime.initialCamera.pan.slice();
-    }
-    function context(event) { if (active() && runtime.camera.rightDragPan) event.preventDefault(); }
-    function doubleClick(event) {
-      if (!active() || !runtime.camera.doubleClickReset || (event.button != null && event.button !== 0)) return;
-      resetCustomParticleCamera(runtime);
-      event.preventDefault();
-    }
-    addCustomParticleListener(runtime, canvas, 'pointerdown', pointerDown, true);
-    addCustomParticleListener(runtime, window, 'pointermove', pointerMove, { passive:false, capture:true });
-    addCustomParticleListener(runtime, window, 'pointerup', pointerUp, true);
-    addCustomParticleListener(runtime, window, 'pointercancel', pointerUp, true);
-    addCustomParticleListener(runtime, canvas, 'wheel', wheel, { passive:false });
-    addCustomParticleListener(runtime, canvas, 'pointerleave', leave, true);
-    addCustomParticleListener(runtime, canvas, 'contextmenu', context, true);
-    addCustomParticleListener(runtime, canvas, 'dblclick', doubleClick, false);
-  }
-  function updateCustomParticleCamera(runtime, dt) {
-    var camera = window.camera, state = runtime.camera;
-    if (!camera || !state) return;
-    if (runtime.resetTransition) {
-      var reset = runtime.resetTransition;
-      var progress = reset.duration <= 0 ? 1 : Math.min(1, Math.max(0, (performance.now() - reset.startedAt) / reset.duration));
-      var damped = progress >= 1 ? 1 : (1 - (1 + progress * 7) * Math.exp(-progress * 7));
-      ['yaw','pitch','roll','radius'].forEach(function (key) {
-        state[key] = reset.from[key] + (runtime.initialCamera[key] - reset.from[key]) * damped;
-      });
-      state.pan = reset.from.pan.map(function (value, index) { return value + (runtime.initialCamera.pan[index] - value) * damped; });
-      if (progress >= 1) runtime.resetTransition = null;
-    }
-    var smoothing = 1 - Math.pow(1 - Math.max(0.01, Math.min(0.95, state.smoothing)), Math.max(0.2, dt * 60));
-    state.yaw += (state.targetYaw - state.yaw) * smoothing;
-    state.pitch += (state.targetPitch - state.pitch) * smoothing;
-    state.roll += (state.targetRoll - state.roll) * smoothing;
-    if (state.zoomUnbounded) state.radius = Math.exp(Math.log(Math.max(0.001, state.radius)) + (Math.log(Math.max(0.001, state.targetRadius)) - Math.log(Math.max(0.001, state.radius))) * smoothing);
-    else state.radius += (state.targetRadius - state.radius) * smoothing;
-    for (var lane = 0; lane < 3; lane++) state.pan[lane] += (state.targetPan[lane] - state.pan[lane]) * smoothing;
-    var targetX = state.target[0] + state.pan[0], targetY = state.target[1] + state.pan[1], targetZ = state.target[2] + state.pan[2];
-    var cosPitch = Math.cos(state.pitch);
-    camera.position.set(
-      targetX + state.radius * cosPitch * Math.sin(state.yaw),
-      targetY + state.radius * Math.sin(state.pitch),
-      targetZ + state.radius * cosPitch * Math.cos(state.yaw)
-    );
-    camera.up.set(-Math.sin(state.pitch) * Math.sin(state.yaw), Math.cos(state.pitch), -Math.sin(state.pitch) * Math.cos(state.yaw));
-    camera.lookAt(targetX, targetY, targetZ);
-    var shake = Math.max(0, Math.min(1.8, finite(runtime.prepared.common.cinemaShake, 0)));
-    var rollKick = finite(window.beatCam && window.beatCam.rollKick, 0) * shake;
-    var radiusKick = finite(window.beatCam && window.beatCam.radiusKick, 0) * shake * 0.52;
-    if (Math.abs(radiusKick) > 0.0001) camera.translateZ(radiusKick);
-    camera.rotation.z = state.roll + rollKick;
-    var punch = Math.max(finite(window.camPunch, 0) * 0.55,
-      finite(window.beatCam && window.beatCam.punch, 0) * 0.54 + finite(window.beatCam && window.beatCam.radiusKick, 0) * 0.16) * shake;
-    camera.fov = Math.max(18, Math.min(95, state.fov - punch * 1.75));
-    camera.near = Math.max(0.001, Math.min(0.05, state.radius * 0.002));
-    camera.far = Math.max(500, Math.min(2000000, state.radius * 4 + runtime.boundsRadius * 4));
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld(true);
-  }
-  function customParticleTopologyDebug(runtime) {
-    var topology = runtime.prepared.topology;
-    if (runtime.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField) {
-      return {
-        orbitTrailCount:topology.orbitTrailCount,
-        perOrbit:Array.from({ length:topology.orbitTrailCount }).map(function (_, index) { return topology.perOrbit['orbit' + index] || 0; }),
-        orbitRadii:topology.orbitRadii.slice(), orbitSpeeds:topology.orbitSpeeds.slice(),
-        orbitTilts:customParticleClone(topology.orbitTilts), orbitPhaseOffsets:topology.orbitPhaseOffsets.slice(),
-        orbitPrecessionSpeeds:topology.orbitPrecessionSpeeds.slice(), orbitClusterCount:topology.orbitClusterCount.slice(),
-        coreMode:topology.coreMode, coreFacetedNetwork:topology.coreFacetedNetwork,
-        coreAllocation:customParticleClone(runtime.resources.extra.coreAllocation || {}),
-        outerArcCount:topology.outerArcCount, perOuterArc:customParticleClone(runtime.resources.extra.perOuterArc || {}),
-        outerArc:topology.outerArcEnabled && topology.allocation.outerArc > 0,
-        backgroundStars:topology.backgroundStarsEnabled && topology.allocation.backgroundStars > 0,
-        backgroundDepthLayers:topology.backgroundDepthLayers,
-        zoomAnchor:runtime.camera.zoomAnchor.slice(), zoomStep:runtime.camera.zoomStep
-      };
-    }
-    return {};
-  }
-  function customParticleAllocationDebug(runtime) {
-    var topology = runtime.prepared.topology;
-    if (runtime.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField) return customParticleClone(topology.allocation);
-    return {};
-  }
-  function customParticleDebugSnapshot() {
-    var runtime = customParticleRuntime;
-    var base = {
-      active:!!runtime, mode:runtime && runtime.mode || '', presetId:runtime && runtime.prepared.presetId || '',
-      scope:customParticleScopeKey(),
-      targetParticleCount:runtime ? runtime.prepared.lod.requested : 0,
-      effectiveParticleCount:runtime ? runtime.prepared.lod.actual : 0,
-      requestedParticleCount:runtime ? runtime.prepared.lod.requested : 0,
-      actualParticleCount:runtime ? runtime.prepared.lod.actual : 0,
-      lodScale:runtime ? runtime.prepared.lod.scale : 0,
-      allocation:runtime ? customParticleAllocationDebug(runtime) : null,
-      topology:runtime ? customParticleTopologyDebug(runtime) : null,
-      geometryUuid:runtime ? runtime.resources.geometry.uuid : '',
-      materialUuid:runtime ? runtime.resources.material.uuid : '',
-      groupUuid:runtime ? runtime.resources.group.uuid : '',
-      visible:!!(runtime && runtime.resources.group.visible),
-      camera:runtime ? serializableCameraState(runtime.camera) : null,
-      interaction:runtime ? {
-        enabled:true, dragging:!!(runtime.drag && runtime.drag.active), listeners:runtime.listeners.length,
-        mouseRotation:runtime.camera.mouseRotation, mouseMove:runtime.camera.mouseMove,
-        hoverRotate:runtime.camera.hoverRotate, rotateOnlyWhileLeftDrag:runtime.camera.rotateOnlyWhileLeftDrag,
-        leftDragOrbit:runtime.camera.leftDragOrbit, rightDragPan:runtime.camera.rightDragPan,
-        middleDragRoll:runtime.camera.middleDragRoll, wheelZoom:runtime.camera.wheelZoom,
-        mouseTranslation:runtime.camera.mouseTranslation, allowFull360Rotation:runtime.camera.allowFull360Rotation,
-        allowVerticalFlip:runtime.camera.allowVerticalFlip, allowRoll:runtime.camera.allowRoll,
-        allowPan:runtime.camera.allowPan, zoomEnabled:runtime.camera.zoomEnabled,
-        zoomUnbounded:runtime.camera.zoomUnbounded, zoomInfiniteIn:runtime.camera.zoomInfiniteIn,
-        zoomMethod:runtime.camera.zoomMethod,
-        dragAccumulateRotation:runtime.camera.dragAccumulateRotation,
-        dragAccumulateTranslation:runtime.camera.dragAccumulateTranslation,
-        returnToCenterOnMouseLeave:runtime.camera.returnToCenterOnMouseLeave,
-        interactionMode:runtime.camera.interactionMode
-      } : null,
-      fieldConsumption:runtime ? customParticleClone(runtime.prepared.fieldConsumption) : customParticleClone(customParticleFieldConsumption),
-      buildCount:customParticleBuildCount, disposeCount:customParticleDisposeCount,
-      listenerCount:runtime ? runtime.listeners.length : 0,
-      rendererCreated:0, requestAnimationFrameCreated:0, audioContextCreated:0, analyserCreated:0,
-      resourceCounts:{ groups:runtime ? 1 : 0, points:runtime ? 1 : 0, geometries:runtime ? 1 : 0, materials:runtime ? 1 : 0, textures:0 },
-      legacyHiddenCount:runtime ? runtime.legacyVisibility.filter(function (entry) { return !!entry.object; }).length : 0,
-      elapsed:runtime ? runtime.elapsed : 0,
-      generation:runtime ? runtime.generation : customParticleGeneration,
-      lastDisposed:customParticleClone(customParticleLastDisposed)
-    };
-    return base;
-  }
-  function captureCustomParticleRuntime() {
-    var runtime = customParticleRuntime;
-    if (!runtime) return { active:false, scope:customParticleScopeKey(), schema:1 };
-    return {
-      active:true, schema:1, scope:customParticleScopeKey(), mode:runtime.mode,
-      presetId:runtime.prepared.presetId, canonical:customParticleClone(runtime.prepared.canonical),
-      controller:serializableCameraState(runtime.camera), elapsed:runtime.elapsed,
-      targetParticleCount:runtime.prepared.lod.requested, effectiveParticleCount:runtime.prepared.lod.actual
-    };
-  }
-  function disposeCustomParticleInstance(runtime, options) {
-    options = options || {};
-    if (!runtime) return false;
-    var listenerCount = runtime.listeners.length;
-    removeCustomParticleListeners(runtime);
-    try { if (runtime.resources.group.parent) runtime.resources.group.parent.remove(runtime.resources.group); } catch (_) {}
-    try { runtime.resources.group.clear(); } catch (_) {}
-    try { if (runtime.resources.geometry && runtime.resources.geometry.dispose) runtime.resources.geometry.dispose(); } catch (_) {}
-    try { if (runtime.resources.material && runtime.resources.material.dispose) runtime.resources.material.dispose(); } catch (_) {}
-    customParticleDisposeCount++;
-    customParticleLastDisposed = {
-      mode:runtime.mode, presetId:runtime.prepared.presetId,
-      geometryUuid:runtime.resources.geometry.uuid, materialUuid:runtime.resources.material.uuid,
-      disposedAt:Date.now(), listenerCount:listenerCount
-    };
-    if (options.restoreLegacy) setLegacyParticleVisibility(runtime.legacyVisibility, false);
-    if (options.restoreCamera) restoreSharedCamera(runtime.savedCamera);
-    return true;
-  }
-  function destroyCustomParticleRuntime(options) {
-    options = options || {};
-    var changed = false;
-    if (customParticleRuntime) {
-      var runtime = customParticleRuntime;
-      customParticleRuntime = null;
-      changed = disposeCustomParticleInstance(runtime, {
-        restoreLegacy:options.restoreLegacy !== false,
-        restoreCamera:options.restoreCamera !== false
-      });
-    }
-    if (options.persist !== false && customParticleOwnerReady()) writeScopedValue(STORE.particleRuntime, captureCustomParticleRuntime());
-    syncGoldenConsoleControls();
-    decorateGoldenAtomicPresetCard();
-    return changed;
-  }
-  function leaveCustomParticleForBuiltIn() {
-    var snapshot = captureCustomParticleRuntime();
-    if (!snapshot.active) return true;
-    if (!customParticleOwnerReady()) return false;
-    var storageBefore = storageSnapshot([STORE.currentPreset, STORE.particleRuntime]);
-    var inactive = { active:false, schema:1, scope:customParticleScopeKey() };
-    var currentWritten = writeScopedCurrentPresetId('');
-    var runtimeWritten = currentWritten && writeScopedValue(STORE.particleRuntime, inactive);
-    var verified = runtimeWritten && readScopedCurrentPresetId() === '' && readScopedValue(STORE.particleRuntime, null) && readScopedValue(STORE.particleRuntime, null).active === false;
-    if (!verified) {
-      restoreStorageSnapshot(storageBefore);
-      return false;
-    }
-    try {
-      destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-    } catch (_) {
-      restoreStorageSnapshot(storageBefore);
-      try { restoreCustomParticleRuntime(snapshot, { persist:false, suppressFailureInjection:true }); } catch (ignore) {}
-      return false;
-    }
-    decorateGoldenAtomicPresetCard();
-    return true;
-  }
-  function applyCustomParticlePreset(value, options) {
-    options = options || {};
-    var injectedFailure = options.failAt || (options.suppressFailureInjection ? '' : window.__LF_PARTICLE_TEST_FAIL_AT);
-    var prepared = prepareCustomParticlePreset(value);
-    if (!prepared) {
-      if (options.destroyWhenAbsent !== false) {
-        destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:options.persist !== false });
-      }
-      return null;
-    }
-    var resources = buildCustomParticleResources(prepared);
-    var previousSnapshot = captureCustomParticleRuntime();
-    var previousRuntime = customParticleRuntime;
-    var legacyVisibility = previousRuntime ? previousRuntime.legacyVisibility : captureLegacyParticleVisibility(prepared.common);
-    var savedCamera = previousRuntime ? previousRuntime.savedCamera : captureSharedCamera();
-    try {
-      if (injectedFailure === 'after-build') throw new Error('PARTICLE_TEST_FAILURE_AFTER_BUILD');
-      if (previousRuntime) {
-        customParticleRuntime = null;
-        disposeCustomParticleInstance(previousRuntime, { restoreLegacy:false, restoreCamera:false });
-      }
-      var cameraState = customParticleClone(prepared.camera);
-      var runtime = {
-        mode:prepared.mode, prepared:prepared, resources:resources, camera:cameraState,
-        initialCamera:customParticleClone(cameraState), legacyVisibility:legacyVisibility, savedCamera:savedCamera,
-        listeners:[], drag:null, elapsed:Math.max(0, finite(options.elapsed, 0)),
-        audio:{ bass:0, mid:0, treble:0, flux:0 }, boundsRadius:prepared.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField ? 32 : 28,
-        generation:++customParticleGeneration
-      };
-      restoreCameraControllerState(runtime.camera, options.controller);
-      window.scene.add(resources.group);
-      customParticleRuntime = runtime;
-      bindCustomParticleInteraction(runtime);
-      customParticleBuildCount++;
-      if (injectedFailure === 'after-renderer') throw new Error('PARTICLE_TEST_FAILURE_AFTER_RENDERER');
-      updateCustomParticleFrame(performance.now(), 0.016);
-      if (options.persist !== false) persistCustomParticleRuntime();
-      installGoldenVisualConsoleBindings();
-      decorateGoldenAtomicPresetCard();
-      return captureCustomParticleRuntime();
-    } catch (error) {
-      if (customParticleRuntime && customParticleRuntime.resources === resources) {
-        var failed = customParticleRuntime; customParticleRuntime = null;
-        disposeCustomParticleInstance(failed, { restoreLegacy:false, restoreCamera:false });
-      } else {
-        try { if (resources.geometry) resources.geometry.dispose(); } catch (_) {}
-        try { if (resources.material) resources.material.dispose(); } catch (_) {}
-      }
-      if (previousSnapshot && previousSnapshot.active) {
-        try {
-          applyCustomParticlePreset(previousSnapshot.canonical, {
-            controller:previousSnapshot.controller, elapsed:previousSnapshot.elapsed, persist:false,
-            suppressFailureInjection:true
-          });
-        } catch (_) {
-          setLegacyParticleVisibility(legacyVisibility, false);
-          restoreSharedCamera(savedCamera);
-        }
-      } else {
-        setLegacyParticleVisibility(legacyVisibility, false);
-        restoreSharedCamera(savedCamera);
-      }
-      throw error;
-    }
-  }
-  function restoreCustomParticleRuntime(snapshot, options) {
-    options = options || {};
-    if (!snapshot || snapshot.active !== true || !snapshot.canonical) {
-      destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:options.persist !== false });
-      return { active:false };
-    }
-    return applyCustomParticlePreset(snapshot.canonical, {
-      controller:snapshot.controller, elapsed:snapshot.elapsed,
-      persist:options.persist !== false, failAt:options.failAt,
-      suppressFailureInjection:options.suppressFailureInjection === true
-    });
-  }
-  function applyCustomParticleVisualUniforms(runtime) {
-    if (!runtime || !runtime.resources || !runtime.resources.material) return false;
-    var common = runtime.prepared.common;
-    var uniforms = runtime.resources.material.uniforms;
-    uniforms.uPointSize.value = common.point;
-    uniforms.uSpeed.value = common.speed;
-    uniforms.uTwist.value = common.twist;
-    uniforms.uColorStrength.value = common.color;
-    uniforms.uScatter.value = common.scatter;
-    uniforms.uOpacity.value = Math.max(0.08, 1 - common.bgFade * 0.54);
-    uniforms.uBloom.value = common.bloom ? common.bloomStrength : 0;
-    uniforms.uSharp.value = common.edge && common.hdSharp && !common.blur ? 1 : 0;
-    uniforms.uDepth.value = common.depth * (common.cinema ? 1 : 0.86);
-    uniforms.uDepthDistribution.value = common.depthDistribution ? 1 : 0;
-    uniforms.uFloatLayer.value = common.floatLayer ? 1 : 0;
-    uniforms.uIntensity.value = common.intensity;
-    uniforms.uTint.value.set(common.visualTintColor);
-    uniforms.uResolutionScale.value = common.coverResolution / 1.15;
-    var blending = common.bloom ? window.THREE.AdditiveBlending : window.THREE.NormalBlending;
-    if (runtime.resources.material.blending !== blending) {
-      runtime.resources.material.blending = blending;
-      runtime.resources.material.needsUpdate = true;
-    }
-    return true;
-  }
-  function syncCustomParticleVisualConsole(runtime) {
-    runtime = runtime || customParticleRuntime;
-    if (!runtime || !window.fx) return false;
-    var fxState = window.fx, common = runtime.prepared.common, canonical = runtime.prepared.canonical;
-    var particles = canonical.particles || (canonical.particles = {});
-    var visual = canonical.visual || (canonical.visual = {});
-    var dynamic = {
-      point:[0.25,8], speed:[0,5], twist:[-4,4], color:[0,3], scatter:[0,3],
-      bgFade:[0,1.5], bloomStrength:[0,3]
-    };
-    Object.keys(dynamic).forEach(function (key) {
-      if (!own(fxState,key)) return;
-      common[key] = Math.max(dynamic[key][0], Math.min(dynamic[key][1], finite(fxState[key], common[key])));
-      particles[key] = common[key];
-    });
-    ['bloom','edge','cinema','floatLayer'].forEach(function (key) {
-      if (!own(fxState,key)) return;
-      common[key] = fxState[key] === true;
-      particles[key] = common[key];
-    });
-    ['intensity','depth'].forEach(function (key) {
-      if (!own(fxState,key)) return;
-      common[key] = Math.max(0.1, Math.min(4, finite(fxState[key], common[key])));
-      visual[key] = common[key];
-    });
-    if (own(fxState,'cinemaShake')) {
-      common.cinemaShake = Math.max(0, Math.min(1.8, finite(fxState.cinemaShake, common.cinemaShake)));
-      visual.cinemaShake = common.cinemaShake;
-    }
-    if (own(fxState,'coverResolution')) {
-      common.coverResolution = Math.max(0.75, Math.min(1.55, finite(fxState.coverResolution, common.coverResolution)));
-      visual.coverResolution = common.coverResolution;
-    }
-    if (own(fxState,'visualTintColor') && /^#[0-9a-f]{6}$/i.test(String(fxState.visualTintColor))) {
-      common.visualTintColor = String(fxState.visualTintColor).toLowerCase();
-      visual.visualTintColor = common.visualTintColor;
-    }
-    applyCustomParticleVisualUniforms(runtime);
-    syncGoldenConsoleControls();
-    scheduleCustomParticlePersist();
-    return true;
-  }
-  function mergeCustomParticleCanonical(patch) {
-    if (!customParticleRuntime || !patch || typeof patch !== 'object' || Array.isArray(patch)) return false;
-    function merge(target, source) {
-      Object.keys(source).forEach(function (key) {
-        var value = source[key];
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          target[key] = target[key] && typeof target[key] === 'object' && !Array.isArray(target[key]) ? target[key] : {};
-          merge(target[key], value);
-        } else target[key] = customParticleClone(value);
-      });
-      return target;
-    }
-    var next = merge(customParticleClone(customParticleRuntime.prepared.canonical), patch);
-    return applyCustomParticlePreset(next, { persist:true });
-  }
-  function updateCustomParticleFrame(now, dt) {
-    var runtime = customParticleRuntime;
-    if (!runtime) return;
-    dt = Math.max(0, Math.min(0.1, finite(dt, 0.016)));
-    var visible = customParticleStageVisible();
-    runtime.resources.group.visible = visible;
-    if (!visible) {
-      setLegacyParticleVisibility(runtime.legacyVisibility, false);
-      return;
-    }
-    setLegacyParticleVisibility(runtime.legacyVisibility, true);
-    runtime.elapsed += dt;
-    var paused = !window.audio || window.audio.paused;
-    var targetBass = paused ? 0 : Math.max(0, finite(window.bass, 0));
-    var targetMid = paused ? 0 : Math.max(0, finite(window.mid, 0));
-    var targetTreble = paused ? 0 : Math.max(0, finite(window.treble, 0));
-    var energy = paused ? 0 : Math.max(0, finite(window.audioEnergy, 0));
-    var release = Math.max(0.01, Math.min(0.99, finite(runtime.prepared.topology.pauseRelease, 0.9)));
-    var attack = 1 - Math.pow(0.16, dt * 60), decay = 1 - Math.pow(Math.max(0.01, Math.min(0.99, release)), dt * 60);
-    function envelope(previous, target) { return previous + (target - previous) * (target > previous ? attack : decay); }
-    runtime.audio.bass = envelope(runtime.audio.bass, targetBass);
-    runtime.audio.mid = envelope(runtime.audio.mid, targetMid);
-    runtime.audio.treble = envelope(runtime.audio.treble, targetTreble);
-    var fluxTarget = paused ? 0 : Math.max(0, energy - customParticleLastEnergy) * 5 + Math.max(0, finite(window.beatPulse, 0)) * 0.22;
-    runtime.audio.flux = envelope(runtime.audio.flux, fluxTarget);
-    customParticleLastEnergy = energy;
-    var uniforms = runtime.resources.material.uniforms;
-    uniforms.uTime.value = runtime.elapsed;
-    uniforms.uBass.value = runtime.audio.bass;
-    uniforms.uMid.value = runtime.audio.mid;
-    uniforms.uTreble.value = runtime.audio.treble;
-    uniforms.uFlux.value = runtime.audio.flux;
-    uniforms.uPixel.value = window.renderer && typeof window.renderer.getPixelRatio === 'function' ? window.renderer.getPixelRatio() : (devicePixelRatio || 1);
-    updateCustomParticleCamera(runtime, dt);
-  }
-  function restoreScopedCustomParticleRuntime() {
-    if (!customParticleOwnerReady()) return false;
-    var snapshot = readScopedValue(STORE.particleRuntime, null);
-    if (snapshot && snapshot.active && snapshot.canonical) {
-      try { restoreCustomParticleRuntime(snapshot, { persist:false }); return true; } catch (_) {}
-    }
-    var currentId = readScopedCurrentPresetId();
-    var store = canonicalArchiveStore();
-    var canonical = currentId && store.presets && store.presets[currentId];
-    if (canonical && canonical.particles && canonical.particles.custom) {
-      try { applyCustomParticlePreset(canonical, { persist:false }); return true; } catch (_) {}
-    }
-    destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-    return false;
-  }
-  function switchCustomParticleUser(userId) {
-    if (customParticleScopeReady) persistCustomParticleRuntime();
-    destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-    if (userId !== undefined) customParticleScopeOverride = '';
-    customParticleScopeReady = true;
+  function switchPresetScope(userId) {
+    if (userId !== undefined) presetScopeOverride = '';
+    presetScopeReady = true;
     try { migrateCanonicalArchives(); } catch (_) {}
-    return restoreScopedCustomParticleRuntime();
+    return presetScopeKey();
   }
-  function setCustomParticleTestUser(userId) {
-    if (customParticleScopeReady) persistCustomParticleRuntime();
-    destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-    customParticleScopeOverride = String(userId == null ? '' : userId).trim();
-    customParticleScopeReady = true;
+  function setPresetScopeTestUser(userId) {
+    presetScopeOverride = String(userId == null ? '' : userId).trim();
+    presetScopeReady = true;
     try { migrateCanonicalArchives(); } catch (_) {}
-    restoreScopedCustomParticleRuntime();
     syncConsoleFoldState();
-    return customParticleScopeKey();
+    return presetScopeKey();
   }
-  var GOLDEN_ATOMIC_PRESET_ASSET = 'lf-golden-atomic-star-trail-preset.json';
-  var goldenAtomicPresetPromise = null;
-  function loadGoldenAtomicPreset() {
-    if (!goldenAtomicPresetPromise) goldenAtomicPresetPromise = fetch(GOLDEN_ATOMIC_PRESET_ASSET, { cache:'no-cache' }).then(function (response) {
-      if (!response.ok) throw new Error('金色量子预设资源加载失败：HTTP ' + response.status);
-      return response.json();
-    }).then(function (payload) {
-      var normalized = canonicalSchemaApi().normalize(payload, { fileName:GOLDEN_ATOMIC_PRESET_ASSET });
-      if (normalized.ignoredFields.length || normalized.invalidFields.length) throw new Error('金色量子预设字段校验未通过');
-      return normalized;
-    }).catch(function (error) {
-      goldenAtomicPresetPromise = null;
-      throw error;
-    });
-    return goldenAtomicPresetPromise.then(function (value) { return customParticleClone(value); });
-  }
-  function applyGoldenAtomicPreset(options) {
-    options = options || {};
-    return loadGoldenAtomicPreset().then(function (normalized) {
-      var parsed = transactionalFromSchemaResult(normalized);
-      var result = applyTransactionalPreset(parsed, {
-        createArchive:options.createArchive !== false, importWallpaper:false,
-        presetId:normalized.canonical.presetId, failAt:options.failAt, failAtStage:options.failAtStage,
-        silent:options.silent === true
-      });
-      decorateGoldenAtomicPresetCard();
-      return result;
-    });
-  }
-  var GOLDEN_DYNAMIC_CONTROLS = [
-    { key:'point', label:'粒子尺寸', type:'range', min:0.25, max:8, step:0.01 },
-    { key:'speed', label:'整体运动速度', type:'range', min:0, max:5, step:0.01 },
-    { key:'twist', label:'轨道进动与景深扭曲', type:'range', min:-4, max:4, step:0.01 },
-    { key:'color', label:'金色层次强度', type:'range', min:0, max:3, step:0.01 },
-    { key:'scatter', label:'轨道与背景离散', type:'range', min:0, max:3, step:0.01 },
-    { key:'bgFade', label:'轨迹残留压缩', type:'range', min:0, max:1.5, step:0.001 },
-    { key:'bloomStrength', label:'核心与粒子溢光', type:'range', min:0, max:3, step:0.01 },
-    { key:'floatLayer', label:'背景景深层', type:'checkbox' },
-    { key:'cinema', label:'透视景深响应', type:'checkbox' },
-    { key:'edge', label:'粒子锐边', type:'checkbox' },
-    { key:'depthDistribution', label:'几何深度分布', type:'checkbox' },
-    { key:'bloom', label:'溢光管线', type:'checkbox' }
-  ];
-  var GOLDEN_ADVANCED_CONTROLS = [
-    ['particleCount','粒子预算','number',1024,100000,256],
-    ['orbitTrailCount','轨道数量','number',1,32,1],
-    ['orbitRadii','轨道半径','json'], ['orbitEccentricity','轨道形状','json'],
-    ['orbitSpeeds','逐轨速度','json'], ['orbitTilts','逐轨方向','json'],
-    ['trailPersistence','轨迹持续','number',0,1,0.01], ['trailWidth','轨迹宽度','number',0.01,2,0.01],
-    ['coreRadius','核心半径','number',0.2,32,0.05], ['coreParticleCount','核心密度','number',0,100000,100],
-    ['backgroundStarCount','背景密度','number',0,100000,100],
-    ['mouseRotationStrength','拖动旋转','number',0,4,0.01], ['mouseTranslationStrength','拖动平移','number',0,4,0.01],
-    ['mouseSmoothing','交互平滑','number',0.01,1,0.01], ['zoomSensitivity','缩放响应','number',0.01,2,0.01]
-  ];
-  function resizedGoldenOrbitArrays(custom, count) {
-    var arrays = {
-      orbitRadii:function (source) { return finite(source[source.length - 1], 8) + 8; },
-      orbitEccentricity:function (source) { return finite(source[source.length - 1], 1.4); },
-      orbitSpeeds:function (source) { return -finite(source[source.length - 1], 0.02) * 0.82; },
-      orbitTilts:function (source) { var last=source[source.length-1]; return Array.isArray(last) ? last.slice() : [0,0,0]; },
-      orbitPhaseOffsets:function (source) { return finite(source[source.length - 1], 0) + Math.PI * 2 / count; },
-      orbitPrecessionSpeeds:function (source) { return -finite(source[source.length - 1], 0.001) * 0.88; },
-      orbitThickness:function (source) { return finite(source[source.length - 1], 0.2); },
-      orbitClusterCount:function (source) { return Math.max(1, finiteInt(source[source.length - 1], 12, 1, 256)); }
-    };
-    Object.keys(arrays).forEach(function (key) {
-      var source = Array.isArray(custom[key]) ? custom[key].slice(0,count) : [];
-      while (source.length < count) source.push(arrays[key](source));
-      custom[key] = source;
-    });
-    return custom;
-  }
-  function updateGoldenAdvancedField(path, value) {
-    if (!customParticleRuntime) return false;
-    var custom = customParticleClone(customParticleRuntime.prepared.canonical.particles.custom);
-    var key = String(path).split('.').pop();
-    if (key === 'orbitTrailCount') {
-      value = finiteInt(value, custom.orbitTrailCount, 1, 32);
-      custom.orbitTrailCount = value;
-      resizedGoldenOrbitArrays(custom, value);
-    } else if (key === 'particleCount') custom[key] = finiteInt(value, custom[key], CUSTOM_PARTICLE_MIN, CUSTOM_PARTICLE_MAX);
-    else if (key === 'coreParticleCount' || key === 'backgroundStarCount') custom[key] = finiteInt(value, custom[key], 0, CUSTOM_PARTICLE_MAX);
-    else custom[key] = customParticleClone(value);
-    return mergeCustomParticleCanonical({ particles:{ custom:custom } });
-  }
-  function updateGoldenDynamicField(key, value) {
-    var runtime = customParticleRuntime;
-    if (!runtime || runtime.mode !== CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField) return false;
-    var descriptor = GOLDEN_DYNAMIC_CONTROLS.filter(function (row) { return row.key === key; })[0];
-    if (!descriptor) return false;
-    if (descriptor.type === 'checkbox') value = value === true;
-    else value = Math.max(descriptor.min, Math.min(descriptor.max, finite(value, runtime.prepared.common[key])));
-    runtime.prepared.common[key] = value;
-    runtime.prepared.canonical.particles[key] = value;
-    applyCustomParticleVisualUniforms(runtime);
-    scheduleCustomParticlePersist();
-    return true;
-  }
-  function syncGoldenConsoleControls() {
-    var runtime = customParticleRuntime;
-    var goldenActive = !!(runtime && runtime.mode === CUSTOM_PARTICLE_MODES.goldenStarTrailOrbitField);
-    ['lf-golden-dynamic-controls','lf-golden-console-controls'].forEach(function (id) {
-      var section = byId(id);
-      if (!section) return;
-      section.hidden = !goldenActive;
-      section.querySelectorAll('input,textarea,button,select').forEach(function (control) { control.disabled = !goldenActive; });
-    });
-    if (!goldenActive) return;
-    GOLDEN_DYNAMIC_CONTROLS.forEach(function (descriptor) {
-      var node = document.querySelector('#lf-golden-dynamic-controls [data-lf-canonical-path="particles.' + descriptor.key + '"]');
-      if (!node) return;
-      if (descriptor.type === 'checkbox') node.checked = runtime.prepared.common[descriptor.key] === true;
-      else {
-        node.value = String(runtime.prepared.common[descriptor.key]);
-        var output = node.parentElement && node.parentElement.querySelector('output');
-        if (output) output.textContent = Number(node.value).toFixed(descriptor.key === 'bgFade' ? 3 : 2);
-      }
-    });
-    GOLDEN_ADVANCED_CONTROLS.forEach(function (descriptor) {
-      var node = document.querySelector('[data-lf-p14-path="particles.custom.' + descriptor[0] + '"]');
-      if (!node) return;
-      var value = runtime.prepared.canonical.particles.custom[descriptor[0]];
-      node.value = descriptor[2] === 'json' ? JSON.stringify(value) : String(value);
-    });
-  }
-  function installGoldenVisualConsoleBindings() {
-    if (typeof window.organizeFxPanel === 'function') window.organizeFxPanel();
-    var body = byId('fx-advanced') && byId('fx-advanced').querySelector('.fx-advanced-body');
-    var motion = document.querySelector('#fx-panel .fx-tab-page[data-fx-page="motion"]');
-    if (!body || !motion) return false;
-    GOLDEN_DYNAMIC_CONTROLS.forEach(function (descriptor) {
-      document.querySelectorAll('[data-lf-canonical-path="particles.' + descriptor.key + '"]').forEach(function (node) {
-        if (!node.closest('#lf-golden-dynamic-controls')) node.removeAttribute('data-lf-canonical-path');
-      });
-    });
-    if (!byId('lf-golden-dynamic-controls')) {
-      var dynamicSection = document.createElement('section');
-      dynamicSection.id = 'lf-golden-dynamic-controls';
-      dynamicSection.className = 'lf-t13-golden-controls lf-t13-golden-dynamic-controls';
-      dynamicSection.innerHTML = '<div class="fx-section-label">金色量子 · 动态</div>' +
-        GOLDEN_DYNAMIC_CONTROLS.map(function (descriptor) {
-          var path = 'particles.' + descriptor.key;
-          if (descriptor.type === 'checkbox') {
-            return '<label class="fx-toggle lf-t13-golden-toggle"><span>' + descriptor.label + '</span><input type="checkbox" data-lf-canonical-path="' + path + '" aria-label="' + descriptor.label + '"></label>';
-          }
-          return '<label class="fx-slider"><span>' + descriptor.label + '</span><input type="range" min="' + descriptor.min + '" max="' + descriptor.max + '" step="' + descriptor.step + '" data-lf-canonical-path="' + path + '" aria-label="' + descriptor.label + '"><output></output></label>';
-        }).join('');
-      motion.appendChild(dynamicSection);
-      dynamicSection.querySelectorAll('[data-lf-canonical-path]').forEach(function (control) {
-        var key = String(control.getAttribute('data-lf-canonical-path')).slice('particles.'.length);
-        var eventName = control.type === 'checkbox' ? 'change' : 'input';
-        control.addEventListener(eventName, function () {
-          var value = control.type === 'checkbox' ? control.checked : Number(control.value);
-          if (!updateGoldenDynamicField(key, value)) return;
-          var output = control.parentElement && control.parentElement.querySelector('output');
-          if (output && control.type !== 'checkbox') output.textContent = Number(control.value).toFixed(key === 'bgFade' ? 3 : 2);
-        });
-      });
-    }
-    if (!byId('lf-golden-console-controls')) {
-      var section = document.createElement('section'); section.id = 'lf-golden-console-controls';
-      section.className = 'lf-t13-golden-controls';
-      section.innerHTML = '<div class="fx-section-label">金色量子 · 全字段控制</div>' +
-        GOLDEN_ADVANCED_CONTROLS.map(function (descriptor) {
-          var key=descriptor[0], path='particles.custom.'+key;
-          if (descriptor[2] === 'json') return '<label class="fx-slider lf-t13-golden-json"><span>'+descriptor[1]+'</span><textarea rows="2" data-lf-p14-path="'+path+'" aria-label="'+descriptor[1]+'"></textarea></label>';
-          return '<label class="fx-slider"><span>'+descriptor[1]+'</span><input type="number" min="'+descriptor[3]+'" max="'+descriptor[4]+'" step="'+descriptor[5]+'" data-lf-p14-path="'+path+'" aria-label="'+descriptor[1]+'"></label>';
-        }).join('');
-      body.appendChild(section);
-      section.querySelectorAll('[data-lf-p14-path]').forEach(function (control) {
-        control.addEventListener('change', function () {
-          var descriptor = GOLDEN_ADVANCED_CONTROLS.filter(function (row) { return control.getAttribute('data-lf-p14-path') === 'particles.custom.' + row[0]; })[0];
-          if (!descriptor || !customParticleRuntime) return;
-          try {
-            var value = descriptor[2] === 'json' ? JSON.parse(control.value) : Number(control.value);
-            updateGoldenAdvancedField(control.getAttribute('data-lf-p14-path'), value);
-          } catch (error) { show('金色量子参数无效：' + error.message); }
-          syncGoldenConsoleControls();
-        });
-      });
-    }
-    syncGoldenConsoleControls();
-    return true;
-  }
-  function decorateGoldenAtomicPresetCard() {
-    var grid = byId('preset-grid');
-    if (!grid) return false;
-    var card = grid.querySelector('[data-custom-preset="golden-atomic-star-trail"]');
-    if (!card) {
-      card = document.createElement('button');
-      card.type = 'button'; card.className = 'preset-card';
-      card.dataset.customPreset = 'golden-atomic-star-trail';
-      card.title = '应用金色量子自由星轨粒子';
-      card.innerHTML = '<span class="pc-icon" aria-hidden="true">✦</span><span class="pc-name">金色量子自由星轨</span><span class="pc-desc">11轨分面核心 · 12级定轴缩放</span>';
-      card.addEventListener('click', function () {
-        if (card.disabled) return;
-        card.disabled = true;
-        applyGoldenAtomicPreset({ createArchive:true }).catch(function (error) { show(error.message); }).finally(function () { card.disabled = false; });
-      });
-      grid.appendChild(card);
-    }
-    card.classList.toggle('active', !!(customParticleRuntime && customParticleRuntime.prepared.presetId === 'lf-golden-atomic-star-trail-free-orbit-v5.3.1'));
-    card.setAttribute('aria-pressed', card.classList.contains('active') ? 'true' : 'false');
-    return true;
-  }
-  window.LumiFieldCustomParticles = {
-    prepare:prepareCustomParticlePreset, apply:applyCustomParticlePreset,
-    capture:captureCustomParticleRuntime, restore:restoreCustomParticleRuntime,
-    destroy:function () { return destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true }); },
-    leaveForBuiltIn:leaveCustomParticleForBuiltIn,
-    ownsCanvasInput:customParticleOwnsCanvasInput,
-    worldUiTransform:customParticleWorldUiTransform,
-    updateFrame:updateCustomParticleFrame,
-    update:mergeCustomParticleCanonical, syncVisualConsole:function () { return syncCustomParticleVisualConsole(customParticleRuntime); },
-    installVisualConsoleBindings:installGoldenVisualConsoleBindings,
-    loadGoldenAtomicPreset:loadGoldenAtomicPreset, applyGoldenAtomicPreset:applyGoldenAtomicPreset,
-    decoratePresetGrid:decorateGoldenAtomicPresetCard, retireDeprecatedPresets:retireDeprecatedParticlePresets,
-    debug:customParticleDebugSnapshot, setTestUser:setCustomParticleTestUser
-  };
-  setTimeout(function () { decorateGoldenAtomicPresetCard(); installGoldenVisualConsoleBindings(); }, 0);
-
   // ---------- Native lyrics translation ----------
   var lyricSyncSongKey = '';
   var lyricSyncLinesRef = null;
@@ -4013,7 +2279,7 @@
     getDebug:function () {
       var state = consoleFoldState();
       return {
-        scope:customParticleScopeKey(), state:state,
+        scope:presetScopeKey(), state:state,
         folds:Object.keys(CONSOLE_FOLD_DEFAULTS).map(function (key) {
           var fold = document.querySelector('[data-lf-console-fold="' + key + '"]');
           var body = fold && fold.querySelector('[data-lf-console-fold-body]');
@@ -4022,7 +2288,7 @@
       };
     },
     setExpanded:function (key, expanded) { return setConsoleFoldExpanded(key, expanded); },
-    setTestUser:function (userId) { var scope = setCustomParticleTestUser(userId); relocateTask15ConsoleBlocks(); return scope; }
+    setTestUser:function (userId) { var scope = setPresetScopeTestUser(userId); relocateTask15ConsoleBlocks(); return scope; }
   };
 
   var consoleInjectTimer = 0;
@@ -4304,7 +2570,7 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
   function canonicalToPatch(canonical) {
-    var patch = { core:{}, lyrics:{}, spectrum:{}, echo:{}, glass:{}, player:{}, camera:{}, customParticles:null };
+    var patch = { core:{}, lyrics:{}, spectrum:{}, echo:{}, glass:{}, player:{}, camera:{} };
     function core(namespace, keys) {
       var source = canonical[namespace];
       if (!source) return;
@@ -4313,7 +2579,6 @@
     core('visual', CORE_NAMESPACE_KEYS.visual);
     core('particles', CORE_NAMESPACE_KEYS.particles);
     core('lyrics', CORE_NAMESPACE_KEYS.lyrics);
-    if (canonical.particles && canonical.particles.custom) patch.customParticles = cloneJson(canonical.particles.custom);
     if (canonical.lyrics) {
       if (Object.prototype.hasOwnProperty.call(canonical.lyrics, 'translate')) patch.lyrics.translate = canonical.lyrics.translate;
     }
@@ -4340,12 +2605,6 @@
   }
   function captureCanonicalPreset(name, presetId) {
     var schema = canonicalSchemaApi();
-    if (customParticleRuntime && customParticleRuntime.prepared && customParticleRuntime.prepared.canonical) {
-      var authoritative = cloneJson(customParticleRuntime.prepared.canonical);
-      if (name) authoritative.name = String(name).slice(0, 64);
-      if (presetId) authoritative.presetId = presetId;
-      return schema.normalize(authoritative, { allowEmpty:true }).canonical;
-    }
     var value = { type:schema.TYPE, schema:schema.SCHEMA, version:schema.VERSION, name:String(name || 'LumiField 视觉预设').slice(0,64), createdAt:Date.now() };
     function takeCore(namespace, keys) {
       if (!window.fx) return;
@@ -4734,22 +2993,14 @@
   function currentCanonicalValue(namespace, key) {
     var path = Array.isArray(key) ? key : [key];
     if (namespace === 'visual') return nestedCanonicalValue(window.fx, path);
-    if (namespace === 'particles') {
-      if (path[0] === 'custom') {
-        return nestedCanonicalValue(customParticleRuntime && customParticleRuntime.prepared.canonical.particles, path);
-      }
-      return nestedCanonicalValue(window.fx, path);
-    }
+    if (namespace === 'particles') return nestedCanonicalValue(window.fx, path);
     if (namespace === 'lyrics') {
       if (path[0] === 'translate') return lyricState.translate;
       return nestedCanonicalValue(window.fx, path);
     }
     if (namespace === 'spectrum') return nestedCanonicalValue(spectrumState, path);
     if (namespace === 'echo') return nestedCanonicalValue(echoState, path);
-    if (namespace === 'camera') {
-      if (customParticleRuntime) return nestedCanonicalValue(customParticleRuntime.prepared.canonical.camera || {}, path);
-      return path[0] === 'cam' ? window.fx && window.fx.cam : undefined;
-    }
+    if (namespace === 'camera') return path[0] === 'cam' ? window.fx && window.fx.cam : undefined;
     if (namespace === 'glass') {
       if (path[0] === 'controlChromaticOffset') return window.fx && window.fx.controlGlassChromaticOffset;
       return nestedCanonicalValue(readJson('lumifield-liquid-glass-v2', {}), path);
@@ -4865,20 +3116,18 @@
     options = options || {};
     var storageKeys = [
       STORE.lyrics, STORE.spectrum, STORE.echo, STORE.imports, STORE.canonicalPresets, STORE.currentPreset,
-      STORE.particleRuntime, 'lumifield-liquid-glass-v2', 'lumifield-user-fx-archives-v1', 'lumifield-lyric-layout-v1'
+      'lumifield-liquid-glass-v2', 'lumifield-user-fx-archives-v1', 'lumifield-lyric-layout-v1'
     ];
     var snapshot = {
       fx: window.fx ? Object.assign({}, window.fx) : null,
       lyrics:cloneJson(lyricState), spectrum:cloneJson(spectrumState), echo:cloneJson(echoState),
       glass:readJson('lumifield-liquid-glass-v2', {}), imports:importedMetaMap(),
       archives:Array.isArray(window.userFxArchives) ? cloneJson(window.userFxArchives) : null,
-      storage:storageSnapshot(storageKeys),
-      particles:captureCustomParticleRuntime()
+      storage:storageSnapshot(storageKeys)
     };
     var presetId = options.presetId || (parsed.canonical && parsed.canonical.presetId) || makePresetId();
     var rowsBefore = importDiff(parsed);
     try {
-      var preparedParticles = prepareCustomParticlePreset(parsed.canonical);
       Object.keys(parsed.patch.core).forEach(function (key) { window.fx[key] = parsed.patch.core[key]; });
       lyricState = normalizeLyricState(Object.assign({}, lyricState, parsed.patch.lyrics));
       assertSpectrumPatch(parsed.patch.spectrum);
@@ -4894,14 +3143,6 @@
       assertStoredJson(STORE.echo, echoState);
       if (!applyEchoState(echoState, { partial:false, silent:true })) throw new Error('Audio Echo 预设激活失败');
       syncLyricControls(); syncSpectrumControls(); syncEchoControls();
-      if (preparedParticles) {
-        applyCustomParticlePreset(preparedParticles, {
-          persist:false,
-          failAt:options.failAt || (options.failAtStage === 'after-renderer' ? 'after-renderer' : '')
-        });
-      } else {
-        destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-      }
       if (options.failAtStage === 'after-apply') throw new Error('PRESET_TEST_FAILURE_AFTER_APPLY');
       if (options.importWallpaper && parsed.wallpaper) {
         var wallpaperOpacity = Object.prototype.hasOwnProperty.call(parsed.wallpaper, 'opacity') ? clamp(parsed.wallpaper.opacity, 0, 1) : null;
@@ -4937,7 +3178,6 @@
         saveImportedMeta(parsed, presetId, savedAt);
       }
       if (!writeScopedCurrentPresetId(presetId) || readScopedCurrentPresetId() !== presetId) throw new Error('当前预设标识持久化失败');
-      if (!persistCustomParticleRuntime()) throw new Error('粒子运行状态持久化失败');
       var appliedRows = rowsBefore.filter(function (row) { return row.namespace !== 'wallpaper' || options.importWallpaper; });
       var changedCount = appliedRows.filter(function (row) { return row.changed !== false; }).length;
       var ignoredCount = parsed.report && parsed.report.ignoredFields ? parsed.report.ignoredFields.length : 0;
@@ -4963,25 +3203,16 @@
         applyEchoState(echoState, { partial:false, silent:true }); syncLyricControls(); syncSpectrumControls(); syncEchoControls();
       } catch (_) {}
       restoreStorageSnapshot(snapshot.storage);
-      try { restoreCustomParticleRuntime(snapshot.particles, { persist:false, suppressFailureInjection:true }); } catch (_) {
-        destroyCustomParticleRuntime({ restoreLegacy:true, restoreCamera:true, persist:false });
-      }
       if (!options.silent) show('预设应用失败，已自动回滚：' + (error && error.message || '未知错误'));
-      if (options.failAt || options.failAtStage || window.__LF_PARTICLE_TEST_FAIL_AT) {
-        var restoredParticles = captureCustomParticleRuntime();
+      if (options.failAt || options.failAtStage) {
         var storageRestored = Object.keys(snapshot.storage).every(function (key) {
           try { return localStorage.getItem(key) === snapshot.storage[key]; } catch (_) { return false; }
         });
-        var particleRestored = restoredParticles.active === snapshot.particles.active &&
-          (!snapshot.particles.active || (
-            restoredParticles.mode === snapshot.particles.mode &&
-            restoredParticles.presetId === snapshot.particles.presetId
-          ));
         return {
           ok:false,
           state:'rolled-back',
           error:String(error && error.message || 'PRESET_APPLY_FAILED'),
-          rollback:{ attempted:true, succeeded:storageRestored && particleRestored }
+          rollback:{ attempted:true, succeeded:storageRestored }
         };
       }
       return false;
@@ -5045,10 +3276,6 @@
     takeCore('visual', CORE_NAMESPACE_KEYS.visual);
     takeCore('particles', CORE_NAMESPACE_KEYS.particles);
     takeCore('lyrics', CORE_NAMESPACE_KEYS.lyrics);
-    if (patch.customParticles) {
-      raw.particles = raw.particles || {};
-      raw.particles.custom = cloneJson(patch.customParticles);
-    }
     raw.lyrics = Object.assign(raw.lyrics || {}, cloneJson(patch.lyrics || {}));
     raw.spectrum = cloneJson(patch.spectrum || {});
     raw.echo = cloneJson(patch.echo || {});
@@ -5073,26 +3300,30 @@
     if (meta && meta.nativeSpectrum) payload.spectrum = cloneJson(meta.nativeSpectrum);
     try { return canonicalSchemaApi().normalize(payload, { allowEmpty:true }).canonical; } catch (_) { return null; }
   }
-  function retiredParticlePresetNames() {
+  function retiredPresetNames() {
     return [
       ['GPT海啸','粒子预设1'].join(''),
       ['GPT粒子预设_白色正圆','超大半径自由星轨粒子'].join(''),
-      ['GPT粒子预设_正圆','光环白色粒子'].join('')
+      ['GPT粒子预设_正圆','光环白色粒子'].join(''),
+      ['金色量子核心·中心结构特写','自由星轨粒子（中心球圆心缩放修正版）'].join(''),
+      ['金色量子','自由星轨'].join(''),
+      ['LF金色量子','自由星轨粒子'].join('')
     ];
   }
-  function retiredParticlePresetIds() {
+  function retiredPresetIds() {
     return [
       ['lf-retired-gpt-tsunami','-preset-1'].join(''),
       ['lf-retired-gpt-white','-large-orbit'].join(''),
-      ['lf-retired-gpt-white','-ring'].join('')
+      ['lf-retired-gpt-white','-ring'].join(''),
+      ['lf-gold','en-atomic-star-trail-free-orbit-v5.3.1'].join('')
     ];
   }
-  function retiredParticlePresetId(value) {
-    return retiredParticlePresetIds().indexOf(String(value || '').trim()) >= 0;
+  function retiredPresetId(value) {
+    return retiredPresetIds().indexOf(String(value || '').trim()) >= 0;
   }
-  function retiredParticleRecord(value) {
+  function retiredPresetRecord(value) {
     if (!value || typeof value !== 'object') return false;
-    var names = retiredParticlePresetNames();
+    var names = retiredPresetNames();
     var candidates = [value, value.canonical, value.parsed, value.parsed && value.parsed.canonical,
       value.snapshot, value.snapshot && value.snapshot.canonical].filter(function (entry) {
       return !!entry && typeof entry === 'object' && !Array.isArray(entry);
@@ -5101,23 +3332,26 @@
       var identity = [candidate.name,candidate.title,candidate.presetId,candidate.id,candidate.fileName].map(function (entry) {
         return String(entry || '').replace(/\.json$/i,'').trim();
       });
-      if (identity.some(function (entry) { return names.indexOf(entry) >= 0 || retiredParticlePresetId(entry); })) return true;
-      var custom = candidate.particles && candidate.particles.custom || candidate.customParticles;
+      if (identity.some(function (entry) { return names.indexOf(entry) >= 0 || retiredPresetId(entry); })) return true;
+      var particles = candidate.particles;
+      var custom = particles && particles[['cus','tom'].join('')] || candidate[['custom','Particles'].join('')];
       var mode = String(custom && (custom.effectMode || custom.waveMode) || candidate.mode || '');
-      return mode === ['luminous','OrbitVortex'].join('') || mode === ['tsunami','Curl'].join('');
+      return mode === ['luminous','OrbitVortex'].join('') ||
+        mode === ['tsunami','Curl'].join('') ||
+        mode === ['gold','enStarTrailOrbitField'].join('');
     });
   }
   function mapScopedValues(raw, transform) {
-    if (raw && raw.schema === CUSTOM_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)) {
-      var next = customParticleClone(raw);
+    if (raw && raw.schema === PRESET_SCOPE_SCHEMA && raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)) {
+      var next = presetClone(raw);
       Object.keys(next.scopes).forEach(function (scope) { next.scopes[scope] = transform(next.scopes[scope], scope); });
       return next;
     }
     return transform(raw, 'legacy');
   }
-  function retireDeprecatedParticlePresets() {
-    var keys = [STORE.canonicalPresets, STORE.imports, STORE.currentPreset, STORE.particleRuntime, 'lumifield-user-fx-archives-v1', STORE.presetShares];
-    var before = storageSnapshot(keys), removedByScope = {}, removedAll = {};
+  function retireRemovedParticlePresets() {
+    var keys = [STORE.canonicalPresets, STORE.imports, STORE.currentPreset, STORE.retiredParticleRuntime, 'lumifield-user-fx-archives-v1', STORE.presetShares];
+    var before = storageSnapshot(keys), removedByScope = {}, removedAll = {}, currentRemoved = false;
     function mark(scope, id) {
       id = String(id || ''); if (!id) return;
       (removedByScope[scope] || (removedByScope[scope] = {}))[id] = true; removedAll[id] = true;
@@ -5126,14 +3360,14 @@
       var canonicalRoot = readRawJson(STORE.canonicalPresets);
       var canonicalNext = mapScopedValues(canonicalRoot, function (store, scope) {
         if (!store || typeof store !== 'object' || Array.isArray(store)) return store;
-        store = customParticleClone(store); store.presets = store.presets && typeof store.presets === 'object' ? store.presets : {};
+        store = presetClone(store); store.presets = store.presets && typeof store.presets === 'object' ? store.presets : {};
         Object.keys(store.presets).forEach(function (id) {
-          if (!retiredParticleRecord(store.presets[id])) return;
+          if (!retiredPresetRecord(store.presets[id])) return;
           mark(scope,id); delete store.presets[id];
         });
         if (store.archiveKeys && typeof store.archiveKeys === 'object') Object.keys(store.archiveKeys).forEach(function (key) {
           var presetId = String(store.archiveKeys[key] || '');
-          if (retiredParticlePresetId(presetId) || removedByScope[scope] && removedByScope[scope][presetId]) delete store.archiveKeys[key];
+          if (retiredPresetId(presetId) || removedByScope[scope] && removedByScope[scope][presetId]) delete store.archiveKeys[key];
         });
         return store;
       });
@@ -5143,13 +3377,13 @@
       var archiveNext = mapScopedValues(archiveRoot, function (list, scope) {
         if (!Array.isArray(list)) return list;
         return list.filter(function (slot) {
-          if (!retiredParticleRecord(slot)) return true;
+          if (!retiredPresetRecord(slot)) return true;
           mark(scope,slot && slot.id); return false;
         });
       });
       if (JSON.stringify(archiveNext) !== JSON.stringify(archiveRoot)) localStorage.setItem('lumifield-user-fx-archives-v1', JSON.stringify(archiveNext));
       if (Array.isArray(window.userFxArchives)) {
-        var live = window.userFxArchives.filter(function (slot) { return !retiredParticleRecord(slot); });
+        var live = window.userFxArchives.filter(function (slot) { return !retiredPresetRecord(slot); });
         if (live.length !== window.userFxArchives.length) {
           window.userFxArchives.length = 0; Array.prototype.push.apply(window.userFxArchives, live);
           if (typeof window.saveUserFxArchives === 'function') window.saveUserFxArchives();
@@ -5160,51 +3394,54 @@
       var importsRoot = readRawJson(STORE.imports);
       var importsNext = mapScopedValues(importsRoot, function (map, scope) {
         if (!map || typeof map !== 'object' || Array.isArray(map)) return map;
-        map = customParticleClone(map);
+        map = presetClone(map);
         Object.keys(map).forEach(function (key) {
           var meta = map[key], presetId = String(meta && meta.presetId || key);
-          if (retiredParticlePresetId(presetId) || (removedByScope[scope] && removedByScope[scope][presetId]) || retiredParticleRecord(meta && (meta.parsed && meta.parsed.canonical || meta.parsed || meta))) delete map[key];
+          if (retiredPresetId(presetId) || (removedByScope[scope] && removedByScope[scope][presetId]) || retiredPresetRecord(meta && (meta.parsed && meta.parsed.canonical || meta.parsed || meta))) delete map[key];
         });
         return map;
       });
       if (JSON.stringify(importsNext) !== JSON.stringify(importsRoot)) localStorage.setItem(STORE.imports, JSON.stringify(importsNext));
 
+      var activeScope = presetScopeKey();
+      var currentRawText = '';
+      try { currentRawText = localStorage.getItem(STORE.currentPreset) || ''; } catch (_) {}
       var currentRoot = readRawJson(STORE.currentPreset);
+      if (currentRoot == null && retiredPresetId(currentRawText)) currentRoot = currentRawText;
       var currentNext = mapScopedValues(currentRoot, function (id, scope) {
-        return retiredParticlePresetId(id) || removedByScope[scope] && removedByScope[scope][String(id || '')] ? '' : id;
+        var removed = retiredPresetId(id) || removedByScope[scope] && removedByScope[scope][String(id || '')];
+        if (removed && (scope === 'legacy' || scope === activeScope)) currentRemoved = true;
+        return removed ? '' : id;
       });
       if (JSON.stringify(currentNext) !== JSON.stringify(currentRoot)) localStorage.setItem(STORE.currentPreset, JSON.stringify(currentNext));
 
-      var runtimeRoot = readRawJson(STORE.particleRuntime);
-      var runtimeNext = mapScopedValues(runtimeRoot, function (snapshot, scope) {
-        var presetId = String(snapshot && snapshot.presetId || '');
-        return retiredParticlePresetId(presetId) || removedByScope[scope] && removedByScope[scope][presetId] || retiredParticleRecord(snapshot)
-          ? { active:false, schema:1 }
-          : snapshot;
-      });
-      if (JSON.stringify(runtimeNext) !== JSON.stringify(runtimeRoot)) localStorage.setItem(STORE.particleRuntime, JSON.stringify(runtimeNext));
+      localStorage.removeItem(STORE.retiredParticleRuntime);
 
       var shares = readRawJson(STORE.presetShares);
       var sharesNext = mapScopedValues(shares, function (value, scope) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-        value = customParticleClone(value);
+        value = presetClone(value);
         var map = value.byPreset && typeof value.byPreset === 'object' ? value.byPreset : value;
         Object.keys(map).forEach(function (id) {
-          if (retiredParticlePresetId(id) || removedByScope[scope] && removedByScope[scope][id] || retiredParticleRecord(map[id])) delete map[id];
+          if (retiredPresetId(id) || removedByScope[scope] && removedByScope[scope][id] || retiredPresetRecord(map[id])) delete map[id];
         });
         return value;
       });
       if (JSON.stringify(sharesNext) !== JSON.stringify(shares)) localStorage.setItem(STORE.presetShares, JSON.stringify(sharesNext));
-      if (customParticleRuntime && retiredParticleRecord(captureCustomParticleRuntime())) leaveCustomParticleForBuiltIn();
-      return { removedPresetIds:Object.keys(removedAll), scopes:Object.keys(removedByScope) };
+      return { removedPresetIds:Object.keys(removedAll), scopes:Object.keys(removedByScope), currentRemoved:currentRemoved };
     } catch (error) {
       restoreStorageSnapshot(before);
       throw error;
     }
   }
+  function restoreBuiltInPresetAfterRetirement() {
+    if (!window.fx || typeof window.setPreset !== 'function') return false;
+    return window.setPreset(0, { silent:true, skipTransition:true }) !== false;
+  }
   function migrateCanonicalArchives() {
-    if (!customParticleOwnerReady()) return;
-    retireDeprecatedParticlePresets();
+    if (!presetScopeOwnerReady()) return;
+    var retired = retireRemovedParticlePresets();
+    if (retired && retired.currentRemoved) restoreBuiltInPresetAfterRetirement();
     if (!Array.isArray(window.userFxArchives)) return;
     var changed = false;
     window.userFxArchives.forEach(function (slot) {
@@ -5372,19 +3609,17 @@
       listArchives:function () { return Array.isArray(window.userFxArchives) ? window.userFxArchives.map(function (slot, index) { return { index:index, presetId:slot.id || '', name:slot.name, savedAt:slot.savedAt, hasCanonical:!!storedArchiveCanonical(slot) }; }) : []; }
     };
     try {
-      if (!customParticleOwnerReady()) return;
+      if (!presetScopeOwnerReady()) return;
       var currentId = readScopedCurrentPresetId();
       var currentSlot = Array.isArray(window.userFxArchives) && window.userFxArchives.filter(function (slot) { return slot && slot.id === currentId; })[0];
       var scopedStore = canonicalArchiveStore();
       var currentCanonical = currentSlot && storedArchiveCanonical(currentSlot) || currentId && scopedStore.presets[currentId];
-      if (currentCanonical) {
+      if (currentCanonical && !retiredPresetRecord(currentCanonical)) {
         applyTransactionalPreset(normalizeTransactionalPayload(currentCanonical, (currentSlot && currentSlot.name || '当前视觉预设') + '.json'), {
           createArchive:false, presetId:currentId, importWallpaper:false, silent:true
         });
-      } else {
-        restoreScopedCustomParticleRuntime();
       }
-      customParticleScopeReady = true;
+      presetScopeReady = true;
     } catch (_) {}
   }
 
@@ -5550,7 +3785,7 @@
     bindBackgroundOpacity(); bindLiquidFab(); migrateShelfScale();
     suppressLegacyVisuals();
     document.addEventListener('lumifield-auth-user-change', function (event) {
-      switchCustomParticleUser(event && event.detail ? event.detail.userId : undefined);
+      switchPresetScope(event && event.detail ? event.detail.userId : undefined);
       relocateTask15ConsoleBlocks();
       syncConsoleFoldState();
     });
@@ -5558,13 +3793,11 @@
       hideTranslationReadyToast();
       cancelTranslationRequest();
       syncNativeTranslation(false, '', -1);
-      persistCustomParticleRuntime();
       if (task15ConsoleReconcileTimer) clearTimeout(task15ConsoleReconcileTimer);
       task15ConsoleReconcileTimer = 0;
       if (task15ConsoleObserver) task15ConsoleObserver.disconnect();
       task15ConsoleObserver = null;
     });
-    window.addEventListener('beforeunload', persistCustomParticleRuntime);
     window.addEventListener('resize', resizeSpectrumCanvas);
     setTimeout(function () { suppressLegacyVisuals(); injectConsoleControls(); relocateTask15ConsoleBlocks(); bindEchoImport(); bindBackgroundOpacity(); bindLiquidFab(); }, 1100);
   }

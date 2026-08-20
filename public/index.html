@@ -5486,7 +5486,6 @@ function updateParticlePointerFrame() {
 function beginParticlePointerDrag(e) {
   if (e.button === 2) return;
   if (isPointerOverUi(e)) return;
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' && window.LumiFieldCustomParticles.ownsCanvasInput()) return;
   if (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput()) return;
   markRenderInteraction('canvas-drag', 1200);
   idleGuidePointerDown(e);
@@ -5516,8 +5515,7 @@ function processGlobalHoverPointer(e){
   revealCursorForActivity();
   updateControlsAutoHideFromPointer(e.clientX, e.clientY);
   idleGuidePointerMove(e);
-  if ((window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' && window.LumiFieldCustomParticles.ownsCanvasInput()) ||
-      (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput())) {
+  if (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput()) {
     orbit.rotating = false;
     particlePointerSpin.active = false;
     return;
@@ -5586,7 +5584,6 @@ renderer.domElement.addEventListener('mouseleave', function(){
 });
 renderer.domElement.addEventListener('wheel', function(e){
   if (isPointerOverUi(e)) return;
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' && window.LumiFieldCustomParticles.ownsCanvasInput()) return;
   if (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput()) return;
   e.preventDefault();
   markRenderInteraction('canvas-wheel', 900);
@@ -5636,7 +5633,6 @@ renderer.domElement.addEventListener('dblclick', function(e){
     rc.setFromCamera(new THREE.Vector2(mx, my), camera);
     if (shelfManager.raycastCards(rc)) return;
   }
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' && window.LumiFieldCustomParticles.ownsCanvasInput()) return;
   if (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput()) return;
   recenterCamera();
 });
@@ -9155,8 +9151,7 @@ function updateStageLyrics3D(dt) {
   }
   var lockBaseDistance = wallpaperShelfLyrics ? 5.58 : 4.85;
   var lockDistance = lockBaseDistance + layoutZ;
-  var customParticleCameraActive = !!(window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' && window.LumiFieldCustomParticles.ownsCanvasInput());
-  var cameraLockedLyrics = (fx.lyricCameraLock || wallpaperLyricLock || customParticleCameraActive) && camera;
+  var cameraLockedLyrics = (fx.lyricCameraLock || wallpaperLyricLock) && camera;
   var skullLyricEdgeGuard = !!(fx && fx.preset === SKULL_PRESET_INDEX && (orbit.centerLocked || orbit.recentering));
   var lockFit = (cameraLockedLyrics || skullLyricEdgeGuard || skullMouthLyrics) ? lyricCameraLockFit(layoutScale, layoutX, layoutY, skullMouthLyrics ? Math.max(2.2, 4.4 + layoutZ) : lockDistance) : 1;
   if (skullMouthLyrics) lockFit = Math.min(lockFit, 1.12);
@@ -12769,17 +12764,6 @@ var shelfManager = null;
 var shelfOpenAnimAt = -10;
 var shelfHoverCue = { target: 0, value: 0, x: 0, y: 0, lastAt: 0, enteredAt: 0, zoneActive: false, guide: false };
 var shelfVisibility = 0;  // 0..1, 侧栏自动隐藏的整体透明度系数
-function activeCustomParticleWorldUiTransform() {
-  var api = window.LumiFieldCustomParticles;
-  if (!api || typeof api.worldUiTransform !== 'function') return { scale:1, center:[0,0,0] };
-  var value = api.worldUiTransform() || {};
-  var scale = Number(value.scale);
-  var center = Array.isArray(value.center) && value.center.length === 3 ? value.center : [0,0,0];
-  return {
-    scale:isFinite(scale) ? Math.max(0.08, Math.min(80, scale)) : 1,
-    center:center.map(function(lane){ lane=Number(lane); return isFinite(lane) ? lane : 0; })
-  };
-}
 function isPortraitShelfViewport() {
   return innerHeight > innerWidth * 1.08;
 }
@@ -13957,19 +13941,14 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
         group.rotation.y = px * 0.025;
         group.rotation.x = -py * 0.012;
       }
-      var customUi = activeCustomParticleWorldUiTransform();
-      group.position.multiplyScalar(customUi.scale);
-      group.position.x += customUi.center[0];
-      group.position.y += customUi.center[1];
-      group.position.z += customUi.center[2];
-      group.scale.setScalar(customUi.scale);
+      group.scale.setScalar(1);
       if (connectorParticles) {
-        connectorParticles.position.set(customUi.center[0], customUi.center[1] - 2.2 * customUi.scale, customUi.center[2]);
-        connectorParticles.scale.setScalar(customUi.scale);
+        connectorParticles.position.set(0, -2.2, 0);
+        connectorParticles.scale.setScalar(1);
       }
       if (floorMirror) {
-        floorMirror.position.set(customUi.center[0], customUi.center[1] - 2.85 * customUi.scale, customUi.center[2] + 0.4 * customUi.scale);
-        floorMirror.scale.setScalar(customUi.scale);
+        floorMirror.position.set(0, -2.85, 0.4);
+        floorMirror.scale.setScalar(1);
       }
       for (var i = 0; i < cards.length; i++) {
         placeCard(cards[i], i, cards.length, mode);
@@ -15054,15 +15033,12 @@ function makeContentListManager() {
       }
       var openLayout = detailLayout();
       var openSkullDetail = shouldUseSkullSafeShelfCamera();
-      var openCustomUi = activeCustomParticleWorldUiTransform();
-      var openDynamicDetail = !openSkullDetail && (openCustomUi.scale !== 1 || shouldUseShelfDynamicCamera('shelf-detail')) && camera;
+      var openDynamicDetail = !openSkullDetail && shouldUseShelfDynamicCamera('shelf-detail') && camera;
       var openCoverRx = particles && particles.rotation ? particles.rotation.x : 0;
       var openCoverRy = particles && particles.rotation ? particles.rotation.y : 0;
       var openCoverRz = particles && particles.rotation ? particles.rotation.z : 0;
       group.userData.detailIntro = 1;
       group.position.set(openLayout.x + (openSkullDetail ? 0.10 : 0.16), openLayout.y - (openSkullDetail ? 0.02 : 0.024), openLayout.z - (openSkullDetail ? 0.05 : 0.070));
-      group.position.multiplyScalar(openCustomUi.scale);
-      group.position.x += openCustomUi.center[0]; group.position.y += openCustomUi.center[1]; group.position.z += openCustomUi.center[2];
       if ((openSkullDetail || openDynamicDetail) && camera) {
         group.quaternion.copy(camera.quaternion);
         group.rotateX(openLayout.rx);
@@ -15072,7 +15048,7 @@ function makeContentListManager() {
         group.rotation.x = openCoverRx * 0.72 + openLayout.rx;
         group.rotation.z = openCoverRz * 0.70;
       }
-      group.scale.setScalar(openLayout.scale * 0.965 * openCustomUi.scale);
+      group.scale.setScalar(openLayout.scale * 0.965);
       if (window.gsap) {
         window.gsap.killTweensOf(group.userData);
         window.gsap.to(group.userData, { detailIntro: 0, duration: 0.48, ease: 'power3.out' });
@@ -15230,8 +15206,7 @@ function makeContentListManager() {
       var parY = pointerParallax.y || 0;
       var layout = detailLayout();
       var skullDetail = shouldUseSkullSafeShelfCamera();
-      var customUi = activeCustomParticleWorldUiTransform();
-      var dynamicDetail = !skullDetail && (customUi.scale !== 1 || shouldUseShelfDynamicCamera('shelf-detail')) && camera;
+      var dynamicDetail = !skullDetail && shouldUseShelfDynamicCamera('shelf-detail') && camera;
       var coverBoundDetail = !skullDetail && !dynamicDetail && particles && particles.rotation;
       var coverBindX = coverBoundDetail ? particles.rotation.y * 0.18 : 0;
       var coverBindY = coverBoundDetail ? particles.rotation.x * -0.16 : 0;
@@ -15241,8 +15216,6 @@ function makeContentListManager() {
         layout.y + coverBindY - intro * (skullDetail ? 0.02 : 0.024) + parY * (skullDetail ? 0.026 : 0.026),
         layout.z + coverBindZ - intro * (skullDetail ? 0.05 : 0.070) + parY * (skullDetail ? 0.014 : 0.016) - parX * (skullDetail ? 0.010 : 0.010)
       );
-      group.position.multiplyScalar(customUi.scale);
-      group.position.x += customUi.center[0]; group.position.y += customUi.center[1]; group.position.z += customUi.center[2];
       if (skullDetail && camera) {
         group.quaternion.copy(camera.quaternion);
         group.rotateX(layout.rx - parY * 0.004);
@@ -15259,7 +15232,7 @@ function makeContentListManager() {
         group.rotation.y += ((coverRy * 0.82 + layout.ry + intro * 0.018 + parX * 0.014) - group.rotation.y) * 0.16;
         group.rotation.z += ((coverRz * 0.70) - group.rotation.z) * 0.14;
       }
-      group.scale.setScalar(layout.scale * (1 - intro * (skullDetail ? 0.020 : 0.035)) * customUi.scale);
+      group.scale.setScalar(layout.scale * (1 - intro * (skullDetail ? 0.020 : 0.035)));
       centerSmooth += (centerTarget - centerSmooth) * 0.18;
       if (Math.abs(centerSmooth - centerTarget) < 0.001) centerSmooth = centerTarget;
       syncRenderedRows(false);
@@ -23771,18 +23744,12 @@ function buildPresetGrid() {
       '<div class="pc-desc">' + desc + '</div>' +
     '</div>';
   }).join('');
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.decoratePresetGrid === 'function') {
-    window.LumiFieldCustomParticles.decoratePresetGrid();
-  }
   refreshPresetGrid();
 }
 function refreshPresetGrid() {
   document.querySelectorAll('.preset-card').forEach(function(el){
     el.classList.toggle('active', Number(el.dataset.preset) === fx.preset);
   });
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.decoratePresetGrid === 'function') {
-    window.LumiFieldCustomParticles.decoratePresetGrid();
-  }
 }
 function triggerPresetParticleTransition(fromPreset, toPreset) {
   presetTransition.active = true;
@@ -23823,13 +23790,6 @@ function tickPresetTransition() {
 }
 function setPreset(p, opts) {
   opts = opts || {};
-  if (!opts.preserveCustomParticle && window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.leaveForBuiltIn === 'function') {
-    var activeCustomParticle = typeof window.LumiFieldCustomParticles.capture === 'function' ? window.LumiFieldCustomParticles.capture() : null;
-    if (activeCustomParticle && activeCustomParticle.active && window.LumiFieldCustomParticles.leaveForBuiltIn() !== true) {
-      showToast('视觉预设切换失败：原状态已保留');
-      return false;
-    }
-  }
   p = Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0));
   var prev = fx.preset;
   var changed = prev !== p;
@@ -23879,9 +23839,6 @@ function syncFxUniforms() {
   if (uniforms.uTintColor) uniforms.uTintColor.value.set(normalizeHexColor(fx.visualTintColor || '#9db8cf'));
   if (uniforms.uTintStrength) uniforms.uTintStrength.value = fx.visualTintMode === 'custom' ? 0.42 : 0;
   syncSkullParticleColors();
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.syncVisualConsole === 'function') {
-    window.LumiFieldCustomParticles.syncVisualConsole();
-  }
 }
 var homeWaveTrackState = { bars: 0, smooth: [] };
 function ensureHomeWaveTrackBars() {
@@ -29207,9 +29164,6 @@ function animate() {
   updateFreeCamera(dt);
   updateCamera();
   applySkullCameraPose(dt);
-  if (window.LumiFieldCustomParticles && typeof window.LumiFieldCustomParticles.updateFrame === 'function') {
-    window.LumiFieldCustomParticles.updateFrame(now, dt);
-  }
   if (shelfManager) shelfManager.update(dt);
 
   // v7.2 旋转 = 头部+眼球追踪 + 鼠标/手势拖动 + 惯性
@@ -29218,13 +29172,10 @@ function animate() {
   var audioEchoPrimaryActive = !!(window.LumiFieldAudioEchoManager &&
     typeof window.LumiFieldAudioEchoManager.isActive === 'function' &&
     window.LumiFieldAudioEchoManager.isActive());
-  var customParticlePrimaryActive = !!(window.LumiFieldCustomParticles &&
-    typeof window.LumiFieldCustomParticles.ownsCanvasInput === 'function' &&
-    window.LumiFieldCustomParticles.ownsCanvasInput());
-  particles.visible = !skullPresetActive && !audioEchoPrimaryActive && !customParticlePrimaryActive;
-  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !audioEchoPrimaryActive && !customParticlePrimaryActive && fx.bloom && fx.bloomStrength > 0.01;
-  if (floatGroup) floatGroup.visible = !skullPresetActive && !audioEchoPrimaryActive && !customParticlePrimaryActive;
-  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !audioEchoPrimaryActive && !customParticlePrimaryActive;
+  particles.visible = !skullPresetActive && !audioEchoPrimaryActive;
+  if (bloomParticles) bloomParticles.visible = !skullPresetActive && !audioEchoPrimaryActive && fx.bloom && fx.bloomStrength > 0.01;
+  if (floatGroup) floatGroup.visible = !skullPresetActive && !audioEchoPrimaryActive;
+  if (backCoverGroup) backCoverGroup.visible = !skullPresetActive && !audioEchoPrimaryActive;
   var targetRotY = orbit.centerLocked ? 0 : (headParallax.active ? headParallax.x * 0.5 : 0) + gestureRotation.y;
   var targetRotX = orbit.centerLocked ? 0 : (headParallax.active ? -headParallax.y * 0.35 : 0) + gestureRotation.x;
   particles.rotation.y += (targetRotY - particles.rotation.y) * 0.055;

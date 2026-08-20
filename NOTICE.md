@@ -8,8 +8,7 @@ LumiField 是基于 Mineradio 修改的发行版本，并使用了以下第三�
 
 - Electron
 - Three.js r128 (MIT), bundled as `public/vendor/three.r128.min.js` and used by
-  the shared LumiField scene, including the independently implemented golden
-  atomic star-trail renderer. Fixed file SHA-256:
+  the shared LumiField scene. Fixed file SHA-256:
   `9274BBCEC8D96168626C732B5D31C775AA8CFB7EAA0599BEC0C175908A2C1CE2`.
   The retained license text is `public/vendor/three.LICENSE.txt`.
 - music-tempo
@@ -180,21 +179,25 @@ LumiField 是基于 Mineradio 修改的发行版本，并使用了以下第三�
   the conditional future upstream-copy/model gates are retained under
   `docs/licenses/eisland/`.
 
-- LumiField-original configuration input `LF金色量子自由星轨粒子.json`, fixed for
-  this task at SHA-256
+- Historical LumiField-original configuration input `LF金色量子自由星轨粒子.json`,
+  fixed for the v1.1.43 provenance record at SHA-256
   `D9E02280314EB58109741A7A9FFBF397AD6F24F239CE3B75C25A572D75AAB79E`.
-  LumiField consumes its declared fields through an independently implemented
-  renderer and interaction controller; no third-party renderer source was
-  copied from the configuration. The project owner confirmed on 2026-08-13
+  The v1.1.43 implementation consumed its declared fields through an
+  independently implemented renderer and interaction controller; no
+  third-party renderer source was copied from the configuration. The project
+  owner confirmed on 2026-08-13
   that they created the preset through ChatGPT specifically for LumiField and
   that it is not a third-party component, Marketplace resource or external
   project asset. OpenAI output is not treated as a separately licensed LF
-  component dependency. The preset is `LUMIFIELD_ORIGINAL_PASS`.
-  The normalized runtime derivative is
+  component dependency. The preset is `LUMIFIELD_ORIGINAL_PASS`. LumiField
+  v1.1.44 removes the product preset, renderer entry and runtime derivative;
+  they are no longer packaged or loaded. The historical normalized derivative
+  was
   `public/lf-golden-atomic-star-trail-preset.json`, SHA-256
   `82C9BBC2100D9543261EDCBC9692C51321ACEE6116DAF13B4F25982859F6DC37`;
-  it is derived only from that owner-originated configuration. Exact provenance
-  is retained under `docs/licenses/lumifield-original-assets/`.
+  and was derived only from that owner-originated configuration. Exact
+  provenance remains under `docs/licenses/lumifield-original-assets/` as
+  historical evidence, not as a v1.1.44 runtime dependency.
 
 - `daaimengermengzhu/Mineradio-Extended` commits `2ef52687eb04c4bff03e0632630e237998f977d0`、`ea1fdae906cd3c28ecda9fe45f2635299e237f10`（GPL-3.0）：参考酷狗标准版协议及汽水音乐官方客户端本机会话互操作思路；实现已按 LumiField 架构独立重写。
 - `moli-xia/mineradio-kugou` commit `84d6d580dc5b3ccacc1986c8da64925d7a137676`（GPL-3.0）：候选4参考实现，移植并重写标准版资料、会员三态、云歌单及歌曲同步逻辑。
