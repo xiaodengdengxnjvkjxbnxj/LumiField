@@ -3582,6 +3582,7 @@ function updateDesktopRuntimeState(state) {
   desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen);
   updateRenderPowerClasses();
   applyRendererPowerMode();
+  if (typeof syncGestureVisibility === 'function') syncGestureVisibility();
   if (fx && (fx.desktopLyrics || fx.wallpaperMode)) setTimeout(syncDesktopOverlayState, 0);
   if (wasDeep && !isDeepBackgroundMode()) recoverVisualsAfterBackground('desktop-runtime-state');
   if (desktopRuntimeState.fullscreen !== wasFullscreen) scheduleMainRendererViewportRefresh('desktop-runtime-state');
@@ -27989,8 +27990,47 @@ var gestureVideo = null, gestureCamera = null, gestureHands = null;
 var gestureActive = false;
 var gestureSendBusy = false, gestureLastSendAt = 0;
 var GESTURE_FRAME_INTERVAL_MS = 84; // about 12 FPS; UI rendering remains independent
+var GESTURE_RESULT_MAX_AGE_MS = 500;
+var GESTURE_CLOSE_GRACE_MS = 800;
+var HAND_SMOOTH_TAU_MS = 160;
+var gestureRuntime = {
+  epoch: 0,
+  phase: 'idle',
+  startPromise: null,
+  startEpoch: 0,
+  scheduled: false,
+  scheduledTimer: 0,
+  scheduledAbort: null,
+  scheduledToken: null,
+  scheduleSerial: 0,
+  inFlight: null,
+  resultToken: null,
+  visibilityGeneration: 0,
+  paused: false,
+  executionMode: 'deferred-main-thread',
+  stats: {
+    frameOffers: 0,
+    submitted: 0,
+    completed: 0,
+    resultsApplied: 0,
+    droppedThrottle: 0,
+    droppedBusy: 0,
+    droppedHidden: 0,
+    droppedStage: 0,
+    droppedStale: 0,
+    inferenceTotalMs: 0,
+    inferenceSamples: 0,
+    currentInFlight: 0,
+    maxInFlight: 0,
+    lastInferenceMs: 0,
+    lastSmoothingAlpha: 0,
+    lastError: ''
+  }
+};
+var gestureClosedHands = typeof WeakSet === 'function' ? new WeakSet() : null;
 // 21 个关键点的平滑缓存 (EMA): [{x,y}, ...]
 var handLmSmooth = null;
+var handLmSmoothAt = 0;
 var handLmLastSeen = 0;
 // 捏合状态
 var pinchState = { active:false, lastX:0, lastY:0, lastT:0 };
@@ -28053,74 +28093,354 @@ function rebaseParticleRotationIfNeeded() {
 }
 // 手骨架 canvas
 var handCanvas = null, handCanvasCtx = null;
-// 平滑系数 (越小越平滑, 但反应越慢)
-var HAND_SMOOTH_ALPHA = 0.35;
+function gesturePagePaused() {
+  return !!(document.hidden || desktopRuntimeState.minimized || desktopRuntimeState.visible === false);
+}
 
-async function startGestureControl() {
-  if (gestureActive) return;
-  showToast('正在加载手势识别…');
+function gestureTracks(video) {
   try {
-    await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
-    await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js');
-    gestureVideo = document.createElement('video');
-    gestureVideo.playsInline = true; gestureVideo.muted = true;
-    gestureVideo.style.display = 'none';
-    document.body.appendChild(gestureVideo);
-    gestureHands = new Hands({ locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; } });
-    gestureHands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.68, minTrackingConfidence: 0.68 });
-    gestureHands.onResults(function(res){
-      if (!gestureActive) return;
-      var lm = res.multiHandLandmarks && res.multiHandLandmarks[0];
-      if (!lm) { onHandLost(); return; }
-      processHandFrame(lm);
-    });
-    gestureCamera = new Camera(gestureVideo, { onFrame: async function(){
-      var now = performance.now();
-      if (!gestureHands || !gestureActive || gestureSendBusy || !isVisualStageInteractionActive() || now - gestureLastSendAt < GESTURE_FRAME_INTERVAL_MS) return;
-      gestureLastSendAt = now;
-      gestureSendBusy = true;
-      try { await gestureHands.send({ image: gestureVideo }); }
-      finally { gestureSendBusy = false; }
-    }, width: 320, height: 240 });
-    gestureActive = true;
-    await gestureCamera.start();
-    // 准备 hand canvas
-    handCanvas = document.getElementById('hand-canvas');
-    handCanvasCtx = handCanvas.getContext('2d');
-    resizeHandCanvas();
-    handCanvas.classList.add('show');
-    showToast('手势已开启: 手掌推开 · 捏合旋转 · 握拳收束');
-    showGestureHUD('待命', 0, '把手放进视野');
-  } catch (e) {
-    console.warn('Gesture failed:', e);
-    stopGestureControl();
-    showToast('手势启动失败 (需要摄像头权限)');
-    fx.cam = 'off';
-    document.querySelectorAll('#cam-seg button').forEach(function(b){ b.classList.toggle('active', b.dataset.cam === 'off'); });
+    return video && video.srcObject && typeof video.srcObject.getTracks === 'function'
+      ? video.srcObject.getTracks()
+      : [];
+  } catch (e) { return []; }
+}
+
+function setGestureTracksEnabled(enabled, video) {
+  gestureTracks(video || gestureVideo).forEach(function(track){
+    try { if (track.readyState === 'live') track.enabled = !!enabled; } catch (e) {}
+  });
+}
+
+function cancelScheduledGestureInference() {
+  if (gestureRuntime.scheduledAbort) {
+    try { gestureRuntime.scheduledAbort.abort(); } catch (e) {}
   }
+  if (gestureRuntime.scheduledTimer) clearTimeout(gestureRuntime.scheduledTimer);
+  gestureRuntime.scheduledAbort = null;
+  gestureRuntime.scheduledTimer = 0;
+  gestureRuntime.scheduledToken = null;
+  gestureRuntime.scheduled = false;
+}
+
+function closeGestureHands(hands, afterPromise) {
+  if (!hands || typeof hands.close !== 'function') return;
+  if (gestureClosedHands && gestureClosedHands.has(hands)) return;
+  if (gestureClosedHands) gestureClosedHands.add(hands);
+  var close = function(){
+    try { return Promise.resolve(hands.close()).catch(function(){}); }
+    catch (e) { return Promise.resolve(); }
+  };
+  if (!afterPromise) { close(); return; }
+  var closed = false;
+  var closeOnce = function(){
+    if (closed) return;
+    closed = true;
+    close();
+  };
+  var closeTimer = setTimeout(closeOnce, GESTURE_CLOSE_GRACE_MS);
+  Promise.resolve(afterPromise).catch(function(){}).then(function(){
+    clearTimeout(closeTimer);
+    closeOnce();
+  });
+}
+
+function disposeGestureResources(video, cameraRuntime, hands, afterPromise) {
+  try { if (cameraRuntime && typeof cameraRuntime.stop === 'function') cameraRuntime.stop(); } catch (e) {}
+  gestureTracks(video).forEach(function(track){ try { track.stop(); } catch (e) {} });
+  try { if (video && typeof video.pause === 'function') video.pause(); } catch (e) {}
+  try { if (video) video.srcObject = null; } catch (e) {}
+  try { if (video && video.parentNode) video.remove(); } catch (e) {}
+  closeGestureHands(hands, afterPromise);
+}
+
+function gestureInferenceAllowed() {
+  return !!(gestureActive && gestureHands && gestureVideo && fx.cam === 'gesture' &&
+    !gesturePagePaused() && isVisualStageInteractionActive());
+}
+
+function acceptGestureResults(results, sessionEpoch, hands) {
+  var token = gestureRuntime.resultToken;
+  var now = performance.now();
+  if (!token || token.epoch !== sessionEpoch || token.hands !== hands || token.applied ||
+      sessionEpoch !== gestureRuntime.epoch || hands !== gestureHands || !gestureInferenceAllowed() ||
+      token.visibilityGeneration !== gestureRuntime.visibilityGeneration || now - token.submittedAt > GESTURE_RESULT_MAX_AGE_MS) {
+    gestureRuntime.stats.droppedStale++;
+    return;
+  }
+  token.applied = true;
+  gestureRuntime.stats.resultsApplied++;
+  var lm = results && results.multiHandLandmarks && results.multiHandLandmarks[0];
+  if (!lm) { onHandLost(); return; }
+  processHandFrame(lm);
+}
+
+function runGestureInference(sessionEpoch, visibilityGeneration, scheduleToken) {
+  if (gestureRuntime.scheduledToken !== scheduleToken) return;
+  if (gestureRuntime.scheduledTimer) clearTimeout(gestureRuntime.scheduledTimer);
+  gestureRuntime.scheduled = false;
+  gestureRuntime.scheduledTimer = 0;
+  gestureRuntime.scheduledAbort = null;
+  gestureRuntime.scheduledToken = null;
+  if (sessionEpoch !== gestureRuntime.epoch || visibilityGeneration !== gestureRuntime.visibilityGeneration || !gestureInferenceAllowed()) {
+    gestureRuntime.stats.droppedStale++;
+    return;
+  }
+  if (gestureRuntime.inFlight) {
+    gestureRuntime.stats.droppedBusy++;
+    return;
+  }
+  var hands = gestureHands;
+  var video = gestureVideo;
+  var submittedAt = performance.now();
+  var token = {
+    epoch: sessionEpoch,
+    visibilityGeneration: visibilityGeneration,
+    submittedAt: submittedAt,
+    hands: hands,
+    applied: false
+  };
+  gestureLastSendAt = submittedAt;
+  gestureRuntime.resultToken = token;
+  gestureRuntime.stats.submitted++;
+  gestureRuntime.stats.currentInFlight++;
+  gestureRuntime.stats.maxInFlight = Math.max(gestureRuntime.stats.maxInFlight, gestureRuntime.stats.currentInFlight);
+  gestureSendBusy = true;
+  var sendPromise;
+  try { sendPromise = Promise.resolve(hands.send({ image: video })); }
+  catch (error) { sendPromise = Promise.reject(error); }
+  gestureRuntime.inFlight = sendPromise;
+  sendPromise.catch(function(error){
+    if (sessionEpoch === gestureRuntime.epoch && hands === gestureHands) {
+      gestureRuntime.stats.lastError = String(error && error.message || error || 'GESTURE_SEND_FAILED');
+    }
+  }).finally(function(){
+    var elapsed = Math.max(0, performance.now() - submittedAt);
+    gestureRuntime.stats.completed++;
+    gestureRuntime.stats.inferenceTotalMs += elapsed;
+    gestureRuntime.stats.inferenceSamples++;
+    gestureRuntime.stats.lastInferenceMs = elapsed;
+    gestureRuntime.stats.currentInFlight = Math.max(0, gestureRuntime.stats.currentInFlight - 1);
+    if (gestureRuntime.inFlight === sendPromise) {
+      gestureRuntime.inFlight = null;
+      gestureSendBusy = false;
+    }
+    if (gestureRuntime.resultToken === token) gestureRuntime.resultToken = null;
+  });
+}
+
+function scheduleGestureInference(sessionEpoch, visibilityGeneration) {
+  gestureRuntime.scheduled = true;
+  var scheduleToken = {
+    serial: ++gestureRuntime.scheduleSerial,
+    epoch: sessionEpoch,
+    visibilityGeneration: visibilityGeneration
+  };
+  gestureRuntime.scheduledToken = scheduleToken;
+  var run = function(){
+    if (!gestureRuntime.scheduled || gestureRuntime.scheduledToken !== scheduleToken) return;
+    runGestureInference(sessionEpoch, visibilityGeneration, scheduleToken);
+  };
+  if (window.scheduler && typeof window.scheduler.postTask === 'function' && typeof AbortController === 'function') {
+    var controller = new AbortController();
+    gestureRuntime.scheduledAbort = controller;
+    window.scheduler.postTask(run, { priority: 'background', signal: controller.signal }).catch(function(error){
+      if (!error || error.name !== 'AbortError') gestureRuntime.stats.lastError = String(error && error.message || error || 'GESTURE_SCHEDULE_FAILED');
+    });
+    // A busy visual frame must not starve background-priority inference indefinitely.
+    gestureRuntime.scheduledTimer = setTimeout(run, 24);
+    return;
+  }
+  gestureRuntime.scheduledTimer = setTimeout(run, 0);
+}
+
+function offerGestureFrame() {
+  gestureRuntime.stats.frameOffers++;
+  if (gesturePagePaused()) {
+    gestureRuntime.stats.droppedHidden++;
+    return false;
+  }
+  if (!gestureActive || !gestureHands || !gestureVideo || fx.cam !== 'gesture') return false;
+  if (!isVisualStageInteractionActive()) {
+    gestureRuntime.stats.droppedStage++;
+    return false;
+  }
+  if (gestureRuntime.inFlight || gestureRuntime.scheduled || gestureSendBusy) {
+    gestureRuntime.stats.droppedBusy++;
+    return false;
+  }
+  var now = performance.now();
+  if (now - gestureLastSendAt < GESTURE_FRAME_INTERVAL_MS) {
+    gestureRuntime.stats.droppedThrottle++;
+    return false;
+  }
+  scheduleGestureInference(gestureRuntime.epoch, gestureRuntime.visibilityGeneration);
+  return true;
+}
+
+function syncGestureVisibility() {
+  var paused = gesturePagePaused();
+  if (paused === gestureRuntime.paused) return;
+  gestureRuntime.paused = paused;
+  gestureRuntime.visibilityGeneration++;
+  cancelScheduledGestureInference();
+  gestureRuntime.resultToken = null;
+  setGestureTracksEnabled(!paused);
+  gestureLastSendAt = 0;
+  if (gestureActive) gestureRuntime.phase = paused ? 'paused' : 'active';
+}
+
+function startGestureControl() {
+  if (gestureActive && gestureRuntime.phase !== 'stopping') return Promise.resolve(true);
+  if (gestureRuntime.startPromise) {
+    var pendingStart = gestureRuntime.startPromise;
+    return pendingStart.catch(function(){}).then(function(){
+      return fx.cam === 'gesture' && !gestureActive ? startGestureControl() : gestureActive;
+    });
+  }
+  var sessionEpoch = ++gestureRuntime.epoch;
+  gestureRuntime.startEpoch = sessionEpoch;
+  gestureRuntime.phase = 'loading';
+  gestureRuntime.paused = gesturePagePaused();
+  gestureRuntime.stats.lastError = '';
+  showToast('正在加载手势识别…');
+  var startPromise = (async function(){
+    var localVideo = null, localHands = null, localCamera = null;
+    try {
+      await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
+      if (sessionEpoch !== gestureRuntime.epoch || fx.cam !== 'gesture') return false;
+      await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js');
+      if (sessionEpoch !== gestureRuntime.epoch || fx.cam !== 'gesture') return false;
+      localVideo = document.createElement('video');
+      localVideo.playsInline = true;
+      localVideo.muted = true;
+      localVideo.style.display = 'none';
+      document.body.appendChild(localVideo);
+      localHands = new Hands({ locateFile: function(f){ return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; } });
+      localHands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.68, minTrackingConfidence: 0.68 });
+      localHands.onResults(function(results){ acceptGestureResults(results, sessionEpoch, localHands); });
+      localCamera = new Camera(localVideo, {
+        onFrame: function(){ offerGestureFrame(); },
+        width: 320,
+        height: 240
+      });
+      if (sessionEpoch !== gestureRuntime.epoch || fx.cam !== 'gesture') {
+        disposeGestureResources(localVideo, localCamera, localHands, null);
+        return false;
+      }
+      gestureVideo = localVideo;
+      gestureHands = localHands;
+      gestureCamera = localCamera;
+      gestureActive = true;
+      gestureRuntime.phase = gestureRuntime.paused ? 'paused' : 'starting-camera';
+      await localCamera.start();
+      if (sessionEpoch !== gestureRuntime.epoch || fx.cam !== 'gesture' || gestureVideo !== localVideo) {
+        disposeGestureResources(localVideo, localCamera, localHands, gestureRuntime.inFlight);
+        return false;
+      }
+      setGestureTracksEnabled(!gestureRuntime.paused, localVideo);
+      handCanvas = document.getElementById('hand-canvas');
+      handCanvasCtx = handCanvas && handCanvas.getContext('2d');
+      resizeHandCanvas();
+      if (handCanvas) handCanvas.classList.add('show');
+      gestureRuntime.phase = gestureRuntime.paused ? 'paused' : 'active';
+      showToast('手势已开启: 手掌推开 · 捏合旋转 · 握拳收束');
+      showGestureHUD('待命', 0, '把手放进视野');
+      return true;
+    } catch (error) {
+      disposeGestureResources(localVideo, localCamera, localHands, gestureRuntime.inFlight);
+      if (sessionEpoch !== gestureRuntime.epoch) return false;
+      gestureRuntime.stats.lastError = String(error && error.message || error || 'GESTURE_START_FAILED');
+      console.warn('Gesture failed:', error);
+      stopGestureControl();
+      showToast('手势启动失败 (需要摄像头权限)');
+      fx.cam = 'off';
+      document.querySelectorAll('#cam-seg button').forEach(function(button){ button.classList.toggle('active', button.dataset.cam === 'off'); });
+      return false;
+    }
+  })();
+  gestureRuntime.startPromise = startPromise;
+  startPromise.finally(function(){
+    if (gestureRuntime.startPromise === startPromise) gestureRuntime.startPromise = null;
+  });
+  return startPromise;
 }
 
 function stopGestureControl() {
-  try { if (gestureCamera && gestureCamera.stop) gestureCamera.stop(); } catch(e){}
-  try { if (gestureVideo && gestureVideo.srcObject) gestureVideo.srcObject.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
-  try { if (gestureVideo) gestureVideo.remove(); } catch(e){}
-  gestureVideo = null; gestureHands = null; gestureCamera = null;
+  gestureRuntime.epoch++;
+  gestureRuntime.phase = 'stopping';
+  gestureRuntime.visibilityGeneration++;
+  cancelScheduledGestureInference();
+  gestureRuntime.resultToken = null;
   gestureActive = false;
-  gestureSendBusy = false;
+  var localVideo = gestureVideo;
+  var localHands = gestureHands;
+  var localCamera = gestureCamera;
+  gestureVideo = null;
+  gestureHands = null;
+  gestureCamera = null;
+  disposeGestureResources(localVideo, localCamera, localHands, gestureRuntime.inFlight);
+  gestureSendBusy = !!gestureRuntime.inFlight;
   gestureLastSendAt = 0;
   pinchState.active = false;
   handLmSmooth = null;
+  handLmSmoothAt = 0;
   uniforms.uHandActive.value = 0;
   if (uniforms.uGestureGrip) uniforms.uGestureGrip.value = 0;
   gestureGrip.value = 0;
   gestureGrip.target = 0;
   gestureGrip.openness = 1;
-  document.getElementById('gesture-hud').classList.remove('show');
+  var hud = document.getElementById('gesture-hud');
+  if (hud) hud.classList.remove('show');
   if (handCanvas) {
     handCanvas.classList.remove('show');
     if (handCanvasCtx) handCanvasCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
   }
+  gestureRuntime.phase = 'idle';
 }
+
+function getGesturePerformanceDebug() {
+  var tracks = gestureTracks(gestureVideo);
+  var stats = gestureRuntime.stats;
+  return {
+    phase: gestureRuntime.phase,
+    epoch: gestureRuntime.epoch,
+    active: gestureActive,
+    paused: gestureRuntime.paused,
+    hidden: gesturePagePaused(),
+    startPending: !!gestureRuntime.startPromise,
+    scheduled: gestureRuntime.scheduled,
+    inFlight: !!gestureRuntime.inFlight,
+    maxInFlight: stats.maxInFlight,
+    frameOffers: stats.frameOffers,
+    submitted: stats.submitted,
+    completed: stats.completed,
+    resultsApplied: stats.resultsApplied,
+    droppedThrottle: stats.droppedThrottle,
+    droppedBusy: stats.droppedBusy,
+    droppedHidden: stats.droppedHidden,
+    droppedStage: stats.droppedStage,
+    droppedStale: stats.droppedStale,
+    averageInferenceMs: stats.inferenceSamples ? stats.inferenceTotalMs / stats.inferenceSamples : 0,
+    lastInferenceMs: stats.lastInferenceMs,
+    lastSmoothingAlpha: stats.lastSmoothingAlpha,
+    lastError: stats.lastError,
+    tracksLive: tracks.filter(function(track){ return track.readyState === 'live'; }).length,
+    tracksEnabled: tracks.filter(function(track){ return track.readyState === 'live' && track.enabled !== false; }).length,
+    videoAttached: !!(gestureVideo && gestureVideo.parentNode),
+    executionMode: gestureRuntime.executionMode,
+    frameIntervalMs: GESTURE_FRAME_INTERVAL_MS,
+    resultMaxAgeMs: GESTURE_RESULT_MAX_AGE_MS,
+    closeGraceMs: GESTURE_CLOSE_GRACE_MS,
+    smoothingTauMs: HAND_SMOOTH_TAU_MS
+  };
+}
+
+window.LumiFieldGesturePerformance = Object.freeze({
+  getDebug: getGesturePerformanceDebug
+});
+document.addEventListener('visibilitychange', syncGestureVisibility);
+window.addEventListener('pagehide', stopGestureControl);
+window.addEventListener('beforeunload', stopGestureControl);
 
 function resizeHandCanvas() {
   if (!handCanvas) return;
@@ -28148,11 +28468,17 @@ function onHandLost() {
 
 // 把单帧 21 个 landmark 平滑到 handLmSmooth, 镜像 X (摄像头是反的)
 function smoothLandmarks(lm) {
+  var now = performance.now();
   if (!handLmSmooth) {
     handLmSmooth = lm.map(function(p){ return { x: 1 - p.x, y: p.y, z: p.z || 0 }; });
+    handLmSmoothAt = now;
+    gestureRuntime.stats.lastSmoothingAlpha = 1;
     return handLmSmooth;
   }
-  var a = HAND_SMOOTH_ALPHA;
+  var dt = Math.max(1, Math.min(180, now - (handLmSmoothAt || now - GESTURE_FRAME_INTERVAL_MS)));
+  var a = clampRange(1 - Math.exp(-dt / HAND_SMOOTH_TAU_MS), 0.18, 0.55);
+  handLmSmoothAt = now;
+  gestureRuntime.stats.lastSmoothingAlpha = a;
   for (var i = 0; i < 21; i++) {
     var srcX = 1 - lm[i].x;
     handLmSmooth[i].x += (srcX - handLmSmooth[i].x) * a;
