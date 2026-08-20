@@ -344,7 +344,8 @@
       var manager = window.LumiFieldAudioEchoManager;
       if (manager && typeof manager.disposeMode === 'function') manager.disposeMode();
       return true;
-    }
+    },
+    migrateRetiredPresets: function () { return migrateCanonicalArchives(); }
   };
 
   // ---------- User-scoped canonical preset storage ----------
@@ -3069,11 +3070,11 @@
     if (Object.prototype.hasOwnProperty.call(core, 'controlGlassChromaticOffset') && typeof window.applyControlGlassChromaticOffset === 'function') window.applyControlGlassChromaticOffset();
     if (typeof window.updateFxInputs === 'function') window.updateFxInputs();
     if (typeof window.syncFxUniforms === 'function') window.syncFxUniforms();
-    return true;
     if (typeof window.applySavedLyricPaletteState === 'function') window.applySavedLyricPaletteState();
     if (typeof window.refreshCurrentLyricStyle === 'function') window.refreshCurrentLyricStyle();
     if (typeof window.applyDesktopLyricsState === 'function') window.applyDesktopLyricsState(true);
     if (typeof window.saveLyricLayout === 'function') window.saveLyricLayout();
+    return true;
   }
   function applyGlassPatch(patch) {
     if (!Object.keys(patch).length) return;
@@ -3441,14 +3442,17 @@
     }
   }
   function restoreBuiltInPresetAfterRetirement() {
-    if (!window.fx || typeof window.setPreset !== 'function') return false;
+    if (!window.fx) return false;
+    var isolation = window.LumiFieldBuiltInPresetIsolation;
+    if (isolation && typeof isolation.restoreRetiredEmily === 'function') return isolation.restoreRetiredEmily() === true;
+    if (typeof window.setPreset !== 'function') return false;
     return window.setPreset(0, { silent:true, skipTransition:true, preserveAudioEcho:true }) !== false;
   }
   function migrateCanonicalArchives() {
-    if (!presetScopeOwnerReady()) return;
+    if (!presetScopeOwnerReady()) return { skipped:true, reason:'scope-not-ready' };
     var retired = retireRemovedParticlePresets();
-    if (retired && retired.currentRemoved) restoreBuiltInPresetAfterRetirement();
-    if (!Array.isArray(window.userFxArchives)) return;
+    var restored = !!(retired && retired.currentRemoved && restoreBuiltInPresetAfterRetirement());
+    if (!Array.isArray(window.userFxArchives)) return { retired:retired, restored:restored };
     var changed = false;
     window.userFxArchives.forEach(function (slot) {
       if (!slot || !slot.snapshot) return;
@@ -3459,6 +3463,7 @@
       }
     });
     if (changed && typeof window.saveUserFxArchives === 'function') window.saveUserFxArchives();
+    return { retired:retired, restored:restored };
   }
   function installTransactionalImport() {
     var originalApply = window.applyUserFxArchive;

@@ -22820,6 +22820,84 @@ var presetMeta = [
   { name: '星河', desc: '壁纸粒子 · 音乐律动' },
   { name: '安魂', desc: '骷髅·YUI7W', descHtml: '骷髅·<span class="pc-yui7w">YUI7W</span>' },
 ];
+function deepFreezePresetDefault(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.keys(value).forEach(function (key) { deepFreezePresetDefault(value[key]); });
+  return Object.freeze(value);
+}
+function clonePresetDefaultValue(value) {
+  if (Array.isArray(value)) return value.map(clonePresetDefaultValue);
+  if (!value || typeof value !== 'object') return value;
+  var out = {};
+  Object.keys(value).forEach(function (key) { out[key] = clonePresetDefaultValue(value[key]); });
+  return out;
+}
+var PRESET_ISOLATED_PARTICLE_KEYS = Object.freeze([
+  'intensity','cinemaShake','depth','coverResolution','point','speed','twist','color','scatter','bgFade','bloomStrength',
+  'floatLayer','cinema','edge','bloom','backCover'
+]);
+var PRESET_ISOLATED_LYRIC_KEYS = Object.freeze([
+  'lyricGlowStrength','lyricScale','lyricOffsetX','lyricOffsetY','lyricOffsetZ','lyricTiltX','lyricTiltY','lyricCameraLock',
+  'lyricColorMode','lyricColor','lyricHighlightMode','lyricHighlightColor','lyricGlowLinked','lyricGlowColor','lyricFont',
+  'lyricLetterSpacing','lyricLineHeight','lyricWeight','lyricGlow','lyricGlowBeat','lyricGlowParticles','particleLyrics'
+]);
+var PRESET_ISOLATED_VISUAL_KEYS = Object.freeze([
+  'visualTintMode','visualTintColor','homeAccentColor','visualIconColor'
+]);
+function presetDefaultFields(keys) {
+  var out = {};
+  keys.forEach(function (key) { out[key] = clonePresetDefaultValue(PACKAGED_DEFAULT_FX_SNAPSHOT[key]); });
+  return out;
+}
+function presetCameraDefault(index) {
+  var values = [
+    [6.6,0.08,0.0], [6.2,0.03,0.0], [7.0,0.15,0.0], [8.0,0.05,0.0],
+    [6.5,0.04,0.0], [9.4,0.34,-0.52], [7.4,0.10,0.18]
+  ][index] || [6.6,0.08,0.0];
+  return { radius:values[0], phi:values[1], theta:values[2] };
+}
+var immutablePresetDefaults = deepFreezePresetDefault(presetMeta.map(function (meta, index) {
+  return {
+    id:['emily-cover','roller','planet','void','record','galaxy','requiem'][index],
+    index:index,
+    name:String(meta.name || ''),
+    renderer:{ preset:index },
+    camera:presetCameraDefault(index),
+    appearance:{
+      particles:presetDefaultFields(PRESET_ISOLATED_PARTICLE_KEYS),
+      lyrics:presetDefaultFields(PRESET_ISOLATED_LYRIC_KEYS),
+      visual:presetDefaultFields(PRESET_ISOLATED_VISUAL_KEYS)
+    }
+  };
+}));
+var activeBuiltInPresetRuntimeState = null;
+var builtInPresetActivationSerial = 0;
+function createBuiltInPresetRuntimeState(index) {
+  index = Math.round(Math.max(0, Math.min(immutablePresetDefaults.length - 1, Number(index) || 0)));
+  return clonePresetDefaultValue(immutablePresetDefaults[index]);
+}
+function presetDefaultsDeepFrozen() {
+  return Object.isFrozen(immutablePresetDefaults) && immutablePresetDefaults.every(function (entry) {
+    return Object.isFrozen(entry) && Object.isFrozen(entry.renderer) && Object.isFrozen(entry.camera) &&
+      Object.isFrozen(entry.appearance) && Object.isFrozen(entry.appearance.particles) &&
+      Object.isFrozen(entry.appearance.lyrics) && Object.isFrozen(entry.appearance.visual);
+  });
+}
+window.LumiFieldBuiltInPresetIsolation = Object.freeze({
+  version:1,
+  create:createBuiltInPresetRuntimeState,
+  getDefaults:function () { return immutablePresetDefaults; },
+  getDebug:function () {
+    return {
+      count:immutablePresetDefaults.length,
+      deepFrozen:presetDefaultsDeepFrozen(),
+      activationSerial:builtInPresetActivationSerial,
+      activeIndex:activeBuiltInPresetRuntimeState ? activeBuiltInPresetRuntimeState.index : -1,
+      activeState:clonePresetDefaultValue(activeBuiltInPresetRuntimeState)
+    };
+  },
+  restoreRetiredEmily:function () { return restoreEmilyPresetAfterRetiredContamination(); }
+});
 var presetIcons = [
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14c3-2 5-2 8 0s5 2 8 0M3 10c3-2 5-2 8 0s5 2 8 0M3 18c3-2 5-2 8 0s5 2 8 0"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -23915,26 +23993,27 @@ function stopAudioEchoBeforeNormalPreset(opts) {
 }
 function setPreset(p, opts) {
   opts = opts || {};
-  p = Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0));
+  p = Math.round(Math.max(0, Math.min(presetMeta.length - 1, Number(p) || 0)));
   if (!stopAudioEchoBeforeNormalPreset(opts)) return false;
+  var runtimeState = createBuiltInPresetRuntimeState(p);
   var prev = fx.preset;
   var changed = prev !== p;
-  fx.preset = p;
+  fx.preset = runtimeState.renderer.preset;
+  activeBuiltInPresetRuntimeState = runtimeState;
+  builtInPresetActivationSerial++;
   if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX) clearSkullPresetResidue();
   if (p === SKULL_PRESET_INDEX) loadSkullParticleAsset();
-  uniforms.uPreset.value = p;
+  uniforms.uPreset.value = runtimeState.renderer.preset;
   refreshPresetGrid();
   if (changed && !opts.skipTransition) triggerPresetParticleTransition(prev, p);
   // 每个预设对应的相机基线 (改 userOrbit)
   if (changed && !opts.preserveCamera) {
-    if (p === 1)      { orbit.userRadius = 6.2; orbit.userPhi = 0.03; orbit.userTheta = 0.0; orbit.baselineRadius = 6.2; orbit.baselinePhi = 0.03; }
-    else if (p === 2) { orbit.userRadius = 7.0; orbit.userPhi = 0.15; orbit.userTheta = 0.0; orbit.baselineRadius = 7.0; orbit.baselinePhi = 0.15; }
-    else if (p === 3) { orbit.userRadius = 8.0; orbit.userPhi = 0.05; orbit.userTheta = 0.0; orbit.baselineRadius = 8.0; orbit.baselinePhi = 0.05; }
-    else if (p === 4) { orbit.userRadius = 6.5; orbit.userPhi = 0.04; orbit.userTheta = 0.0; orbit.baselineRadius = 6.5; orbit.baselinePhi = 0.04; }
-    else if (p === 5) { orbit.userRadius = 9.4; orbit.userPhi = 0.34; orbit.userTheta = -0.52; orbit.baselineRadius = 9.4; orbit.baselinePhi = 0.34; }
-    else if (p === 6) { orbit.userRadius = 7.4; orbit.userPhi = 0.10; orbit.userTheta = 0.18; orbit.baselineRadius = 7.4; orbit.baselinePhi = 0.10; }
-    else              { orbit.userRadius = 6.6; orbit.userPhi = 0.08; orbit.userTheta = 0.0; orbit.baselineRadius = 6.6; orbit.baselinePhi = 0.08; }
-    orbit.baselineTheta = p === 5 ? -0.52 : (p === 6 ? 0.18 : 0.0);
+    orbit.userRadius = runtimeState.camera.radius;
+    orbit.userPhi = runtimeState.camera.phi;
+    orbit.userTheta = runtimeState.camera.theta;
+    orbit.baselineRadius = runtimeState.camera.radius;
+    orbit.baselinePhi = runtimeState.camera.phi;
+    orbit.baselineTheta = runtimeState.camera.theta;
   }
   if (changed && !opts.silent) showToast('视觉预设: ' + presetMeta[p].name);
   var shouldCommitPlaybackPreset = !!opts.commitPlaybackPreset || !opts.noSave;
@@ -23946,6 +24025,46 @@ function setPreset(p, opts) {
     saveLyricLayout();
   }
   return true;
+}
+
+function restoreEmilyPresetAfterRetiredContamination() {
+  if (!fx || !immutablePresetDefaults[0]) return false;
+  var beforeFx = Object.assign({}, fx);
+  var beforeOrbit = {
+    userRadius:orbit.userRadius, userPhi:orbit.userPhi, userTheta:orbit.userTheta,
+    baselineRadius:orbit.baselineRadius, baselinePhi:orbit.baselinePhi, baselineTheta:orbit.baselineTheta
+  };
+  var emily = createBuiltInPresetRuntimeState(0);
+  try {
+    ['particles','lyrics','visual'].forEach(function (group) {
+      Object.keys(emily.appearance[group]).forEach(function (key) {
+        fx[key] = clonePresetDefaultValue(emily.appearance[group][key]);
+      });
+    });
+    normalizeDevelopmentLockedFxState();
+    if (setPreset(0, {
+      silent:true, preserveCamera:false, skipTransition:true, noSave:true,
+      commitPlaybackPreset:true, preserveAudioEcho:true
+    }) === false) throw new Error('Emily 预设恢复失败');
+    applyCoverParticleResolution(fx.coverResolution, { reload:true });
+    if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer();
+    if (fx.backCover) createBackCoverLayer(); else destroyBackCoverLayer();
+    setParticleLyricsSilently(fx.particleLyrics);
+    updateFxInputs();
+    syncFxUniforms();
+    applySavedLyricPaletteState();
+    refreshCurrentLyricStyle();
+    saveLyricLayout();
+    return true;
+  } catch (_) {
+    Object.keys(beforeFx).forEach(function (key) { fx[key] = beforeFx[key]; });
+    Object.keys(beforeOrbit).forEach(function (key) { orbit[key] = beforeOrbit[key]; });
+    syncFxUniforms();
+    updateFxInputs();
+    applySavedLyricPaletteState();
+    refreshCurrentLyricStyle();
+    return false;
+  }
 }
 
 function syncFxUniforms() {
