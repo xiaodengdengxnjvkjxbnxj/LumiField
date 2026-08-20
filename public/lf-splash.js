@@ -8,6 +8,8 @@
   var gridCanvas = document.getElementById('lf-splash-grid');
   var signature = document.getElementById('lf-splash-signature');
   var enter = document.getElementById('lf-splash-enter');
+  var entryStatus = document.getElementById('lf-splash-entry-status');
+  var windowControls = Array.prototype.slice.call(document.querySelectorAll('[data-window-action]'));
   var startedAt = performance.now();
   var disposed = false;
   var rafId = 0;
@@ -45,6 +47,7 @@
   var enterRect = null;
   var ripples = [];
   var listeners = [];
+  var externalDisposers = [];
   var gl = null;
   var glProgram = null;
   var glBuffer = null;
@@ -337,12 +340,46 @@
     return suspended;
   }
   function onVisibilityChange(){ setSuspended(document.hidden); }
+  function applyWindowState(state) {
+    var maximized = !!(state && state.isMaximized);
+    root.toggleAttribute('data-maximized', maximized);
+    var button = document.querySelector('[data-window-action="maximize"]');
+    if (!button) return;
+    button.title = maximized ? '还原' : '最大化';
+    button.setAttribute('aria-label', button.title);
+    var maximizeIcon = button.querySelector('.icon-maximize');
+    var restoreIcon = button.querySelector('.icon-restore');
+    if (maximizeIcon) maximizeIcon.hidden = maximized;
+    if (restoreIcon) restoreIcon.hidden = !maximized;
+  }
+  function onWindowAction(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!api || typeof api.windowAction !== 'function') return;
+    var action = event.currentTarget && event.currentTarget.getAttribute('data-window-action');
+    if (!action) return;
+    api.windowAction(action).then(function(result){
+      if (result && result.state) applyWindowState(result.state);
+    }).catch(function(){});
+  }
+  function beginEntryExit() {
+    root.dataset.exiting = 'true';
+    if (entryStatus) entryStatus.textContent = '正在进入主界面…';
+    try { signature.pause(); } catch (_) {}
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    suspended = true;
+  }
   function finishRejectedEntry(message){
     enterError=String(message||'SPLASH_ENTER_REJECTED');
     enterPending=false;
     enter.disabled=false;
     enter.removeAttribute('data-pending');
     enter.removeAttribute('aria-busy');
+    root.removeAttribute('data-exiting');
+    if(entryStatus)entryStatus.textContent='';
+    suspended=!!document.hidden;
+    if(!suspended&&!rafId&&!disposed){lastPaintAt=0;rafId=requestAnimationFrame(frame);}
+    if(!signatureEnded&&signature.readyState>=2)playSignature();
   }
   function onEnterClick(){
     if(disposed||enterPending||!stageVisible||!api)return;
@@ -352,6 +389,7 @@
     enter.disabled=true;
     enter.dataset.pending='true';
     enter.setAttribute('aria-busy','true');
+    beginEntryExit();
     // Keep both splash renderers and the signature responsive while the hidden
     // main window finishes initialization. The accepted request is queued in
     // the main process and reveals the main window without another click.
@@ -366,6 +404,7 @@
     if(rafId){cancelAnimationFrame(rafId);rafId=0;}
     if(atcInitTimer){clearTimeout(atcInitTimer);atcInitTimer=0;}
     listeners.splice(0).forEach(function(item){try{item[0].removeEventListener(item[1],item[2],item[3]);}catch(_){}});
+    externalDisposers.splice(0).forEach(function(disposeExternal){try{disposeExternal();}catch(_){}});
     try{signature.pause();signature.removeAttribute('src');signature.load();}catch(_){}
     if(gl){try{gl.bindBuffer(gl.ARRAY_BUFFER,null);gl.useProgram(null);if(glBuffer)gl.deleteBuffer(glBuffer);if(glProgram)gl.deleteProgram(glProgram);var lose=gl.getExtension('WEBGL_lose_context');if(lose)lose.loseContext();}catch(_){}}
     gl=null;glProgram=null;glBuffer=null;gridCtx=null;atcFallbackCtx=null;ripples.length=0;
@@ -384,11 +423,13 @@
   add(enter,'pointermove',onEnterMove,{passive:true});
   add(enter,'pointerleave',onEnterLeave,{passive:true});
   add(enter,'click',onEnterClick);
+  windowControls.forEach(function(button){add(button,'click',onWindowAction);});
   add(signature,'ended',holdSignature);
   add(signature,'error',function(){signatureError='SIGNATURE_MEDIA_ERROR';});
   add(window,'beforeunload',dispose,{once:true});
   revealStage();
   enter.disabled=false;
+  if(api&&typeof api.onWindowState==='function')externalDisposers.push(api.onWindowState(applyWindowState));
   renderGrid(initialFrameNow);
   atcInitTimer=setTimeout(function(){atcInitTimer=0;initAtc();},50);
   if (!suspended) rafId=requestAnimationFrame(frame);

@@ -7,6 +7,8 @@ const CHANNELS = Object.freeze({
   enter: 'lf-splash-enter',
   debug: 'lf-splash-debug',
   mainDebug: 'lf-splash-main-debug',
+  windowAction: 'lf-splash-window-action',
+  windowState: 'lf-splash-window-state',
 });
 
 function createSplashController(options) {
@@ -35,6 +37,10 @@ function createSplashController(options) {
   let enterCount = 0;
   let enterRequestedAt = 0;
   let revealedAt = 0;
+  let revealInFlight = false;
+  let transitionStartedAt = 0;
+  let surfacePrimedAt = 0;
+  let userCloseRequested = false;
 
   function isTrusted(event) {
     return !!(splashWindow && !splashWindow.isDestroyed() && splashWindow.webContents === event.sender);
@@ -51,6 +57,9 @@ function createSplashController(options) {
       enterRequestedAt,
       revealedAt,
       revealed,
+      revealInFlight,
+      transitionStartedAt,
+      surfacePrimedAt,
       disposed,
       recreateCount,
       splashExists: !!(splashWindow && !splashWindow.isDestroyed()),
@@ -61,6 +70,18 @@ function createSplashController(options) {
     };
   }
 
+  function splashWindowState(win) {
+    return {
+      isMaximized: !!(win && !win.isDestroyed() && win.isMaximized()),
+      isMinimized: !!(win && !win.isDestroyed() && win.isMinimized()),
+    };
+  }
+
+  function publishSplashWindowState(win) {
+    if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+    win.webContents.send(CHANNELS.windowState, splashWindowState(win));
+  }
+
   function clearRecreateTimer() {
     if (!recreateTimer) return;
     clearTimeout(recreateTimer);
@@ -68,45 +89,53 @@ function createSplashController(options) {
   }
 
   function maybeReveal() {
-    if (disposed || revealed || !mainReady || !enterRequested || !stageReady) return false;
+    if (disposed || revealed || revealInFlight || !mainReady || !enterRequested || !stageReady) return false;
     if (!mainWindow || mainWindow.isDestroyed()) return false;
-    revealed = true;
-    revealedAt = Date.now();
+    revealInFlight = true;
+    transitionStartedAt = Date.now();
     clearRecreateTimer();
     const closing = splashWindow;
-    splashWindow = null;
-    revealMain(mainWindow);
-    // Hidden BrowserWindows are not guaranteed to have a composited frame even
-    // after loadURL resolves. Show the real player behind the always-on-top
-    // splash and keep the splash until Chromium has produced two visible
-    // animation frames. This prevents the internal boot surface from flashing.
-    if (closing && !closing.isDestroyed()) {
-      let retired = false;
-      const retire = () => {
-        if (retired) return;
-        retired = true;
-        if (!closing.isDestroyed()) closing.destroy();
-      };
-      const fallback = setTimeout(retire, 2500);
-      Promise.resolve(mainWindow.webContents.executeJavaScript(
-        'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {' +
-          'const root=document.documentElement,body=document.body;' +
-          'const ready=document.readyState==="complete"&&root&&body&&' +
-            'root.scrollWidth>0&&root.scrollHeight>0&&getComputedStyle(body).visibility!=="hidden";' +
-          'resolve(ready);' +
-        '})))',
-        true,
-      )).then(ready => {
-        if (!ready) return;
-        clearTimeout(fallback);
-        retire();
-      }).catch(() => {});
-    }
+    Promise.resolve().then(async () => {
+      if (!mainWindow || mainWindow.isDestroyed()) throw new Error('MAIN_WINDOW_LOST');
+      try { mainWindow.setOpacity(0); } catch (_) {}
+      mainWindow.showInactive();
+      const ready = await Promise.race([
+        mainWindow.webContents.executeJavaScript(
+          'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {' +
+            'const root=document.documentElement,body=document.body;' +
+            'resolve(!!(document.readyState==="complete"&&root&&body&&root.scrollWidth>0&&root.scrollHeight>0&&' +
+              'getComputedStyle(body).visibility!=="hidden"&&body.classList.contains("empty-home-active")));' +
+          '})))',
+          true,
+        ),
+        new Promise(resolve => setTimeout(() => resolve(false), 1800)),
+      ]);
+      if (!ready) log('Main surface priming reached bounded fallback');
+      surfacePrimedAt = Date.now();
+      splashWindow = null;
+      if (closing && !closing.isDestroyed()) closing.destroy();
+      try { mainWindow.setOpacity(1); } catch (_) {}
+      revealMain(mainWindow);
+      revealed = true;
+      revealedAt = Date.now();
+    }).catch(error => {
+      log('Atomic splash handoff failed', error);
+      splashWindow = null;
+      if (closing && !closing.isDestroyed()) closing.destroy();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.setOpacity(1); } catch (_) {}
+        revealMain(mainWindow);
+        revealed = true;
+        revealedAt = Date.now();
+      }
+    }).finally(() => {
+      revealInFlight = false;
+    });
     return true;
   }
 
   function scheduleRecreate(reason) {
-    if (disposed || revealed || testBypass || recreateTimer) return;
+    if (disposed || revealed || revealInFlight || userCloseRequested || testBypass || recreateTimer) return;
     log(`Splash renderer recovery scheduled: ${reason}`);
     recreateTimer = setTimeout(() => {
       recreateTimer = null;
@@ -126,22 +155,21 @@ function createSplashController(options) {
     const win = new BrowserWindow({
       width: 600,
       height: 400,
-      minWidth: 600,
-      minHeight: 400,
-      maxWidth: 600,
-      maxHeight: 400,
+      minWidth: 480,
+      minHeight: 320,
       show: false,
       frame: false,
       transparent: true,
       backgroundColor: '#00000000',
       alwaysOnTop: true,
-      resizable: false,
+      resizable: true,
       movable: true,
       center: true,
-      skipTaskbar: true,
+      skipTaskbar: false,
       hasShadow: false,
       autoHideMenuBar: true,
       title: 'LumiField',
+      icon: options.iconPath,
       webPreferences: {
         preload: preloadPath,
         contextIsolation: true,
@@ -163,6 +191,10 @@ function createSplashController(options) {
       if (disposed || revealed || win.isDestroyed() || splashWindow !== win) return;
       win.show();
       win.focus();
+      publishSplashWindowState(win);
+    });
+    ['maximize', 'unmaximize', 'minimize', 'restore'].forEach(eventName => {
+      win.on(eventName, () => publishSplashWindowState(win));
     });
     win.webContents.on('did-fail-load', (_event, code, description) => {
       if (code === -3) return;
@@ -183,6 +215,7 @@ function createSplashController(options) {
     });
     win.on('closed', () => {
       if (splashWindow === win) splashWindow = null;
+      if (userCloseRequested || revealInFlight || revealed || disposed) return;
       scheduleRecreate('closed-before-entry');
     });
 
@@ -222,6 +255,21 @@ function createSplashController(options) {
       if (!testMode || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents !== event.sender) return null;
       return debugState();
     });
+    ipcMain.handle(CHANNELS.windowAction, (event, action) => {
+      if (!isTrusted(event) || disposed || revealed) return { ok: false, error: 'SPLASH_NOT_READY' };
+      const win = splashWindow;
+      if (!win || win.isDestroyed()) return { ok: false, error: 'SPLASH_WINDOW_MISSING' };
+      if (action === 'minimize') win.minimize();
+      else if (action === 'maximize') {
+        if (win.isMaximized()) win.unmaximize();
+        else win.maximize();
+      } else if (action === 'close') {
+        userCloseRequested = true;
+        app.quit();
+      } else return { ok: false, error: 'INVALID_WINDOW_ACTION' };
+      publishSplashWindowState(win);
+      return { ok: true, state: splashWindowState(win) };
+    });
   }
 
   function unregisterIpc() {
@@ -229,6 +277,7 @@ function createSplashController(options) {
     ipcMain.removeHandler(CHANNELS.enter);
     ipcMain.removeHandler(CHANNELS.debug);
     ipcMain.removeHandler(CHANNELS.mainDebug);
+    ipcMain.removeHandler(CHANNELS.windowAction);
   }
 
   registerIpc();

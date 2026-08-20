@@ -4182,6 +4182,11 @@ async function createWindow() {
     if (loadedMainUrl.origin !== appOrigin || (loadedMainUrl.pathname !== '/' && loadedMainUrl.pathname !== '/index.html')) {
       throw new Error(`Unexpected main page URL after load: ${loadedMainUrl.href}`);
     }
+    const firstRouteReady = await mainWindow.webContents.executeJavaScript(
+      'typeof window.LumiFieldPrepareFirstReveal === "function" ? window.LumiFieldPrepareFirstReveal() : false',
+      true,
+    );
+    if (!firstRouteReady) throw new Error('Main route did not prepare before splash handoff');
     // loadURL resolves after the real document's load event. Only this point
     // may satisfy the splash controller's main-ready side of the entry gate.
     if (splashController) splashController.setMainReady(mainWindow);
@@ -4227,6 +4232,7 @@ if (!gotSingleInstanceLock) {
       ipcMain,
       publicDir: path.join(__dirname, '..', 'public'),
       preloadPath: path.join(__dirname, 'lf-splash-preload.js'),
+      iconPath: APP_ICON_ICO,
       testMode: splashTestMode,
       testBypass: splashTestBypass,
       log: writeStartupLog,

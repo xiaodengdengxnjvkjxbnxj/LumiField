@@ -9,6 +9,19 @@
 </head>
 <body>
   <main id="lf-splash-root" aria-label="LumiField 启动动画">
+    <div id="lf-splash-drag-region" aria-hidden="true"></div>
+    <div id="lf-splash-window-controls" aria-label="窗口控制">
+      <button class="lf-splash-window-btn" type="button" data-window-action="minimize" title="最小化" aria-label="最小化">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg>
+      </button>
+      <button class="lf-splash-window-btn" type="button" data-window-action="maximize" title="最大化" aria-label="最大化">
+        <svg class="icon-maximize" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>
+        <svg class="icon-restore" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M5 3.5h7.5v7.5"/><rect x="3.5" y="5.5" width="7" height="7" rx="1"/></svg>
+      </button>
+      <button class="lf-splash-window-btn close" type="button" data-window-action="close" title="关闭" aria-label="关闭">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
     <section id="lf-splash-stage" aria-hidden="false">
       <canvas id="lf-splash-atc" aria-hidden="true"></canvas>
       <canvas id="lf-splash-grid" aria-hidden="true"></canvas>
@@ -16,6 +29,7 @@
         <video id="lf-splash-signature" src="assets/splash/lf-signature.mp4" muted playsinline preload="auto"></video>
       </div>
       <button id="lf-splash-enter" type="button" disabled><span>立即进入</span></button>
+      <div id="lf-splash-entry-status" role="status" aria-live="polite"></div>
     </section>
   </main>
   <script src="lf-splash.js"></script>

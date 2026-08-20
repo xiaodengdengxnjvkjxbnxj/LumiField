@@ -2,9 +2,19 @@
 *{box-sizing:border-box}
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;user-select:none}
 body{-webkit-app-region:no-drag}
-#lf-splash-root{position:relative;width:600px;height:400px;overflow:hidden;border-radius:24px;background:#02050d;box-shadow:0 28px 90px rgba(0,0,0,.66),inset 0 0 0 1px rgba(175,219,255,.11);isolation:isolate;-webkit-app-region:no-drag}
+#lf-splash-root{position:relative;width:100vw;height:100vh;min-width:480px;min-height:320px;overflow:hidden;border-radius:24px;background:#02050d;box-shadow:0 28px 90px rgba(0,0,0,.66),inset 0 0 0 1px rgba(175,219,255,.11);isolation:isolate;-webkit-app-region:no-drag}
 #lf-splash-root::after{content:"";position:absolute;inset:0;z-index:8;border-radius:inherit;pointer-events:none;background:radial-gradient(ellipse at 50% 46%,transparent 38%,rgba(0,0,0,.42) 100%);box-shadow:inset 0 0 64px rgba(0,0,0,.42)}
+#lf-splash-root[data-maximized]{border-radius:0;box-shadow:none}
 #lf-splash-stage{position:absolute;inset:0;z-index:1;opacity:1;overflow:hidden}
+#lf-splash-drag-region{position:absolute;z-index:18;left:0;right:164px;top:0;height:54px;-webkit-app-region:drag;pointer-events:none}
+#lf-splash-window-controls{position:absolute;z-index:20;top:12px;right:12px;display:flex;align-items:center;gap:8px;-webkit-app-region:no-drag}
+.lf-splash-window-btn{width:44px;height:34px;border:0;border-radius:13px;background:rgba(1,3,10,.78);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 5px 15px rgba(0,0,0,.38),inset 0 0 0 1px rgba(255,255,255,.018);transition:background .14s ease,box-shadow .14s ease,transform .14s ease;color-scheme:dark;-webkit-app-region:no-drag}
+.lf-splash-window-btn svg{grid-area:1/1;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:square;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(255,255,255,.7))}
+.lf-splash-window-btn:hover{background:rgba(8,13,25,.94);box-shadow:0 7px 19px rgba(0,0,0,.44),0 0 12px rgba(207,238,255,.12),inset 0 0 0 1px rgba(255,255,255,.06);transform:translateY(-1px)}
+.lf-splash-window-btn:active{transform:translateY(0) scale(.96)}
+.lf-splash-window-btn:focus-visible{outline:2px solid rgba(151,225,255,.9);outline-offset:2px}
+.lf-splash-window-btn.close:hover{background:rgba(92,12,24,.94);box-shadow:0 7px 19px rgba(0,0,0,.44),0 0 14px rgba(255,74,97,.18)}
+.lf-splash-window-btn [hidden]{display:none}
 #lf-splash-atc,#lf-splash-grid{position:absolute;inset:0;width:100%;height:100%;display:block}
 #lf-splash-atc{z-index:1;background:radial-gradient(ellipse at 50% 52%,rgba(28,61,98,.32),rgba(2,5,13,.96) 70%)}
 #lf-splash-grid{z-index:2;pointer-events:none}
@@ -19,4 +29,9 @@ body{-webkit-app-region:no-drag}
 #lf-splash-enter:disabled{cursor:default;opacity:1}
 #lf-splash-enter[data-pending="true"]{opacity:.92;cursor:progress;border-color:rgba(86,214,255,.42);box-shadow:0 9px 24px rgba(0,0,0,.36),0 0 18px rgba(55,196,255,.18),inset 0 0 0 .5px rgba(255,255,255,.08)}
 #lf-splash-enter span{position:relative;z-index:2;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.88)}
-@media(prefers-reduced-motion:reduce){#lf-splash-enter,#lf-splash-enter::before{transition:none}}
+#lf-splash-entry-status{position:absolute;z-index:10;left:50%;bottom:28px;transform:translateX(-50%);opacity:0;color:rgba(220,246,255,.82);font:500 12px/1.2 "Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:.04em;pointer-events:none;transition:opacity .16s ease}
+#lf-splash-root[data-exiting="true"] #lf-splash-signature-shell{opacity:0;transition:none}
+#lf-splash-root[data-exiting="true"] #lf-splash-enter{opacity:0;pointer-events:none;transition:none}
+#lf-splash-root[data-exiting="true"] #lf-splash-entry-status{opacity:1;transition:none}
+@media(max-width:560px),(max-height:360px){#lf-splash-window-controls{top:8px;right:8px;gap:6px}.lf-splash-window-btn{width:40px;height:31px;border-radius:11px}#lf-splash-signature-shell{width:min(78vw,470px);height:min(56vh,250px)}}
+@media(prefers-reduced-motion:reduce){#lf-splash-enter,#lf-splash-enter::before,.lf-splash-window-btn,#lf-splash-entry-status{transition:none}}
