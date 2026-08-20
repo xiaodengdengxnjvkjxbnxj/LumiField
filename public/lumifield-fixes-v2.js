@@ -22,14 +22,16 @@
     var quality = mode === 'standard' ? 'balanced' : mode;
     if (typeof window.setPerformanceQualityMode === 'function') {
       try { window.setPerformanceQualityMode(quality); } catch (_) {}
+    } else {
+      try {
+        if (window.renderer && typeof renderer.setPixelRatio === 'function') {
+          var cap = { eco: 1, standard: 1.25, high: 1.6, ultra: 2 }[mode];
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+          renderer.setSize(innerWidth, innerHeight, false);
+          if (window.uniforms && uniforms.uPixel) uniforms.uPixel.value = renderer.getPixelRatio();
+        }
+      } catch (_) {}
     }
-    try {
-      if (window.renderer && typeof renderer.setPixelRatio === 'function') {
-        var cap = { eco: 1, standard: 1.25, high: 1.6, ultra: 2 }[mode];
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
-        renderer.setSize(innerWidth, innerHeight, false);
-      }
-    } catch (_) {}
   }
 
   function injectTopControls() {

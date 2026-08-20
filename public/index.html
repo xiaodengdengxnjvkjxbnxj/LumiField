@@ -3652,7 +3652,7 @@ function renderQualityProfile() {
   var quality = normalizePerformanceQuality(fx && fx.performanceQuality);
   if (quality === 'eco') return { cap: 0.95, min: 0.56, budget: 2400000 };
   if (quality === 'balanced') return { cap: 1.12, min: 0.66, budget: 3800000 };
-  if (quality === 'ultra') return { cap: 1.75, min: 0.85, budget: 7800000 };
+  if (quality === 'ultra') return { cap: 2.0, min: 1.0, budget: 12000000 };
   return { cap: RENDER_DPR_CAP, min: RENDER_MIN_DPR, budget: RENDER_PIXEL_BUDGET };
 }
 function getRenderPixelRatio() {
@@ -3666,7 +3666,10 @@ function getRenderPixelRatio() {
   var echoManager = window.LumiFieldAudioEchoManager;
   var echoScale = echoManager && typeof echoManager.getRenderScale === 'function' ? Number(echoManager.getRenderScale()) : 1;
   if (!isFinite(echoScale) || echoScale <= 0) echoScale = 1;
-  return Math.max(0.35, Math.min(device, ratio * echoScale));
+  var finalFloor = normalizePerformanceQuality(fx && fx.performanceQuality) === 'ultra'
+    ? Math.min(device, 1)
+    : 0.35;
+  return Math.max(finalFloor, Math.min(device, ratio * echoScale));
 }
 function getRenderPixelLoad() {
   var ratio = getRenderPixelRatio();
@@ -3689,7 +3692,7 @@ function getRenderLoadTier() {
   if (cssPixels >= 3200000 || renderPixels >= 3600000) return 1;
   return 0;
 }
-var renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(getRenderPixelRatio());
 renderer.setSize(innerWidth, innerHeight);
@@ -6284,7 +6287,7 @@ void main(){
     vBright = mix(vBright, 0.20 + mistBreath * 0.18 + abs(mistCurl.x) * 0.06 + glowPick * (0.72 + abs(mistRibbon) * 0.24), uLoading);
     vAlpha = mix(vAlpha, 0.08 + mistBreath * 0.11 + dustPick * 0.11 + glowPick * 0.30, uLoading);
     pos = mix(pos, mistPos, uLoading);
-    loadingMistSize = 1.26 + mistBreath * 0.24 + abs(mistRibbon) * 0.14 + glowPick * 0.78;
+    loadingMistSize = 1.0 + mistBreath * 0.04 + abs(mistRibbon) * 0.025 + glowPick * 0.045;
   }
 
   vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
@@ -6298,9 +6301,9 @@ void main(){
     float ringDrive = uBass * 0.30 + uMid * 0.18 + uTreble * 0.22 + uBeat * 0.30;
     sz = clamp(depthSize * (0.90 + ringDrive * 0.62), 1.05, 3.90);
   }
-  // 加载态下粒子稍大
+  // 加载态仅保留轻微呼吸，最终点尺寸还要经过 CSS 像素上限保护。
   sz = mix(sz, sz * loadingMistSize, uLoading);
-  gl_PointSize = sz * uPixel * uPointScale;
+  gl_PointSize = min(sz * uPixel * uPointScale, 10.0 * uPixel);
   gl_Position = projectionMatrix * mvPos;
 }
 `;
@@ -6340,7 +6343,7 @@ var material = new THREE.ShaderMaterial({
 
 var bloomVs = vs
   .replace('uniform float uMouseActive, uPixel, uColorMixT, uLoading;', 'uniform float uMouseActive, uPixel, uColorMixT, uLoading, uBloomSize;')
-  .replace('gl_PointSize = sz * uPixel * uPointScale;', 'gl_PointSize = sz * uPixel * uPointScale * uBloomSize;');
+  .replace('gl_PointSize = min(sz * uPixel * uPointScale, 10.0 * uPixel);', 'gl_PointSize = min(sz * uPixel * uPointScale * uBloomSize, 18.0 * uPixel);');
 var bloomFs = `
 precision highp float;
 uniform sampler2D uDotTex;
@@ -6373,6 +6376,43 @@ var particles = new THREE.Points(geo, material);
 particles.frustumCulled = false;
 particles.renderOrder = 1;
 scene.add(particles);
+window.LumiFieldParticleQuality = Object.freeze({
+  version:1,
+  getDebug:function () {
+    var canvas = renderer && renderer.domElement;
+    var rect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width:0, height:0 };
+    var attrs = null;
+    try { attrs = renderer && renderer.getContext().getContextAttributes(); } catch (_) {}
+    var ratio = renderer ? renderer.getPixelRatio() : 0;
+    return {
+      quality:normalizePerformanceQuality(fx && fx.performanceQuality),
+      devicePixelRatio:window.devicePixelRatio || 1,
+      renderPixelRatio:ratio,
+      cssWidth:rect.width || 0,
+      cssHeight:rect.height || 0,
+      canvasWidth:canvas ? canvas.width : 0,
+      canvasHeight:canvas ? canvas.height : 0,
+      backingScaleX:rect.width ? canvas.width / rect.width : 0,
+      backingScaleY:rect.height ? canvas.height / rect.height : 0,
+      cssUpscaled:!!(rect.width && rect.height && (canvas.width + 1 < rect.width || canvas.height + 1 < rect.height)),
+      antialias:!!(attrs && attrs.antialias),
+      rendering:'direct-default-framebuffer',
+      postProcessing:false,
+      fxaa:false,
+      motionBlur:false,
+      textureFiltering:'linear',
+      dotTextureSize:dotTexture && dotTexture.image ? Number(dotTexture.image.width || 0) : 0,
+      mainPointLimitCss:10,
+      bloomPointLimitCss:18,
+      pointScale:Number(uniforms.uPointScale.value || 0),
+      loading:Number(uniforms.uLoading.value || 0),
+      bloomSize:Number(uniforms.uBloomSize.value || 0),
+      preset:Number(uniforms.uPreset.value || 0),
+      geometryGrid:Number(geo && geo.userData && geo.userData.grid || 0),
+      geometryCount:Number(geo && geo.getAttribute('position') && geo.getAttribute('position').count || 0)
+    };
+  }
+});
 console.log('v7 shell loaded, JS pending');
 
 // ============================================================
