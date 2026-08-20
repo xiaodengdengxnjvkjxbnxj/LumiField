@@ -40,8 +40,10 @@ function staticChecks(){
   const js=fs.readFileSync(path.join(repo,'public','lf-animated-search.js'),'utf8');
   const hoverBlock=css.slice(css.indexOf('#search-box[data-lf-animated-search="true"]:hover .lf-animated-search-glow{'),css.indexOf('#search-box[data-lf-animated-search="true"][data-composing="true"]'));
   pass('glow animation is paused by default',/animation:lf-search-glow-orbit[\s\S]*?animation-play-state:paused/.test(css),true);
+  pass('the entire glow layer is fully hidden with no delayed fade when idle',/--lf-search-glow-idle-opacity:0/.test(css)&&/visibility:hidden/.test(css)&&/transition:none/.test(css),true);
   pass('only visible hover starts the border animation',/body:not\(\.render-deep-sleep\) #search-area\.peek #search-box\[data-lf-animated-search="true"\]:hover[\s\S]*?animation-play-state:running/.test(hoverBlock),true);
   pass('focus and nonempty input no longer keep the glow active',!/:focus-within \.lf-animated-search-glow|\[data-has-value="true"\] \.lf-animated-search-glow|:has\(#search-input:not\(:placeholder-shown\)\) \.lf-animated-search-glow/.test(hoverBlock),true);
+  pass('IME composition can brighten the flow only while the pointer is also hovering',/\[data-composing="true"\]:hover \.lf-animated-search-glow/.test(css)&&!/\[data-composing="true"\] \.lf-animated-search-glow\{/.test(css),true);
   pass('search behavior adds no animation frame or interval loop',!/requestAnimationFrame|setInterval/.test(js),true);
 }
 
@@ -61,27 +63,34 @@ async function prepare(){
   return waitFor(()=>cdp.evaluate(`(()=>{const box=document.getElementById('search-box'),glow=box&&box.querySelector('.lf-animated-search-glow'),r=box&&box.getBoundingClientRect();if(!r||!r.width)return null;const p=getComputedStyle(glow,'::before');return{rect:r.toJSON(),state:p.animationPlayState,name:p.animationName,angle:p.getPropertyValue('--lf-search-glow-angle').trim(),debug:LumiFieldAnimatedSearch.getDebug()};})()`));
 }
 
-async function sample(){return cdp.evaluate(`(()=>{const box=document.getElementById('search-box'),glow=box.querySelector('.lf-animated-search-glow'),p=getComputedStyle(glow,'::before');return{state:p.animationPlayState,name:p.animationName,angle:parseFloat(p.getPropertyValue('--lf-search-glow-angle'))||0,opacity:parseFloat(getComputedStyle(glow).opacity),rect:box.getBoundingClientRect().toJSON(),focused:document.activeElement===document.getElementById('search-input'),hasValue:box.dataset.hasValue,mode:LumiFieldAnimatedSearch.getDebug().mode};})()`);}
+async function sample(){return cdp.evaluate(`(()=>{const box=document.getElementById('search-box'),glow=box.querySelector('.lf-animated-search-glow'),style=getComputedStyle(glow),p=getComputedStyle(glow,'::before');return{state:p.animationPlayState,name:p.animationName,angle:parseFloat(p.getPropertyValue('--lf-search-glow-angle'))||0,opacity:parseFloat(style.opacity),visibility:style.visibility,rect:box.getBoundingClientRect().toJSON(),focused:document.activeElement===document.getElementById('search-input'),hovered:box.matches(':hover'),hasValue:box.dataset.hasValue,mode:LumiFieldAnimatedSearch.getDebug().mode};})()`);}
 
 async function runtimeChecks(){
   const initial=await prepare();
-  pass('default search border is present but its animation is stopped',initial.state==='paused'&&initial.name==='lf-search-glow-orbit'&&initial.debug.glowCount===1&&initial.debug.ownRafCount===0,initial);
+  pass('default search glow is fully absent and its animation is stopped',initial.state==='paused'&&initial.name==='lf-search-glow-orbit'&&initial.debug.glowCount===1&&initial.debug.ownRafCount===0,initial);
   const defaultA=await sample();await delay(220);const defaultB=await sample();
-  pass('idle border angle remains fixed over time',Math.abs(defaultB.angle-defaultA.angle)<0.2,{before:defaultA,after:defaultB});
+  pass('idle glow remains invisible with a fixed angle over time',defaultA.opacity===0&&defaultA.visibility==='hidden'&&defaultB.opacity===0&&defaultB.visibility==='hidden'&&Math.abs(defaultB.angle-defaultA.angle)<0.2,{before:defaultA,after:defaultB});
+  await cdp.screenshot('search-idle-no-glow.png');
 
   await cdp.evaluate(`(()=>{const input=document.getElementById('search-input');input.focus({preventScroll:true});input.value='保持焦点和值';input.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);
   const focusA=await sample();await delay(220);const focusB=await sample();
-  pass('focus and a nonempty value cannot start or retain the flow',focusA.focused&&focusA.hasValue==='true'&&focusA.state==='paused'&&focusB.state==='paused'&&Math.abs(focusB.angle-focusA.angle)<0.2,{before:focusA,after:focusB});
+  pass('focus and a nonempty value cannot show start or retain the flow',focusA.focused&&focusA.hasValue==='true'&&focusA.state==='paused'&&focusA.opacity===0&&focusA.visibility==='hidden'&&focusB.state==='paused'&&focusB.opacity===0&&Math.abs(focusB.angle-focusA.angle)<0.2,{before:focusA,after:focusB});
+  await cdp.evaluate(`document.getElementById('search-input').dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'测'}))`);
+  const composingAway=await sample();
+  pass('composition away from the search box cannot reveal the flow',composingAway.opacity===0&&composingAway.visibility==='hidden'&&composingAway.state==='paused',composingAway);
+  await cdp.evaluate(`document.getElementById('search-input').dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'测'}))`);
 
   const box=focusB.rect;await cdp.mouseMove(box.left+box.width/2,box.top+box.height/2);
-  const hoverA=await waitFor(async()=>{const value=await sample();return value.state==='running'?value:null;});await delay(240);const hoverB=await sample();
-  pass('pointer hover alone starts visible border motion',hoverB.state==='running'&&Math.abs(hoverB.angle-hoverA.angle)>5&&hoverB.opacity>defaultB.opacity,{before:hoverA,after:hoverB});
+  const hoverA=await waitFor(async()=>{const value=await sample();return value.state==='running'?value:null;});
+  for(let index=0;index<4;index+=1){await delay(60);await cdp.mouseMove(box.left+box.width/2,box.top+box.height/2);}
+  const hoverB=await sample();
+  pass('pointer hover alone starts and reveals visible border motion',hoverA.hovered&&hoverA.visibility==='visible'&&hoverB.state==='running'&&Math.abs(hoverB.angle-hoverA.angle)>5&&hoverB.opacity>0,{before:hoverA,after:hoverB});
   pass('hover changes no search geometry',Math.abs(hoverB.rect.left-box.left)<0.5&&Math.abs(hoverB.rect.top-box.top)<0.5&&Math.abs(hoverB.rect.width-box.width)<0.5&&Math.abs(hoverB.rect.height-box.height)<0.5,{before:box,after:hoverB.rect});
   await cdp.screenshot('search-hover-glow.png');
 
-  const dims=await cdp.evaluate(`({width:innerWidth,height:innerHeight})`);await cdp.mouseMove(dims.width-8,dims.height-8);
-  const leaveA=await waitFor(async()=>{const value=await sample();return value.state==='paused'?value:null;});await delay(220);const leaveB=await sample();
-  pass('pointer leave stops immediately even while focus and value remain',leaveA.focused&&leaveA.hasValue==='true'&&leaveA.state==='paused'&&leaveB.state==='paused'&&Math.abs(leaveB.angle-leaveA.angle)<0.2,{immediate:leaveA,held:leaveB});
+  const dims=await cdp.evaluate(`({width:innerWidth,height:innerHeight})`);const leaveStarted=Date.now();await cdp.mouseMove(dims.width-8,dims.height-8);
+  const leaveA=await waitFor(async()=>{const value=await sample();return value.state==='paused'&&value.opacity===0&&value.visibility==='hidden'?value:null;},500,15);const leaveLatencyMs=Date.now()-leaveStarted;await delay(220);const leaveB=await sample();
+  pass('pointer leave stops and fully disappears in the same interaction frame',leaveLatencyMs<120&&leaveA.focused&&leaveA.hasValue==='true'&&leaveA.state==='paused'&&leaveA.opacity===0&&leaveA.visibility==='hidden'&&leaveB.state==='paused'&&leaveB.opacity===0&&Math.abs(leaveB.angle-leaveA.angle)<0.2,{leaveLatencyMs,immediate:leaveA,held:leaveB});
 
   await cdp.evaluate(`document.getElementById('search-area').classList.add('stage-mode')`);await cdp.mouseMove(box.left+box.width/2,box.top+box.height/2);
   const secondary=await waitFor(async()=>{const value=await sample();return value.mode==='secondary'&&value.state==='running'?value:null;});

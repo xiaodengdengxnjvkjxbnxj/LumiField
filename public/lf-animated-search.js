@@ -59,6 +59,7 @@
       composing: box.dataset.composing === 'true',
       hasValue: !!String(input.value || ''),
       focused: document.activeElement === input,
+      hovered: box.matches(':hover'),
       mode: area && area.classList.contains('stage-mode') ? 'secondary' : 'main',
       searchBoxCount: document.querySelectorAll('#search-box').length,
       inputCount: document.querySelectorAll('#search-input').length,
