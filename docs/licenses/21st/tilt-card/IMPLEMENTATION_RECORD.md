@@ -1,28 +1,25 @@
-# LumiField independent implementation record
+# Tilt Card adaptation record
 
-New feature 9 is applied only to the six existing landscape Home cards located
-by the supplied `图.120.png`. It does not apply to the five `接着听` tiles,
-weather panel, hot comments, player, search, or stage view.
+Problem 20 directly adapts the supplied Tilt Card source to the one existing
+`.lf-weather-shell`. The React state/wrapper is replaced by LumiField's native
+lifecycle, but source behavior remains unchanged:
 
-The implementation:
+- `tiltLimit=15`, `scale=1.05`, `perspective=1200`, `effect="evade"`;
+- the source rectangle-normalized two-axis pointer equations;
+- one `perspective + rotateX + rotateY + scale3d` transform surface;
+- a 200% internal white radial spotlight and 0.3-second opacity transition;
+- a 0.2-second `ease-out` return to neutral on pointer leave.
 
-- consumes LumiField's existing shared Liquid Glass pointer frame and owns no
-  document pointer listener or RAF;
-- maps the pointer around each card's fixed center to a gravitate-style X/Y
-  perspective transform capped at 7.5 degrees, safely below the 18-degree
-  ceiling and tuned for LumiField's compact text and cover layout;
-- uses only CSS transforms, so grid placement, offset dimensions, click
-  handlers, and scroll layout remain unchanged;
-- returns through a bounded spring-like transition when the pointer leaves;
-- disables perceptible tilt for coarse-pointer, touch-oriented,
-  reduced-motion, hidden, low-power, non-Home, and keyboard-focus states;
-- exposes deterministic resource/debug state and explicit cleanup.
+LumiField reuses its existing shared pointer frame rather than adding another
+document listener or RAF. The weather text, inputs, buttons and the existing
+auto-rotating song/hot-comment region stay inside that one transformed surface.
+No child region receives another Tilt transform.
+
+The older six-card Home tilt remains a separately documented LF-native
+implementation; Problem 20 does not change its target or lifecycle.
 
 Product files:
 
-- `public/lf-home-tilt.js`
-- `public/lf-home-tilt.css`
+- `public/lf-weather-tilt-spotlight.js`
+- `public/lf-weather-tilt-spotlight.css`
 - `public/index.html` (one stylesheet and one script load)
-
-No React component, upstream constants, Tailwind expression, 21st registry
-package, preview media, analytics, or upstream runtime dependency was imported.

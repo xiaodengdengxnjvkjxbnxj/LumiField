@@ -1,0 +1,171 @@
+#empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"] {
+  --lf-weather-rotate-x: 0deg;
+  --lf-weather-rotate-y: 0deg;
+  --lf-weather-tilt-scale: 1;
+  --lf-weather-tilt-spot-x: 50%;
+  --lf-weather-tilt-spot-y: 50%;
+  --lf-weather-spotlight-x: -10000px;
+  --lf-weather-spotlight-y: -10000px;
+  --lf-weather-spotlight-local-x: -10000px;
+  --lf-weather-spotlight-local-y: -10000px;
+  --lf-weather-spotlight-xp: 0;
+  --lf-weather-spotlight-yp: 0;
+  --lf-weather-spotlight-base: 220;
+  --lf-weather-spotlight-spread: 200;
+  --lf-weather-spotlight-size: 200px;
+  --lf-weather-spotlight-border: 3px;
+  --lf-weather-spotlight-hue: 220;
+  isolation: isolate;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  transform: perspective(1200px) rotateX(var(--lf-weather-rotate-x)) rotateY(var(--lf-weather-rotate-y)) scale3d(var(--lf-weather-tilt-scale),var(--lf-weather-tilt-scale),var(--lf-weather-tilt-scale));
+  transition: transform .2s ease-out;
+}
+
+#empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"][data-lf-weather-tilt-active="true"] {
+  will-change: transform;
+}
+
+#empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"] > .lf-weather-main,
+#empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"] > .lf-weather-side {
+  position: relative;
+  z-index: 2;
+}
+
+.lf-weather-tilt-spotlight-layer,
+.lf-weather-card-spotlight-layer,
+.lf-weather-card-spotlight-outer {
+  position: absolute !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.lf-weather-tilt-spotlight-layer {
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+.lf-weather-tilt-spotlight-layer::before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  left: var(--lf-weather-tilt-spot-x);
+  top: var(--lf-weather-tilt-spot-y);
+  border-radius: 50%;
+  transform: translate(-50%,-50%);
+  background: radial-gradient(circle,rgba(255,255,255,.15) 0%,transparent 40%);
+  pointer-events: none;
+}
+
+#empty-home .lf-weather-shell[data-lf-weather-tilt-active="true"] > .lf-weather-tilt-spotlight-layer {
+  opacity: 1;
+}
+
+.lf-weather-card-spotlight-layer {
+  inset: 0;
+  z-index: 6;
+  border-radius: inherit;
+  border: var(--lf-weather-spotlight-border) solid transparent;
+  background-image: radial-gradient(
+    var(--lf-weather-spotlight-size) var(--lf-weather-spotlight-size) at
+    var(--lf-weather-spotlight-x) var(--lf-weather-spotlight-y),
+    hsl(var(--lf-weather-spotlight-hue) 100% 70% / .1),transparent
+  );
+  background-size: calc(100% + (2 * var(--lf-weather-spotlight-border))) calc(100% + (2 * var(--lf-weather-spotlight-border)));
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.lf-weather-card-spotlight-layer::before,
+.lf-weather-card-spotlight-layer::after,
+.lf-weather-card-spotlight-outer::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  -webkit-mask: linear-gradient(transparent,transparent),linear-gradient(#fff,#fff);
+  -webkit-mask-clip: padding-box,border-box;
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(transparent,transparent),linear-gradient(#fff,#fff);
+  mask-clip: padding-box,border-box;
+  mask-composite: intersect;
+}
+
+.lf-weather-card-spotlight-layer::before,
+.lf-weather-card-spotlight-layer::after {
+  inset: calc(var(--lf-weather-spotlight-border) * -1);
+  border: var(--lf-weather-spotlight-border) solid transparent;
+  border-radius: inherit;
+  background-size: calc(100% + (2 * var(--lf-weather-spotlight-border))) calc(100% + (2 * var(--lf-weather-spotlight-border)));
+}
+
+.lf-weather-card-spotlight-layer::before {
+  background-image: radial-gradient(
+    calc(var(--lf-weather-spotlight-size) * .75) calc(var(--lf-weather-spotlight-size) * .75) at
+    var(--lf-weather-spotlight-x) var(--lf-weather-spotlight-y),
+    hsl(var(--lf-weather-spotlight-hue) 100% 50% / 1),transparent 100%
+  );
+  filter: brightness(2);
+}
+
+.lf-weather-card-spotlight-layer::after {
+  background-image: radial-gradient(
+    calc(var(--lf-weather-spotlight-size) * .5) calc(var(--lf-weather-spotlight-size) * .5) at
+    var(--lf-weather-spotlight-x) var(--lf-weather-spotlight-y),
+    hsl(0 100% 100% / 1),transparent 100%
+  );
+}
+
+.lf-weather-card-spotlight-outer {
+  inset: 0;
+  border-radius: inherit;
+  opacity: 1;
+  filter: blur(calc(var(--lf-weather-spotlight-border) * 10));
+}
+
+.lf-weather-card-spotlight-outer::before {
+  inset: -10px;
+  border: 10px solid transparent;
+  border-radius: inherit;
+  background-image: radial-gradient(
+    calc(var(--lf-weather-spotlight-size) * .75) calc(var(--lf-weather-spotlight-size) * .75) at
+    var(--lf-weather-spotlight-x) var(--lf-weather-spotlight-y),
+    hsl(var(--lf-weather-spotlight-hue) 100% 50% / 1),transparent 100%
+  );
+}
+
+#empty-home .lf-weather-shell[data-lf-weather-spotlight-enabled="false"] > .lf-weather-card-spotlight-layer,
+body:not(.empty-home-active) .lf-weather-card-spotlight-layer,
+body.immersive-mode .lf-weather-card-spotlight-layer,
+body.render-deep-sleep .lf-weather-card-spotlight-layer {
+  opacity: 0 !important;
+}
+
+/* The auto-rotating song/hot-comment region remains ordinary content: no nested transform or effect layer. */
+#empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"] > .lf-hot-comment-card {
+  transform: none;
+}
+
+@media (hover:none),(pointer:coarse),(prefers-reduced-motion:reduce) {
+  #empty-home .lf-weather-shell[data-lf-weather-tilt-spotlight="true"] {
+    --lf-weather-rotate-x: 0deg !important;
+    --lf-weather-rotate-y: 0deg !important;
+    --lf-weather-tilt-scale: 1 !important;
+    transition-duration: .001ms !important;
+    will-change: auto !important;
+  }
+  .lf-weather-tilt-spotlight-layer,
+  .lf-weather-card-spotlight-layer {
+    opacity: 0 !important;
+    transition: none !important;
+  }
+}

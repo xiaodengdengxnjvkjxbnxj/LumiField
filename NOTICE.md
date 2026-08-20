@@ -78,23 +78,22 @@ LumiField 是基于 Mineradio 修改的发行版本，并使用了以下第三�
   `resources/licenses/`; exact material hashes and release conditions are under
   `docs/licenses/21st/shader-svg/`. Reference TXT/video are not packaged.
 
-- `21st.dev/@tom_ui/components/tilt-card/gravitate` was reviewed from the
-  user-supplied location image, source/reference text, and updated behavior
-  video. No fixed compatible component redistribution license was disclosed,
-  so LumiField packages none of that React expression, dependency, or preview
-  media. The six-card Home interaction is independently authored with native
-  CSS transforms and LumiField's existing shared pointer scheduler; exact
-  material hashes and the separate upstream-copy gate are retained under
-  `docs/licenses/21st/tilt-card/`.
+- `21st.dev/@tom_ui/components/tilt-card/gravitate`, catalog id `12244`, is
+  directly adapted for the Problem 20 weather surface from the user-supplied
+  complete source. Its Spell UI upstream is MIT (Copyright (c) 2025 Spell UI);
+  the retained text is `resources/licenses/Spell-UI-MIT.txt`. The supplied TXT,
+  reference video and Marketplace preview media are not packaged. The older
+  six-card Home interaction remains an LF-native implementation; exact source
+  and modification boundaries are under `docs/licenses/21st/tilt-card/`.
 
-- `21st.dev/@easemize/components/spotlight-card` was reviewed from the
-  user-supplied location image, source/reference text, and behavior video. No
-  fixed compatible component redistribution license was disclosed, so
-  LumiField packages none of that React/Tailwind expression, dependency, or
-  preview media. The five-tile `接着听` spotlight is independently authored
-  with native DOM/CSS and LumiField's existing shared pointer scheduler; exact
-  material hashes and the separate upstream-copy gate are retained under
-  `docs/licenses/21st/spotlight-card/`.
+- `21st.dev/@easemize/components/spotlight-card`, catalog id `2487`, is directly
+  adapted for the same Problem 20 weather surface. Its traceable Jhey Tompkins
+  CodePen core is MIT and retained in `resources/licenses/Jhey-CodePen-MIT.txt`;
+  the EaseMize wrapper additions have no retained compatible grant, so this
+  specific adaptation remains `LICENSE_BLOCKED_PENDING_AUTHOR_AUTHORIZATION`.
+  The older five-tile `接着听` spotlight remains LF-native. Exact source,
+  modification, and release gates are under `docs/licenses/21st/spotlight-card/`;
+  supplied TXT/video and Marketplace preview media are not packaged.
 
 - `21st.dev/@minhxthanh/components/interactive-neural-vortex-background` is
   directly adapted from the user-supplied complete source. LumiField retains

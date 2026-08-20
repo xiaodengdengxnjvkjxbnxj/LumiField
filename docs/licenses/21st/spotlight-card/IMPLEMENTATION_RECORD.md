@@ -1,27 +1,30 @@
-# LumiField independent implementation record
+# Spotlight Card adaptation record
 
-New feature 8 is applied only to the five existing Home `接着听` tiles. It
-adds one pointer-transparent paint layer per current tile while retaining the
-original cover, title, click-to-play handler, update data, card size, scrolling,
-and the problem-17 rail offset.
+Problem 20 directly adapts the supplied Spotlight Card into the same existing
+weather surface used by Tilt Card. The React wrapper is replaced by native DOM,
+while the supplied component's visible mechanics remain:
 
-The runtime:
+- viewport pointer values and normalized `xp/yp` hue progression;
+- `base=220`, `spread=200`, `size=200`, `border=3`, `outer=1`;
+- fixed-background radial gradients;
+- masked color and white border layers, `brightness(2)`, and the blurred outer
+  layer;
+- pointer response outside the panel rather than a hover-only approximation.
 
-- consumes LumiField's existing shared Liquid Glass pointer frame rather than
-  adding a listener per card or a second RAF;
-- converts the global pointer into each visible tile's local coordinates;
-- clears offscreen, hidden, reduced-motion, low-power, non-Home, and distant
-  tile effects immediately;
-- refreshes after the existing dynamic five-tile render replaces its children;
-- keeps all effect nodes `aria-hidden` and `pointer-events:none`, with tile
-  content painted above the spotlight layer;
-- exposes deterministic resource/debug state and an explicit cleanup method.
+LumiField routes the existing shared document pointer frame into this adapter;
+it does not add another listener or RAF. Real child layers avoid collisions with
+the weather panel's existing Liquid Glass pseudo-elements. Every added layer is
+`aria-hidden` and `pointer-events:none`.
+
+The auto-rotating song/hot-comment child receives no effect marker, glow layer,
+listener, or transform. It remains ordinary clickable content inside the one
+parent surface.
+
+The older five-tile `接着听` spotlight remains a separately documented LF-native
+implementation and is not changed by Problem 20.
 
 Product files:
 
-- `public/lf-home-spotlight.js`
-- `public/lf-home-spotlight.css`
-- `public/index.html` (one render hook, one stylesheet and one script load)
-
-No React, Tailwind component expression, upstream constants, 21st registry
-package, preview media, analytics, or upstream runtime dependency was imported.
+- `public/lf-weather-tilt-spotlight.js`
+- `public/lf-weather-tilt-spotlight.css`
+- `public/index.html` (one stylesheet and one script load)

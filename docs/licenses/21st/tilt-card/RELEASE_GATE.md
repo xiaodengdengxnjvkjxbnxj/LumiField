@@ -1,10 +1,9 @@
 # Release gate
 
-| Item | Status | Release condition |
+| Item | Status | Release obligation |
 |---|---|---|
-| LumiField independent six-card tilt interaction | `NOT_BLOCKED_BY_UPSTREAM_LICENSE` | Preserve the independent implementation and provenance record. |
-| Copy/adaptation of the supplied or live 21st.dev component expression | `LICENSE_BLOCKED_UPSTREAM_COPY` | Obtain and retain an exact source identity plus a license or written grant compatible with intended distribution before importing upstream expression. |
-| User-supplied image/TXT/video | `REFERENCE_ONLY_NOT_PACKAGED` | Keep them out of runtime and release packages unless separate redistribution rights are confirmed. |
+| Spell UI / `tom_ui` Tilt Card component adaptation | `MIT_PASS_WITH_NOTICE` | Preserve `resources/licenses/Spell-UI-MIT.txt`, Spell UI attribution, author/component identity and original page link. |
+| LumiField shared-pointer and weather lifecycle integration | `LUMIFIELD_ORIGINAL_PASS` | Preserve the documented single-surface and resource boundary. |
+| User TXT/video and Marketplace demo/preview media | `REFERENCE_ONLY_NOT_PACKAGED` | Keep all evidence media and Marketplace metadata out of runtime and release artifacts. |
 
-The upstream-copy gate does not stop private development, testing, or release
-of LumiField's independently authored replacement.
+The Tilt component does not block LumiField's GPLv3 release gate.
