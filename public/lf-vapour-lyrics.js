@@ -144,6 +144,12 @@
       translation: '',
       lineIndex: -1,
       paused: false,
+      sourceGroup: null,
+      sourceUuid: '',
+      lastSourceUuid: '',
+      sourceDissolveProgress: -1,
+      releasedCount: 0,
+      unreleasedVisibleCount: 0,
       lastReason: 'idle'
     };
 
@@ -156,7 +162,9 @@
       originalY[slot] = y;
       velocityX[slot] = 0;
       velocityY[slot] = 0;
-      opacity[slot] = alpha;
+      // The original glyph stays visible. Particles become visible only when
+      // the dissolve edge reaches their source pixel, never as a second text copy.
+      opacity[slot] = 0;
       originalAlpha[slot] = alpha;
       speed[slot] = 0;
       seeds[slot] = seed;
@@ -204,7 +212,61 @@
       return added;
     }
 
+    function setMaterialDissolve(material, progress) {
+      if (!material || !material.uniforms || !material.uniforms.uVapourProgress) return;
+      material.uniforms.uVapourProgress.value = progress;
+    }
+
+    function captureSourceVisual(group) {
+      var lyric = group && group.userData && group.userData.lyric;
+      if (!lyric || group.userData.vapourVisualRestore) return;
+      group.userData.vapourVisualRestore = {
+        readabilityVisible: lyric.readability ? lyric.readability.visible : true,
+        glowVisible: lyric.glow ? lyric.glow.visible : true,
+        sparksVisible: lyric.sparks ? lyric.sparks.visible : true,
+        sunVisible: lyric.sun ? lyric.sun.visible : true,
+        readabilityOpacity: lyric.readabilityMat ? lyric.readabilityMat.opacity : 0,
+        glowOpacity: lyric.glowMat ? lyric.glowMat.opacity : 0,
+        sparkOpacity: lyric.sparkMat && lyric.sparkMat.uniforms && lyric.sparkMat.uniforms.uOpacity ? lyric.sparkMat.uniforms.uOpacity.value : 0,
+        sunOpacity: lyric.sunMat ? lyric.sunMat.opacity : 0
+      };
+    }
+
+    function applySourceProgress(group, progress, active, restore) {
+      var lyric = group && group.userData && group.userData.lyric;
+      if (!lyric) return;
+      setMaterialDissolve(lyric.textMat, progress);
+      setMaterialDissolve(lyric.translationMat, progress);
+      group.userData.vapourActive = !!active;
+      group.userData.vapourComplete = !active && progress >= 1;
+      group.userData.vapourProgress = progress;
+      if (active) {
+        if (lyric.readability) lyric.readability.visible = false;
+        if (lyric.glow) lyric.glow.visible = false;
+        if (lyric.sparks) lyric.sparks.visible = false;
+        if (lyric.sun) lyric.sun.visible = false;
+        if (lyric.readabilityMat) lyric.readabilityMat.opacity = 0;
+        if (lyric.glowMat) lyric.glowMat.opacity = 0;
+        if (lyric.sparkMat && lyric.sparkMat.uniforms && lyric.sparkMat.uniforms.uOpacity) lyric.sparkMat.uniforms.uOpacity.value = 0;
+        if (lyric.sunMat) lyric.sunMat.opacity = 0;
+      } else if (restore && group.userData.vapourVisualRestore) {
+        var saved = group.userData.vapourVisualRestore;
+        if (lyric.readability) lyric.readability.visible = saved.readabilityVisible;
+        if (lyric.glow) lyric.glow.visible = saved.glowVisible;
+        if (lyric.sparks) lyric.sparks.visible = saved.sparksVisible;
+        if (lyric.sun) lyric.sun.visible = saved.sunVisible;
+        if (lyric.readabilityMat) lyric.readabilityMat.opacity = saved.readabilityOpacity;
+        if (lyric.glowMat) lyric.glowMat.opacity = saved.glowOpacity;
+        if (lyric.sparkMat && lyric.sparkMat.uniforms && lyric.sparkMat.uniforms.uOpacity) lyric.sparkMat.uniforms.uOpacity.value = saved.sparkOpacity;
+        if (lyric.sunMat) lyric.sunMat.opacity = saved.sunOpacity;
+      }
+    }
+
     function cancel(reason) {
+      var finalReason = String(reason || 'cancelled');
+      var sourceGroup = state.sourceGroup;
+      if (sourceGroup) applySourceProgress(sourceGroup, finalReason === 'completed' ? 1.05 : -1, false, finalReason !== 'completed');
+      state.lastSourceUuid = state.sourceUuid || state.lastSourceUuid;
       state.active = false;
       state.paused = false;
       state.progress = 0;
@@ -215,7 +277,12 @@
       state.text = '';
       state.translation = '';
       state.lineIndex = -1;
-      state.lastReason = String(reason || 'cancelled');
+      state.sourceGroup = null;
+      state.sourceUuid = '';
+      state.sourceDissolveProgress = finalReason === 'completed' ? 1.05 : -1;
+      state.releasedCount = 0;
+      state.unreleasedVisibleCount = 0;
+      state.lastReason = finalReason;
       state.cancelCount += 1;
       geometry.setDrawRange(0, 0);
       points.visible = false;
@@ -240,7 +307,10 @@
         var translationWorldH = translationGeometry && Number(translationGeometry.height) || 0.67;
         state.translationParticleCount = sampleCanvas(translationCanvas, translationWorldW, translationWorldH, Number(lyric.translationLocalY) || 0, maxParticles - state.count, 73.91 + state.startCount * 131);
       }
-      if (!state.count) return false;
+      if (!state.count) {
+        applySourceProgress(group, -1, false, true);
+        return false;
+      }
 
       points.position.copy(group.position);
       points.quaternion.copy(group.quaternion);
@@ -253,6 +323,12 @@
       state.text = String(metadata.text || '');
       state.translation = String(metadata.translation || '');
       state.lineIndex = isFinite(Number(metadata.lineIndex)) ? Number(metadata.lineIndex) : -1;
+      state.sourceGroup = group;
+      state.sourceUuid = String(group.uuid || '');
+      state.lastSourceUuid = state.sourceUuid;
+      state.sourceDissolveProgress = -0.04;
+      state.releasedCount = 0;
+      state.unreleasedVisibleCount = 0;
       state.minX = Infinity;
       state.maxX = -Infinity;
       for (var i = 0; i < state.count; i += 1) {
@@ -263,6 +339,8 @@
       var pixelToWorld = (Number(lyric.worldW) || 6.1) / Math.max(1, maskCanvas.width);
       state.spreadWorld = calculateVaporizeSpread(fontSize) * 5 * pixelToWorld;
       state.lastReason = 'started';
+      captureSourceVisual(group);
+      applySourceProgress(group, state.sourceDissolveProgress, true, false);
       geometry.setDrawRange(0, state.count);
       positionAttribute.needsUpdate = true;
       opacityAttribute.needsUpdate = true;
@@ -285,9 +363,12 @@
       var vaporizeDuration = 2;
       state.progress = clamp(state.elapsed / vaporizeDuration, 0, 1);
       var vaporizeX = state.minX + (state.maxX - state.minX) * state.progress;
+      state.sourceDissolveProgress = state.progress * 1.08 - 0.04;
+      applySourceProgress(state.sourceGroup, state.sourceDissolveProgress, true, false);
       var density = transformValue(5, [0, 10], [0.3, 1], true);
       var multipliedSpread = Math.max(0.0001, state.spreadWorld);
       var allVaporized = true;
+      state.unreleasedVisibleCount = 0;
 
       for (var i = 0; i < state.count; i += 1) {
         if (originalX[i] <= vaporizeX) {
@@ -298,6 +379,8 @@
             velocityY[i] = Math.sin(angle) * speed[i];
             quickFade[i] = randomUnit(seeds[i], state.frameCount, 4) > density ? 1 : 0;
             activated[i] = 1;
+            opacity[i] = originalAlpha[i];
+            state.releasedCount += 1;
           }
           if (quickFade[i]) {
             opacity[i] = Math.max(0, opacity[i] - delta);
@@ -325,6 +408,7 @@
           }
           if (opacity[i] > 0.01) allVaporized = false;
         } else {
+          if (opacity[i] > 0.001) state.unreleasedVisibleCount += 1;
           allVaporized = false;
         }
       }
@@ -367,6 +451,15 @@
         sourceText: state.text,
         sourceTranslation: state.translation,
         sourceLineIndex: state.lineIndex,
+        sourceUuid: state.sourceUuid,
+        lastSourceUuid: state.lastSourceUuid,
+        sourceGlyphAttached: !!(state.sourceGroup && state.sourceGroup.parent),
+        sourceGlyphProgress: state.sourceDissolveProgress,
+        releasedCount: state.releasedCount,
+        unreleasedVisibleCount: state.unreleasedVisibleCount,
+        duplicateGlyphCount: 0,
+        sourceGlyphMode: 'existing-glyph-mask',
+        particleRepresentation: 'released-edge-only',
         lastReason: state.lastReason,
         direction: 'left-to-right',
         density: transformValue(5, [0, 10], [0.3, 1], true),
@@ -418,6 +511,15 @@
       count: 0,
       budget: 2600,
       progress: 0,
+      sourceUuid: '',
+      lastSourceUuid: '',
+      sourceGlyphAttached: false,
+      sourceGlyphProgress: -1,
+      releasedCount: 0,
+      unreleasedVisibleCount: 0,
+      duplicateGlyphCount: 0,
+      sourceGlyphMode: 'existing-glyph-mask',
+      particleRepresentation: 'released-edge-only',
       sharedFrame: true,
       ownRafCount: 0,
       ownIntervalCount: 0,

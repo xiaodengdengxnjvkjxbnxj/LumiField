@@ -8463,6 +8463,8 @@ function buildLyricTranslationMesh(text, originalTextWorldH) {
     uniforms: {
       uMap: { value:mask.texture },
       uOpacity: { value:0 },
+      uVapourProgress: { value:-1 },
+      uVapourFeather: { value:0.025 },
       uColor: { value:lyricThreeColor(stageLyrics.palette.secondary || stageLyrics.palette.primary, '#cdeeff', 0.48) }
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
@@ -8470,13 +8472,16 @@ function buildLyricTranslationMesh(text, originalTextWorldH) {
       'precision highp float;',
       'uniform sampler2D uMap;',
       'uniform float uOpacity;',
+      'uniform float uVapourProgress,uVapourFeather;',
       'uniform vec3 uColor;',
       'varying vec2 vUv;',
       'void main(){',
       '  vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);',
       '  vec4 tex = texture2D(uMap, uv);',
       '  if(tex.a < 0.01) discard;',
-      '  gl_FragColor = vec4(tex.rgb * uColor, tex.a * uOpacity);',
+      '  float glyphKeep = smoothstep(uVapourProgress - uVapourFeather, uVapourProgress + uVapourFeather, uv.x);',
+      '  if(glyphKeep < 0.002) discard;',
+      '  gl_FragColor = vec4(tex.rgb * uColor, tex.a * uOpacity * glyphKeep);',
       '}'
     ].join('\n'),
     transparent:true, depthWrite:false, depthTest:false, side:THREE.DoubleSide
@@ -8788,12 +8793,14 @@ function makeLyricShaderMaterial(mask, pal) {
       uSolarColor: { value: lyricThreeColor(pal.highlight || pal.secondary || pal.primary, '#fff0b8', 0.50) },
       uFeather: { value: lyricsHasNativeKaraoke ? 0.030 : 0.055 },
       uSolar: { value: 0 },
+      uVapourProgress: { value:-1 },
+      uVapourFeather: { value:0.025 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
     fragmentShader: [
       'precision highp float;',
       'uniform sampler2D uMap;',
-      'uniform float uProgress,uTextMin,uTextMax,uOpacity,uFeather,uSolar;',
+      'uniform float uProgress,uTextMin,uTextMax,uOpacity,uFeather,uSolar,uVapourProgress,uVapourFeather;',
       'uniform vec3 uBaseColor,uHiColor,uGlowColor,uSolarColor;',
       'varying vec2 vUv;',
       'void main(){',
@@ -8802,6 +8809,8 @@ function makeLyricShaderMaterial(mask, pal) {
       '  if(mask < 0.01) discard;',
       '  float denom = max(0.001, uTextMax - uTextMin);',
       '  float p = clamp((uv.x - uTextMin) / denom, 0.0, 1.0);',
+      '  float glyphKeep = smoothstep(uVapourProgress - uVapourFeather, uVapourProgress + uVapourFeather, p);',
+      '  if(glyphKeep < 0.002) discard;',
       '  float filled = 1.0 - smoothstep(uProgress, uProgress + uFeather, p);',
       '  float edge = 1.0 - smoothstep(0.0, uFeather * 2.8, abs(p - uProgress));',
       '  vec3 color = mix(uBaseColor, uHiColor, filled * 0.88);',
@@ -8811,7 +8820,7 @@ function makeLyricShaderMaterial(mask, pal) {
       '  color += solar * edge * uSolar * 0.22;',
       '  float lum = dot(color, vec3(0.299, 0.587, 0.114));',
       '  color += vec3(max(0.0, 0.30 - lum));',
-      '  gl_FragColor = vec4(color, mask * uOpacity);',
+      '  gl_FragColor = vec4(color, mask * uOpacity * glyphKeep);',
       '}',
     ].join('\n'),
     transparent:true, depthWrite:false, depthTest:false, side:THREE.DoubleSide,
@@ -8981,8 +8990,14 @@ function showStageLine(text, redrawOnly, translation) {
     disposeLyricMesh(stageLyrics.current);
     stageLyrics.current = null;
   } else if (stageLyrics.current) {
-    startStageLyricVapour(stageLyrics.current);
-    disposeLyricMesh(stageLyrics.current);
+    cancelStageLyricVapour('next-lyric-line');
+    while (stageLyrics.outgoing.length) disposeLyricMesh(stageLyrics.outgoing.pop());
+    if (startStageLyricVapour(stageLyrics.current)) {
+      stageLyrics.current.userData.state = 'vapour';
+      stageLyrics.outgoing.push(stageLyrics.current);
+    } else {
+      disposeLyricMesh(stageLyrics.current);
+    }
     stageLyrics.current = null;
   }
   stageLyrics.currentText = text;
@@ -9039,10 +9054,13 @@ function ensureStageLyricVapour() {
 function startStageLyricVapour(mesh) {
   var vapour = ensureStageLyricVapour();
   if (!vapour || !mesh) return false;
+  var lineIndex = mesh.userData && isFinite(Number(mesh.userData.lyricTimelineIndex)) ? Number(mesh.userData.lyricTimelineIndex) : -1;
+  var line = lineIndex >= 0 && lyricsLines ? lyricsLines[lineIndex] : null;
+  if (lineIndex < 0 || lyricsTimingSource === 'fallback' || !line || line.fallback || isNoLyricText(line.text)) return false;
   return vapour.startFromLyricMesh(mesh, {
     text:stageLyrics.currentText,
     translation:stageLyrics.currentTranslation,
-    lineIndex:mesh.userData && isFinite(Number(mesh.userData.lyricTimelineIndex)) ? Number(mesh.userData.lyricTimelineIndex) : stageLyrics.currentIdx
+    lineIndex:lineIndex
   });
 }
 
@@ -9221,6 +9239,11 @@ function updateStageLyrics3D(dt) {
   }
   function tickMesh(mesh, isCurrent) {
     if (!mesh) return false;
+    if (!isCurrent && mesh.userData && mesh.userData.vapourComplete) return false;
+    if (!isCurrent && mesh.userData && mesh.userData.vapourActive) {
+      var vapourDebug = stageLyrics.vapour && stageLyrics.vapour.getDebug ? stageLyrics.vapour.getDebug() : null;
+      return !!(vapourDebug && vapourDebug.active && vapourDebug.sourceUuid === mesh.uuid);
+    }
     mesh.userData.age += dt;
     var a = Math.min(1, mesh.userData.age / (isCurrent ? 0.52 : 0.38));
     a = a * a * (3 - 2 * a);
