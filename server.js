@@ -79,8 +79,21 @@ const WEATHER_DEFAULT_LOCATION = {
 };
 
 const weatherCache = new Map();
+const weatherRefreshInFlight = new Map();
+const weatherLocationCache = new Map();
+const weatherLocationInFlight = new Map();
+let weatherIpLocationCache = null;
+let weatherIpLocationInFlight = null;
 const playlistMutationInFlight = new Map();
 const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000;
+const WEATHER_LOCATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const WEATHER_CACHE_MAX_ENTRIES = 64;
+
+function setBoundedWeatherCache(map, key, value, maximum = WEATHER_CACHE_MAX_ENTRIES) {
+  if (map.has(key)) map.delete(key);
+  map.set(key, value);
+  while (map.size > maximum) map.delete(map.keys().next().value);
+}
 
 function applySystemCertificateAuthorities() {
   try {
@@ -1322,36 +1335,49 @@ function buildWeatherMood(weather, date) {
 async function resolveOpenMeteoLocation(query) {
   const raw = String(query || '').trim();
   if (!raw) return WEATHER_DEFAULT_LOCATION;
-  const tokens = raw.match(/[^省市区县州盟旗]{2,12}[省市区县州盟旗]/g) || [];
-  const candidates = [raw];
-  tokens.slice().reverse().forEach(token => {
-    candidates.push(token, token.slice(0, -1));
-  });
-  for (const candidate of Array.from(new Set(candidates.map(value => value.trim()).filter(Boolean)))) {
-    const u = new URL(OPEN_METEO_GEOCODE_URL);
-    u.searchParams.set('name', candidate);
-    u.searchParams.set('count', '5');
-    u.searchParams.set('language', 'zh');
-    u.searchParams.set('format', 'json');
-    const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
-    const results = body && Array.isArray(body.results) ? body.results : [];
-    const first = /[\u3400-\u9fff]/u.test(raw)
-      ? results.find(item => String(item.country_code || '').toUpperCase() === 'CN') || results[0]
-      : results[0];
-    if (!first) continue;
-    return {
-      name: first.name || candidate,
-      country: first.country || '',
-      admin1: first.admin1 || '',
-      latitude: first.latitude,
-      longitude: first.longitude,
-      timezone: first.timezone || 'auto',
-      query: raw,
-    };
-  }
-  const error = new Error('WEATHER_CITY_NOT_FOUND');
-  error.code = 'WEATHER_CITY_NOT_FOUND';
-  throw error;
+  const cacheKey = raw.normalize('NFKC').toLocaleLowerCase('zh-CN');
+  const cached = weatherLocationCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < WEATHER_LOCATION_CACHE_TTL_MS) return { ...cached.value };
+  if (weatherLocationInFlight.has(cacheKey)) return weatherLocationInFlight.get(cacheKey);
+  const request = (async () => {
+    const tokens = raw.match(/[^省市区县州盟旗]{2,12}[省市区县州盟旗]/g) || [];
+    const candidates = [raw];
+    tokens.slice().reverse().forEach(token => {
+      candidates.push(token, token.slice(0, -1));
+    });
+    for (const candidate of Array.from(new Set(candidates.map(value => value.trim()).filter(Boolean)))) {
+      const u = new URL(OPEN_METEO_GEOCODE_URL);
+      u.searchParams.set('name', candidate);
+      u.searchParams.set('count', '5');
+      u.searchParams.set('language', 'zh');
+      u.searchParams.set('format', 'json');
+      const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
+      const results = body && Array.isArray(body.results) ? body.results : [];
+      const first = /[\u3400-\u9fff]/u.test(raw)
+        ? results.find(item => String(item.country_code || '').toUpperCase() === 'CN') || results[0]
+        : results[0];
+      if (!first) continue;
+      const location = {
+        name: first.name || candidate,
+        country: first.country || '',
+        admin1: first.admin1 || '',
+        latitude: first.latitude,
+        longitude: first.longitude,
+        timezone: first.timezone || 'auto',
+        query: raw,
+      };
+      setBoundedWeatherCache(weatherLocationCache, cacheKey, { savedAt: Date.now(), value: location });
+      return location;
+    }
+    const error = new Error('WEATHER_CITY_NOT_FOUND');
+    error.code = 'WEATHER_CITY_NOT_FOUND';
+    throw error;
+  })();
+  weatherLocationInFlight.set(cacheKey, request);
+  request.finally(() => {
+    if (weatherLocationInFlight.get(cacheKey) === request) weatherLocationInFlight.delete(cacheKey);
+  }).catch(() => {});
+  return request;
 }
 
 async function fetchOpenMeteoWeather(params) {
@@ -1383,81 +1409,107 @@ async function fetchOpenMeteoWeather(params) {
   u.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max');
   u.searchParams.set('forecast_days', '7');
   u.searchParams.set('timezone', location.timezone || 'auto');
-  let body;
+  let refresh = weatherRefreshInFlight.get(cacheKey);
+  if (!refresh) {
+    refresh = (async () => {
+      const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
+      const cur = body && body.current || {};
+      const daily = body && body.daily || {};
+      const currentWeatherCode = Number(cur.weather_code);
+      if (!Number.isInteger(currentWeatherCode) || openMeteoWeatherLabel(currentWeatherCode) === '未知天气') {
+        const error = new Error('WEATHER_DATA_INVALID');
+        error.code = 'WEATHER_DATA_INVALID';
+        throw error;
+      }
+      const weather = {
+        provider: 'open-meteo',
+        location: {
+          name: location.name,
+          country: location.country || '',
+          admin1: location.admin1 || '',
+          latitude: location.latitude,
+          longitude: location.longitude,
+          timezone: body.timezone || location.timezone || '',
+          fallback: !!location.fallback,
+        },
+        label: openMeteoWeatherLabel(currentWeatherCode),
+        weatherCode: currentWeatherCode,
+        temperature: Number(cur.temperature_2m),
+        apparentTemperature: Number(cur.apparent_temperature),
+        humidity: Number(cur.relative_humidity_2m),
+        precipitation: Number(cur.precipitation || cur.rain || cur.showers || cur.snowfall || 0),
+        cloudCover: Number(cur.cloud_cover),
+        windSpeed: Number(cur.wind_speed_10m),
+        windDirection: Number(cur.wind_direction_10m),
+        windGusts: Number(cur.wind_gusts_10m),
+        isDay: Number(cur.is_day),
+        time: cur.time || '',
+        updatedAt: Date.now(),
+        forecast: (daily.time || []).map((date, index) => ({
+          date,
+          label: openMeteoWeatherLabel(daily.weather_code && daily.weather_code[index]),
+          weatherCode: Number(daily.weather_code && daily.weather_code[index]),
+          temperatureMax: Number(daily.temperature_2m_max && daily.temperature_2m_max[index]),
+          temperatureMin: Number(daily.temperature_2m_min && daily.temperature_2m_min[index]),
+          sunrise: daily.sunrise && daily.sunrise[index] || '',
+          sunset: daily.sunset && daily.sunset[index] || '',
+          windSpeedMax: Number(daily.wind_speed_10m_max && daily.wind_speed_10m_max[index]),
+          windDirection: Number(daily.wind_direction_10m_dominant && daily.wind_direction_10m_dominant[index]),
+          precipitationProbability: Number(daily.precipitation_probability_max && daily.precipitation_probability_max[index]),
+        })),
+      };
+      weather.mood = buildWeatherMood(weather);
+      setBoundedWeatherCache(weatherCache, cacheKey, { savedAt: Date.now(), value: weather });
+      return weather;
+    })();
+    weatherRefreshInFlight.set(cacheKey, refresh);
+    refresh.finally(() => {
+      if (weatherRefreshInFlight.get(cacheKey) === refresh) weatherRefreshInFlight.delete(cacheKey);
+    }).catch(() => {});
+  }
+  if (!params.force && cached && cached.value) {
+    refresh.catch(() => {});
+    return { ...cached.value, cached: true, stale: true, revalidating: true };
+  }
   try {
-    body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
+    return await refresh;
   } catch (error) {
     if (cached && cached.value) return { ...cached.value, cached: true, stale: true };
     throw error;
   }
-  const cur = body && body.current || {};
-  const daily = body && body.daily || {};
-  const currentWeatherCode = Number(cur.weather_code);
-  if (!Number.isInteger(currentWeatherCode) || openMeteoWeatherLabel(currentWeatherCode) === '未知天气') {
-    const error = new Error('WEATHER_DATA_INVALID');
-    error.code = 'WEATHER_DATA_INVALID';
-    throw error;
-  }
-  const weather = {
-    provider: 'open-meteo',
-    location: {
-      name: location.name,
-      country: location.country || '',
-      admin1: location.admin1 || '',
-      latitude: location.latitude,
-      longitude: location.longitude,
-      timezone: body.timezone || location.timezone || '',
-      fallback: !!location.fallback,
-    },
-    label: openMeteoWeatherLabel(currentWeatherCode),
-    weatherCode: currentWeatherCode,
-    temperature: Number(cur.temperature_2m),
-    apparentTemperature: Number(cur.apparent_temperature),
-    humidity: Number(cur.relative_humidity_2m),
-    precipitation: Number(cur.precipitation || cur.rain || cur.showers || cur.snowfall || 0),
-    cloudCover: Number(cur.cloud_cover),
-    windSpeed: Number(cur.wind_speed_10m),
-    windDirection: Number(cur.wind_direction_10m),
-    windGusts: Number(cur.wind_gusts_10m),
-    isDay: Number(cur.is_day),
-    time: cur.time || '',
-    updatedAt: Date.now(),
-    forecast: (daily.time || []).map((date, index) => ({
-      date,
-      label: openMeteoWeatherLabel(daily.weather_code && daily.weather_code[index]),
-      weatherCode: Number(daily.weather_code && daily.weather_code[index]),
-      temperatureMax: Number(daily.temperature_2m_max && daily.temperature_2m_max[index]),
-      temperatureMin: Number(daily.temperature_2m_min && daily.temperature_2m_min[index]),
-      sunrise: daily.sunrise && daily.sunrise[index] || '',
-      sunset: daily.sunset && daily.sunset[index] || '',
-      windSpeedMax: Number(daily.wind_speed_10m_max && daily.wind_speed_10m_max[index]),
-      windDirection: Number(daily.wind_direction_10m_dominant && daily.wind_direction_10m_dominant[index]),
-      precipitationProbability: Number(daily.precipitation_probability_max && daily.precipitation_probability_max[index]),
-    })),
-  };
-  weather.mood = buildWeatherMood(weather);
-  weatherCache.set(cacheKey, { savedAt: Date.now(), value: weather });
-  return weather;
 }
 
 async function fetchIpWeatherLocation() {
-  const u = new URL(WEATHER_IP_LOCATION_URL);
-  const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
-  if (!body || body.success === false || !Number.isFinite(Number(body.latitude)) || !Number.isFinite(Number(body.longitude))) {
-    const err = new Error(body && body.message || 'IP_LOCATION_FAILED');
-    err.body = body;
-    throw err;
+  if (weatherIpLocationCache && Date.now() - weatherIpLocationCache.savedAt < WEATHER_CACHE_TTL_MS) {
+    return { ...weatherIpLocationCache.value, cached: true };
   }
-  return {
-    provider: 'ipwho.is',
-    city: body.city || WEATHER_DEFAULT_LOCATION.name,
-    region: body.region || '',
-    country: body.country || '',
-    latitude: Number(body.latitude),
-    longitude: Number(body.longitude),
-    timezone: body.timezone && body.timezone.id || 'auto',
-    ip: body.ip || '',
-  };
+  if (weatherIpLocationInFlight) return weatherIpLocationInFlight;
+  const request = (async () => {
+    const u = new URL(WEATHER_IP_LOCATION_URL);
+    const body = await requestJson(u.toString(), { headers: { 'User-Agent': UA } });
+    if (!body || body.success === false || !Number.isFinite(Number(body.latitude)) || !Number.isFinite(Number(body.longitude))) {
+      const err = new Error(body && body.message || 'IP_LOCATION_FAILED');
+      err.body = body;
+      throw err;
+    }
+    const location = {
+      provider: 'ipwho.is',
+      city: body.city || WEATHER_DEFAULT_LOCATION.name,
+      region: body.region || '',
+      country: body.country || '',
+      latitude: Number(body.latitude),
+      longitude: Number(body.longitude),
+      timezone: body.timezone && body.timezone.id || 'auto',
+      ip: body.ip || '',
+    };
+    weatherIpLocationCache = { savedAt: Date.now(), value: location };
+    return location;
+  })();
+  weatherIpLocationInFlight = request;
+  request.finally(() => {
+    if (weatherIpLocationInFlight === request) weatherIpLocationInFlight = null;
+  }).catch(() => {});
+  return request;
 }
 
 function weatherRadioSeedQueries(mood) {

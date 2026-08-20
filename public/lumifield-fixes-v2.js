@@ -761,7 +761,7 @@
   }
 
   var wallpaperObjectUrls = {};
-  var wallpaperDialogState = { target:'stage', fit:'cover', file:null, objectUrl:'', provider:'local', importedAsset:null, previewedTargets:{}, videoOptimization:null };
+  var wallpaperDialogState = { target:'stage', fit:'cover', file:null, objectUrl:'', provider:'local', importedAsset:null, previewedTargets:{}, videoOptimization:null, videoOptimizationPromise:null };
   var wallpaperVideoOptimizationAdapter = null;
   var wallpaperVideoOptimizationTask = null;
   var wallpaperVideoOptimizationCache = new Map();
@@ -795,7 +795,7 @@
       meter.value = wallpaperVideoOptimizationLast.progress;
       meter.setAttribute('aria-valuenow', String(Math.round(wallpaperVideoOptimizationLast.progress * 100)));
     }
-    if (cancel) cancel.disabled = !wallpaperVideoOptimizationTask || !/^(probing|optimizing|transcoding|running)$/.test(wallpaperVideoOptimizationLast.phase);
+    if (cancel) cancel.disabled = !wallpaperVideoOptimizationTask || !/^(queued|hashing|probing|planning|copying|optimizing|transcoding|running)$/.test(wallpaperVideoOptimizationLast.phase);
   }
   function wallpaperVideoAbortError(reason) {
     var error;
@@ -852,6 +852,8 @@
   }
   async function cancelWallpaperVideoOptimization(reason) {
     var task = wallpaperVideoOptimizationTask;
+    wallpaperDialogState.videoOptimizationPromise = null;
+    wallpaperDialogState.videoOptimization = null;
     if (!task) return { ok:true, cancelled:false };
     wallpaperVideoOptimizationTask = null;
     try { task.controller.abort(reason || 'CANCELLED'); } catch (_) {}
@@ -883,7 +885,7 @@
         if (controller.signal.aborted) throw wallpaperVideoAbortError();
         var plan = wallpaperVideoPlan(probe, display);
         var sourceHash = await wallpaperVideoFileHash(file);
-        var cacheKey = sourceHash + '|' + JSON.stringify(plan) + '|' + target;
+        var cacheKey = sourceHash + '|' + JSON.stringify(plan);
         if (wallpaperVideoOptimizationCache.has(cacheKey)) {
           result = Object.assign({}, wallpaperVideoOptimizationCache.get(cacheKey), { cached:true, cacheHit:true });
           if (wallpaperVideoTaskIsCurrent(task, selectionToken)) wallpaperVideoStatus('complete', 1, '已复用视频优化缓存');
@@ -1847,6 +1849,7 @@
     wallpaperDialogState.file = null;
     wallpaperDialogState.importedAsset = null;
     wallpaperDialogState.videoOptimization = null;
+    wallpaperDialogState.videoOptimizationPromise = null;
     wallpaperDialogState.objectUrl = '';
     var modal = byId('lf-wallpaper-modal'); if (modal) modal.classList.remove('show');
   }
@@ -1904,15 +1907,9 @@
       modal.addEventListener('click', function(e){ if (e.target === modal) finishWallpaperDialog(''); });
       byId('lf-wallpaper-target').onchange = function(e){
         wallpaperDialogState.target = e.target.value || 'stage';
-        wallpaperDialogSelectionToken += 1;
-        wallpaperDialogState.videoOptimization = null;
-        cancelWallpaperVideoOptimization('TARGET_CHANGED').catch(function(){});
       };
       byId('lf-wallpaper-fit').onchange = function(e){
         wallpaperDialogState.fit = e.target.value || 'cover';
-        wallpaperDialogSelectionToken += 1;
-        wallpaperDialogState.videoOptimization = null;
-        cancelWallpaperVideoOptimization('FIT_CHANGED').catch(function(){});
       };
       byId('lf-wallpaper-file').onchange = async function(e){
         var file = e.target.files && e.target.files[0];
@@ -1923,13 +1920,25 @@
         wallpaperDialogState.file = file;
         wallpaperDialogState.importedAsset = null;
         wallpaperDialogState.videoOptimization = null;
+        wallpaperDialogState.videoOptimizationPromise = null;
         disposeWallpaperDialogPreview();
         revokeWallpaperUrl('dialog');
         var preview = byId('lf-wallpaper-preview');
         if (/^video\//i.test(file.type || '') || /\.(?:mp4|m4v|mov|webm|ogv|mkv)$/i.test(file.name || '')) {
           wallpaperDialogState.objectUrl = '';
-          preview.textContent = '视频已选择；确认后将异步探测并生成高质量缓存副本，不会修改原文件。';
-          wallpaperVideoStatus('ready', 0, '等待探测与优化：' + (file.name || '本地视频'));
+          preview.textContent = '视频已选择；正在后台探测并生成高质量缓存副本，不会修改原文件。';
+          wallpaperVideoStatus('probing', 0, '正在后台探测：' + (file.name || '本地视频'));
+          var preloadTarget = canonicalWallpaperTarget(byId('lf-wallpaper-target').value || 'stage');
+          var preloadPromise = optimizeWallpaperVideoFile(file, preloadTarget, selectionToken);
+          wallpaperDialogState.videoOptimizationPromise = preloadPromise;
+          preloadPromise.then(function(result){
+            if (selectionToken !== wallpaperDialogSelectionToken) return;
+            wallpaperDialogState.videoOptimization = result;
+          }).catch(function(){
+            if (selectionToken !== wallpaperDialogSelectionToken || wallpaperDialogState.videoOptimizationPromise !== preloadPromise) return;
+            wallpaperDialogState.videoOptimizationPromise = null;
+            wallpaperDialogState.videoOptimization = null;
+          });
         } else {
           wallpaperObjectUrls.dialog = URL.createObjectURL(file);
           wallpaperDialogState.objectUrl = wallpaperObjectUrls.dialog;
@@ -1960,7 +1969,9 @@
           projectBtn.disabled = false;
           if (!res || !res.ok) { if (typeof window.showToast === 'function') showToast((res && (res.limitation || res.error)) || '壁纸导入失败'); return; }
           wallpaperDialogSelectionToken += 1;
+          cancelWallpaperVideoOptimization('PROVIDER_IMPORT_SELECTED').catch(function(){});
           wallpaperDialogState.file = null; wallpaperDialogState.importedAsset = res; wallpaperDialogState.objectUrl = res.url;
+          wallpaperDialogState.videoOptimization = null; wallpaperDialogState.videoOptimizationPromise = null;
           previewImportedWallpaper(res);
           if (typeof window.showToast === 'function') showToast('已导入到 LF，可应用或确定');
         }).catch(function(){ projectBtn.disabled = false; });
@@ -2041,13 +2052,17 @@
       if (typeof window.showToast === 'function') showToast('请先选择或导入壁纸');
       return;
     }
-    var target = byId('lf-wallpaper-target').value || 'stage';
-    var fit = byId('lf-wallpaper-fit').value || 'cover';
-    var canonicalTarget = canonicalWallpaperTarget(target);
     var operationScope = wallpaperScopeKey();
     var optimization = null;
     if (localVideo) {
-      optimization = await optimizeWallpaperVideoFile(file, canonicalTarget, selectionToken);
+      optimization = wallpaperDialogState.videoOptimization;
+      if (!optimization) {
+        if (!wallpaperDialogState.videoOptimizationPromise) {
+          wallpaperDialogState.videoOptimizationPromise = optimizeWallpaperVideoFile(file, canonicalWallpaperTarget(byId('lf-wallpaper-target').value || 'stage'), selectionToken);
+          wallpaperDialogState.videoOptimizationPromise.catch(function(){});
+        }
+        optimization = await wallpaperDialogState.videoOptimizationPromise;
+      }
       assertWallpaperDialogSelection(selectionToken);
       if (!optimization || optimization.ok === false) throw new Error(optimization && optimization.error || 'WALLPAPER_VIDEO_OPTIMIZATION_FAILED');
       wallpaperDialogState.videoOptimization = optimization;
@@ -2071,6 +2086,9 @@
         throw new Error('WALLPAPER_VIDEO_OPTIMIZED_MEDIA_MISSING');
       }
     }
+    var target = byId('lf-wallpaper-target').value || 'stage';
+    var fit = byId('lf-wallpaper-fit').value || 'cover';
+    var canonicalTarget = canonicalWallpaperTarget(target);
     var meta = imported ? { target:canonicalTarget, fit:fit, name:imported.title || imported.sourceName || '', mime:imported.mime || '', size:imported.bytes || 0, savedAt:Date.now(), external:true, url:imported.url, kind:imported.kind, provider:imported.provider || 'local-optimized', projectId:imported.projectId || imported.cacheKey || '' } : { target:canonicalTarget, fit:fit, name:file.name || '', mime:file.type || '', size:file.size || 0, savedAt:Date.now() };
     if (optimization) {
       meta.optimized = optimization.optimized === true;
@@ -2082,6 +2100,9 @@
       meta.sourceHash = String(optimization.sourceHash || '');
       meta.optimizationPlan = optimization.plan || optimization.optimizationPlan || null;
       meta.probe = optimization.probe || optimization.metadata || null;
+      meta.encoder = String(optimization.encoder || '');
+      meta.hardwareAccelerated = optimization.hardwareAccelerated === true;
+      meta.hardwareFallback = optimization.hardwareFallback === true;
     }
     meta.scopeKey = operationScope;
     meta.persistenceKey = wallpaperPersistenceKey(canonicalTarget, operationScope);

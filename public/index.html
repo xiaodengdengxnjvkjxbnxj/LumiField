@@ -2726,7 +2726,22 @@ var homeVisualPrevPreset = 0;
 var HOME_LISTEN_STATS_KEY = 'lumifield-listen-stats-v2';
 var HOME_LISTEN_STATS_LEGACY_KEY = 'lumifield-listen-stats-v1';
 var HOME_WEATHER_CITY_KEY = 'lumifield-weather-city';
-var homeWeatherRadioState = { loading: false, loaded: false, city: localStorage.getItem(HOME_WEATHER_CITY_KEY) || '上海', weather: null, radio: null, error: '', updatedAt: 0 };
+function readHomeWeatherSnapshot() {
+  try {
+    var cached = JSON.parse(localStorage.getItem('lumifield-weather-cache-v1') || 'null');
+    return cached && cached.weather && typeof cached.weather === 'object' ? cached : null;
+  } catch (e) { return null; }
+}
+var homeWeatherSnapshot = readHomeWeatherSnapshot();
+var homeWeatherRadioState = {
+  loading: false,
+  loaded: false,
+  city: localStorage.getItem(HOME_WEATHER_CITY_KEY) || homeWeatherSnapshot && homeWeatherSnapshot.weather && homeWeatherSnapshot.weather.location && homeWeatherSnapshot.weather.location.name || '上海',
+  weather: homeWeatherSnapshot && homeWeatherSnapshot.weather || null,
+  radio: null,
+  error: '',
+  updatedAt: Number(homeWeatherSnapshot && homeWeatherSnapshot.savedAt) || 0
+};
 var homeWeatherToken = 0;
 var homeWeatherLoadTimer = null;
 var homeWeatherLoadPromise = null;

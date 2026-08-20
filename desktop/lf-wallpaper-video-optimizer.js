@@ -355,7 +355,6 @@ function cacheKeyFor(sourceHash, target, profile, plan) {
   return sha256Text(stableStringify({
     schema: CACHE_SCHEMA,
     sourceHash,
-    target: String(target || 'global'),
     profile: {
       id: profile.id,
       width: profile.width,
@@ -469,6 +468,16 @@ class WallpaperVideoService {
     this.copyMedia = typeof options.copyMedia === 'function' ? options.copyMedia : null;
     this.hashFile = typeof options.hashFile === 'function' ? options.hashFile : sha256File;
     this.hardwareDecode = typeof options.hardwareDecode === 'function' ? options.hardwareDecode : null;
+    this.hardwareEncoderProbe = typeof options.hardwareEncoderProbe === 'function' ? options.hardwareEncoderProbe : null;
+    this.hardwareEncoderCandidates = Array.isArray(options.hardwareEncoderCandidates)
+      ? options.hardwareEncoderCandidates.map((value) => String(value || '').trim()).filter(Boolean)
+      : (process.platform === 'win32' ? ['h264_nvenc', 'h264_qsv', 'h264_amf'] : []);
+    this.hardwareEncoder = '';
+    this.hardwareEncoderResolved = false;
+    this.hardwareEncoderPromise = null;
+    this.hardwareRejectedEncoders = new Set();
+    this.hardwareProbeCount = 0;
+    this.hardwareFallbackCount = 0;
     this.spawn = typeof options.spawn === 'function' ? options.spawn : spawn;
     this.now = typeof options.now === 'function' ? options.now : Date.now;
     this.randomUUID = typeof options.randomUUID === 'function' ? options.randomUUID : crypto.randomUUID;
@@ -496,6 +505,18 @@ class WallpaperVideoService {
     try { stat = await fs.promises.stat(resolved); }
     catch (error) { return { ok: false, error: 'SOURCE_NOT_FOUND', message: error.message }; }
     if (!stat.isFile()) return { ok: false, error: 'SOURCE_NOT_FILE' };
+    const profile = selectDeviceProfile(options.display || options.device || {}, options);
+    const activeKey = sha256Text(stableStringify({
+      inputPath: resolved.toLowerCase(),
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      profile,
+      force: options.force === true || options.forceTranscode === true,
+      stripAudio: options.stripAudio !== false,
+    }));
+    const existing = Array.from(this.tasks.values()).find((candidate) =>
+      candidate.activeKey === activeKey && ACTIVE_STATES.has(candidate.status));
+    if (existing) return Object.assign(this._snapshot(existing), { coalesced: true });
     const id = String(this.randomUUID()).toLowerCase();
     const controller = new AbortController();
     const task = {
@@ -512,9 +533,12 @@ class WallpaperVideoService {
       children: new Set(),
       result: null,
       error: '',
+      activeKey,
     };
     this.tasks.set(id, task);
-    task.promise = Promise.resolve().then(() => this._runTask(task));
+    task.promise = Promise.resolve().then(() => this._runTask(task)).finally(() => {
+      if (task.activeKey === activeKey) task.activeKey = '';
+    });
     return this._snapshot(task);
   }
 
@@ -606,6 +630,12 @@ class WallpaperVideoService {
       pinReferenceCount: pins.reduce((total, entry) => total + entry.pinCount, 0),
       pins,
       maxCacheBytes: this.maxCacheBytes,
+      hardwareEncoder: this.hardwareEncoder,
+      hardwareAccelerated: !!this.hardwareEncoder,
+      hardwareEncoderResolved: this.hardwareEncoderResolved,
+      hardwareProbeCount: this.hardwareProbeCount,
+      hardwareFallbackCount: this.hardwareFallbackCount,
+      hardwareRejectedEncoders: Array.from(this.hardwareRejectedEncoders),
       disposed: this.disposed,
     };
   }
@@ -731,6 +761,9 @@ class WallpaperVideoService {
         probe,
         original: this._original(task, probe, sourceHash),
         quality: mediaResult && (mediaResult.quality || mediaResult.metrics) || null,
+        encoder: mediaResult && mediaResult.encoder || (plan.strategy === 'transcode' ? 'libx264' : 'copy'),
+        hardwareAccelerated: !!(mediaResult && mediaResult.hardwareAccelerated),
+        hardwareFallback: !!(mediaResult && mediaResult.hardwareFallback),
       };
       await fs.promises.writeFile(path.join(stagingDir, 'lumifield-wallpaper.json'), JSON.stringify(manifest, null, 2), { flag: 'wx' });
       throwIfAborted(signal);
@@ -842,6 +875,9 @@ class WallpaperVideoService {
       remuxed: plan.strategy === 'remux',
       quality: manifest.quality || null,
       metrics: manifest.quality || null,
+      encoder: String(manifest.encoder || (plan.strategy === 'transcode' ? 'libx264' : 'copy')),
+      hardwareAccelerated: manifest.hardwareAccelerated === true,
+      hardwareFallback: manifest.hardwareFallback === true,
     };
   }
 
@@ -1107,26 +1143,117 @@ class WallpaperVideoService {
         progress: onProgress,
       });
     }
-    const args = ['-hide_banner', '-y', '-filter_threads', '1', '-i', task.inputPath, '-map', '0:v:0', '-an'];
     if (plan.strategy === 'remux') {
-      args.push('-c:v', 'copy');
-    } else {
+      const processResult = await this._runFfmpegTranscode(task, outputPath, plan, probe, 'copy', false, onProgress);
+      return { ok: true, process: processResult, encoder: 'copy', hardwareAccelerated: false };
+    }
+    this._update(task, 'transcoding', task.progress, { message: '正在探测可用的硬件视频编码…', hardwareProbe: true });
+    let hardwareEncoder = await this._selectHardwareEncoder(task);
+    let hardwareFallback = false;
+    throwIfAborted(signal);
+    while (hardwareEncoder) {
+      try {
+        const processResult = await this._runFfmpegTranscode(task, outputPath, plan, probe, hardwareEncoder, true, onProgress);
+        return { ok: true, process: processResult, encoder: hardwareEncoder, hardwareAccelerated: true, hardwareFallback };
+      } catch (error) {
+        if (isCancelled(error) || signal.aborted) throw error;
+        this.hardwareFallbackCount += 1;
+        hardwareFallback = true;
+        this.hardwareRejectedEncoders.add(hardwareEncoder);
+        this.hardwareEncoder = '';
+        this.hardwareEncoderResolved = false;
+        try { await fs.promises.rm(outputPath, { force: true }); } catch (_) {}
+        this._update(task, 'transcoding', task.progress, {
+          message: '当前硬件编码不可用，正在尝试其他高质量编码路径',
+          hardwareAccelerated: false,
+          hardwareFallback: true,
+        });
+        hardwareEncoder = await this._selectHardwareEncoder(task);
+        throwIfAborted(signal);
+      }
+    }
+    const processResult = await this._runFfmpegTranscode(task, outputPath, plan, probe, 'libx264', false, onProgress);
+    return { ok: true, process: processResult, encoder: 'libx264', hardwareAccelerated: false, hardwareFallback };
+  }
+
+  async _selectHardwareEncoder(task) {
+    if (!this.hardwareEncoderCandidates.length) {
+      this.hardwareEncoderResolved = true;
+      return '';
+    }
+    if (this.hardwareEncoderResolved) return this.hardwareEncoder;
+    if (!this.hardwareEncoderPromise) {
+      this.hardwareEncoderPromise = this._probeHardwareEncoder(task).then((encoder) => {
+        this.hardwareEncoder = String(encoder || '');
+        this.hardwareEncoderResolved = true;
+        return this.hardwareEncoder;
+      }).finally(() => { this.hardwareEncoderPromise = null; });
+    }
+    try {
+      return await this.hardwareEncoderPromise;
+    } catch (error) {
+      if (isCancelled(error)) {
+        if (task.controller.signal.aborted) throw error;
+        this.hardwareEncoderPromise = null;
+        this.hardwareEncoderResolved = false;
+        return this._selectHardwareEncoder(task);
+      }
+      this.hardwareEncoder = '';
+      this.hardwareEncoderResolved = true;
+      return '';
+    }
+  }
+
+  async _probeHardwareEncoder(task) {
+    this.hardwareProbeCount += 1;
+    if (this.hardwareEncoderProbe) {
+      const selected = await this.hardwareEncoderProbe({
+        candidates: this.hardwareEncoderCandidates.slice(),
+        ffmpegPath: this.ffmpegPath,
+        signal: task.controller.signal,
+        taskId: task.id,
+      });
+      const encoder = typeof selected === 'string' ? selected : selected && selected.encoder;
+      return this.hardwareEncoderCandidates.includes(String(encoder || '')) && !this.hardwareRejectedEncoders.has(String(encoder)) ? String(encoder) : '';
+    }
+    for (const encoder of this.hardwareEncoderCandidates) {
+      if (this.hardwareRejectedEncoders.has(encoder)) continue;
+      throwIfAborted(task.controller.signal);
+      try {
+        await this._runProcess(task, this.ffmpegPath, [
+          '-hide_banner', '-loglevel', 'error',
+          '-f', 'lavfi', '-i', 'color=c=black:s=64x64:r=1',
+          '-frames:v', '1', '-an', '-c:v', encoder,
+          '-pix_fmt', 'yuv420p', '-f', 'null', '-',
+        ], { code: 'HARDWARE_ENCODER_PROBE_FAILED', maxStdout: 64 * 1024 });
+        return encoder;
+      } catch (error) {
+        if (isCancelled(error) || task.controller.signal.aborted) throw error;
+      }
+    }
+    return '';
+  }
+
+  _encoderArguments(encoder, plan) {
+    const quality = String(Math.max(12, Math.min(24, (Number(plan.crf) || 18) - 2)));
+    if (encoder === 'h264_nvenc') return ['-c:v', encoder, '-preset', 'p5', '-tune', 'hq', '-rc', 'vbr', '-cq', quality, '-b:v', '0'];
+    if (encoder === 'h264_qsv') return ['-c:v', encoder, '-preset', 'medium', '-global_quality', quality];
+    if (encoder === 'h264_amf') return ['-c:v', encoder, '-quality', 'quality', '-rc', 'cqp', '-qp_i', quality, '-qp_p', quality];
+    return ['-c:v', 'libx264', '-threads', '2', '-preset', plan.preset, '-crf', String(plan.crf)];
+  }
+
+  async _runFfmpegTranscode(task, outputPath, plan, probe, encoder, hardwareAccelerated, onProgress) {
+    const args = ['-hide_banner', '-y', '-filter_threads', '1', '-i', task.inputPath, '-map', '0:v:0', '-an'];
+    if (encoder === 'copy') args.push('-c:v', 'copy');
+    else {
       const filters = [`scale=${plan.width}:${plan.height}:flags=lanczos`];
       if (probe.fps > plan.fps + 0.01) filters.push(`fps=${plan.fps}`);
-      args.push(
-        '-vf', filters.join(','),
-        '-c:v', 'libx264',
-        '-threads', '2',
-        '-preset', plan.preset,
-        '-crf', String(plan.crf),
-        '-pix_fmt', 'yuv420p',
-        '-tag:v', 'avc1',
-      );
+      args.push('-vf', filters.join(','), ...this._encoderArguments(encoder, plan), '-pix_fmt', 'yuv420p', '-tag:v', 'avc1');
     }
     if (plan.extension === '.mp4') args.push('-movflags', '+faststart');
     args.push('-progress', 'pipe:2', '-nostats', outputPath);
     let stderrRemainder = '';
-    const processResult = await this._runProcess(task, this.ffmpegPath, args, {
+    return this._runProcess(task, this.ffmpegPath, args, {
       code: 'FFMPEG_TRANSCODE_FAILED',
       maxStdout: 256 * 1024,
       onStderr: (text) => {
@@ -1134,13 +1261,14 @@ class WallpaperVideoService {
         const lines = stderrRemainder.split(/\r?\n/);
         stderrRemainder = lines.pop() || '';
         lines.forEach((line) => {
-          const match = /^out_time_(?:ms|us)=(\d+)/.exec(line.trim());
-          if (match && probe.duration > 0) onProgress(Math.min(0.99, Number(match[1]) / 1_000_000 / probe.duration), { ffmpeg: line.trim() });
-          if (/^progress=end\s*$/.test(line.trim())) onProgress(1, { ffmpeg: 'progress=end' });
+          const trimmed = line.trim();
+          const match = /^out_time_(?:ms|us)=(\d+)/.exec(trimmed);
+          const detail = { ffmpeg: trimmed, encoder, hardwareAccelerated: !!hardwareAccelerated };
+          if (match && probe.duration > 0) onProgress(Math.min(0.99, Number(match[1]) / 1_000_000 / probe.duration), detail);
+          if (/^progress=end\s*$/.test(trimmed)) onProgress(1, { ffmpeg: 'progress=end', encoder, hardwareAccelerated: !!hardwareAccelerated });
         });
       },
     });
-    return { ok: true, process: processResult };
   }
 
   _killChild(child) {

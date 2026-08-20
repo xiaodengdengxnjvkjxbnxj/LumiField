@@ -18,6 +18,15 @@
   var weatherState = null;
   var weatherRequest = null;
   var weatherRequestSerial = 0;
+  var weatherInitialLoadSerial = 0;
+  var weatherPerformance = {
+    networkStarts: 0,
+    dedupedRequests: 0,
+    abortedRequests: 0,
+    cacheHydrations: 0,
+    staleResults: 0,
+    initialLoadDeferred: false
+  };
   var clockTimer = 0;
   var musicTimer = 0;
   var beatFollow = true;
@@ -326,7 +335,10 @@
     animatedWeatherState.visibilityHandler = function () { applyAnimatedWeatherPauseState(); };
     document.addEventListener('visibilitychange', animatedWeatherState.visibilityHandler);
     animatedWeatherState.listenerCount += 1;
-    animatedWeatherState.pageHideHandler = function () { disposeAnimatedWeatherLifecycle(); };
+    animatedWeatherState.pageHideHandler = function () {
+      cancelWeatherRequest();
+      disposeAnimatedWeatherLifecycle();
+    };
     window.addEventListener('pagehide', animatedWeatherState.pageHideHandler, { once: true });
     animatedWeatherState.listenerCount += 1;
     if (animatedWeatherState.motionQuery) {
@@ -426,7 +438,7 @@
     if (date) date.textContent = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   }
 
-  function renderWeather(weather, stale) {
+  function renderWeather(weather, stale, persist) {
     if (!weather) return;
     initAnimatedWeatherLifecycle();
     animatedWeatherState.renderCount += 1;
@@ -471,14 +483,25 @@
         return '<div class="lf-forecast-day' + (index === 0 ? ' today' : '') + '"><span>' + weekday + '</span><span class="lf-forecast-icon" role="img" aria-label="' + safeCondition + '" title="' + safeCondition + '" data-lf-weather-kind="' + resolved.kind + '">' + animatedWeatherSvg(resolved.kind, condition, true) + '</span><span class="lf-forecast-temp">' + Math.round(day.temperatureMax) + '°/' + Math.round(day.temperatureMin) + '°</span><span class="lf-forecast-rain">' + Math.round(day.precipitationProbability || 0) + '%</span></div>';
       }).join('');
     }
-    try { save(STORE.weather, JSON.stringify({ savedAt: Date.now(), weather: weather })); } catch (_) {}
+    if (persist !== false && !stale && !weather.stale) {
+      var savedAt = Number(weather.updatedAt) || Date.now();
+      try { save(STORE.weather, JSON.stringify({ savedAt: Math.min(Date.now(), savedAt), weather: weather })); } catch (_) {}
+    }
   }
 
-  async function requestJson(url, timeout) {
+  async function requestJson(url, timeout, externalSignal) {
     var controller = window.AbortController ? new AbortController() : null;
+    var abortFromExternal = controller && externalSignal ? function () {
+      try { controller.abort(externalSignal.reason); } catch (_) { controller.abort(); }
+    } : null;
+    if (abortFromExternal) {
+      if (externalSignal.aborted) abortFromExternal();
+      else externalSignal.addEventListener('abort', abortFromExternal, { once: true });
+    }
     var timer = controller ? setTimeout(function () { controller.abort(); }, timeout || 12000) : 0;
     try {
-      var response = await fetch(url, controller ? { signal: controller.signal } : {});
+      var signal = controller ? controller.signal : externalSignal;
+      var response = await fetch(url, signal ? { signal: signal } : {});
       var body = await response.json();
       if (!response.ok || body.ok === false) {
         var failure = new Error(body.error || ('HTTP_' + response.status));
@@ -487,7 +510,29 @@
         throw failure;
       }
       return body;
-    } finally { if (timer) clearTimeout(timer); }
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (abortFromExternal) externalSignal.removeEventListener('abort', abortFromExternal);
+    }
+  }
+
+  function readWeatherCache(city) {
+    try {
+      var parsed = JSON.parse(read(STORE.weather, '') || 'null');
+      var savedCity = String(read(STORE.city, '') || '').trim();
+      city = String(city || '').trim();
+      if (!parsed || !parsed.weather || city && city !== savedCity) return null;
+      return parsed;
+    } catch (_) { return null; }
+  }
+
+  function hydrateWeatherCache(city) {
+    var cached = readWeatherCache(city);
+    if (!cached) return false;
+    weatherPerformance.cacheHydrations += 1;
+    weatherPerformance.staleResults += 1;
+    renderWeather(cached.weather, true, false);
+    return true;
   }
 
   function setWeatherBusy(busy) {
@@ -508,9 +553,9 @@
     return '天气服务暂不可用';
   }
 
-  async function performWeatherLoad(city, force, serial) {
+  async function performWeatherLoad(city, force, serial, signal) {
     var updated = document.getElementById('lf-weather-updated');
-    if (updated) updated.textContent = '正在更新';
+    if (updated) updated.textContent = weatherState ? '正在后台更新' : '正在更新';
     try {
       var query = '';
       city = String(city || '').trim();
@@ -518,33 +563,32 @@
         query = '?city=' + encodeURIComponent(city) + (force ? '&t=' + Date.now() : '');
       } else {
         try {
-          var location = await requestJson('/api/weather/ip-location', 9000);
+          var location = await requestJson('/api/weather/ip-location', 9000, signal);
           var loc = location.location || {};
-          query = '?lat=' + encodeURIComponent(loc.latitude) + '&lon=' + encodeURIComponent(loc.longitude) + '&city=' + encodeURIComponent(loc.city || '当前位置') + '&timezone=' + encodeURIComponent(loc.timezone || 'auto');
+          query = '?lat=' + encodeURIComponent(loc.latitude) + '&lon=' + encodeURIComponent(loc.longitude) + '&city=' + encodeURIComponent(loc.city || '当前位置') + '&timezone=' + encodeURIComponent(loc.timezone || 'auto') + (force ? '&t=' + Date.now() : '');
         } catch (locationError) {
           city = String(read(STORE.city, '') || '').trim();
           if (!city) throw locationError;
           query = '?city=' + encodeURIComponent(city) + (force ? '&t=' + Date.now() : '');
         }
       }
-      var result = await requestJson('/api/weather/current' + query, 15000);
+      var result = await requestJson('/api/weather/current' + query, 15000, signal);
       if (serial !== weatherRequestSerial) return { ignored: true };
-      renderWeather(result.weather, false);
-      if (city) save(STORE.city, city);
+      renderWeather(result.weather, !!(result.weather && result.weather.stale), !(result.weather && result.weather.stale));
+      var resolvedCity = city || String(result.weather && result.weather.location && result.weather.location.name || '').trim();
+      if (resolvedCity && resolvedCity !== '当前位置') save(STORE.city, resolvedCity);
       return { ok: true, weather: result.weather };
     } catch (error) {
       if (serial !== weatherRequestSerial) return { ignored: true };
+      if (error && error.name === 'AbortError') return { ignored: true, aborted: true };
       var failureText = weatherFailureText(error);
-      var cached = read(STORE.weather, '');
-      try {
-        var parsed = JSON.parse(cached);
-        var savedCity = String(read(STORE.city, '') || '').trim();
-        if (parsed && parsed.weather && (!city || city === savedCity) && String(error && error.code || '') !== 'WEATHER_CITY_NOT_FOUND') {
-          renderWeather(parsed.weather, true);
-          if (updated) updated.textContent = failureText + ' · 离线缓存';
-          return { ok: false, cached: true, error: error };
-        }
-      } catch (_) {}
+      var parsed = readWeatherCache(city);
+      if (parsed && String(error && error.code || '') !== 'WEATHER_CITY_NOT_FOUND') {
+        weatherPerformance.staleResults += 1;
+        renderWeather(parsed.weather, true, false);
+        if (updated) updated.textContent = failureText + ' · 离线缓存';
+        return { ok: false, cached: true, error: error };
+      }
       if (updated) updated.textContent = failureText;
       return { ok: false, cached: false, error: error };
     }
@@ -553,17 +597,54 @@
   function loadWeather(city, force) {
     city = String(city || '').trim();
     var key = (city || '@location') + '|' + (force ? 'refresh' : 'cached');
-    if (weatherRequest && weatherRequest.key === key) return weatherRequest.promise;
+    if (weatherRequest && weatherRequest.key === key) {
+      weatherPerformance.dedupedRequests += 1;
+      return weatherRequest.promise;
+    }
+    if (weatherRequest && weatherRequest.controller) {
+      weatherPerformance.abortedRequests += 1;
+      try { weatherRequest.controller.abort('WEATHER_REQUEST_SUPERSEDED'); } catch (_) {}
+    }
     var serial = ++weatherRequestSerial;
+    var controller = window.AbortController ? new AbortController() : null;
+    weatherPerformance.networkStarts += 1;
     setWeatherBusy(true);
-    var promise = performWeatherLoad(city, force, serial).finally(function () {
+    var promise = performWeatherLoad(city, force, serial, controller && controller.signal).finally(function () {
       if (weatherRequest && weatherRequest.serial === serial) {
         weatherRequest = null;
         setWeatherBusy(false);
       }
     });
-    weatherRequest = { key: key, serial: serial, promise: promise };
+    weatherRequest = { key: key, serial: serial, promise: promise, controller: controller };
     return promise;
+  }
+
+  function cancelWeatherRequest() {
+    weatherInitialLoadSerial += 1;
+    weatherRequestSerial += 1;
+    if (weatherRequest && weatherRequest.controller) {
+      weatherPerformance.abortedRequests += 1;
+      try { weatherRequest.controller.abort('WEATHER_REQUEST_CANCELLED'); } catch (_) {}
+    }
+    weatherRequest = null;
+    setWeatherBusy(false);
+  }
+
+  function scheduleInitialWeatherLoad(city) {
+    var serial = ++weatherInitialLoadSerial;
+    weatherPerformance.initialLoadDeferred = true;
+    function begin() {
+      if (serial !== weatherInitialLoadSerial) return;
+      loadWeather(city, false);
+    }
+    function afterPaint() {
+      window.setTimeout(function () {
+        if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(begin, { timeout: 700 });
+        else begin();
+      }, 0);
+    }
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(afterPaint);
+    else window.setTimeout(afterPaint, 0);
   }
 
   function initWeather() {
@@ -574,6 +655,7 @@
     var refresh = document.getElementById('lf-weather-refresh');
     var input = document.getElementById('lf-weather-city-input');
     function searchCity() {
+      weatherInitialLoadSerial += 1;
       var city = input && input.value.trim();
       if (city) return loadWeather(city, true);
       var updated = document.getElementById('lf-weather-updated');
@@ -586,8 +668,13 @@
       event.preventDefault();
       searchCity();
     });
-    if (refresh) refresh.addEventListener('click', function () { loadWeather(read(STORE.city, ''), true); });
-    loadWeather(read(STORE.city, ''), false);
+    if (refresh) refresh.addEventListener('click', function () {
+      weatherInitialLoadSerial += 1;
+      loadWeather(read(STORE.city, ''), true);
+    });
+    var initialCity = String(read(STORE.city, '') || '').trim();
+    hydrateWeatherCache(initialCity);
+    scheduleInitialWeatherLoad(initialCity);
   }
 
   function preserveNativeLoginTabs() {
@@ -648,6 +735,27 @@
     return { kind: resolved.kind, label: resolved.label, parts: resolved.parts.slice(), isDay: resolved.isDay };
   };
   window.__lumifieldAnimatedWeatherDebug = animatedWeatherDebug;
+  window.LumiFieldWeatherPerformance = Object.freeze({
+    getDebug: function () {
+      return {
+        active: !!weatherRequest,
+        activeKey: weatherRequest && weatherRequest.key || '',
+        requestSerial: weatherRequestSerial,
+        networkStarts: weatherPerformance.networkStarts,
+        dedupedRequests: weatherPerformance.dedupedRequests,
+        abortedRequests: weatherPerformance.abortedRequests,
+        cacheHydrations: weatherPerformance.cacheHydrations,
+        staleResults: weatherPerformance.staleResults,
+        initialLoadDeferred: weatherPerformance.initialLoadDeferred,
+        hasWeather: !!weatherState
+      };
+    },
+    refresh: function (city, force) {
+      weatherInitialLoadSerial += 1;
+      return loadWeather(city, force !== false);
+    },
+    dispose: function () { cancelWeatherRequest(); return { ok: true }; }
+  });
   function isAnimatedWeatherTestEnvironment() {
     if (window.LF_MASTER_TEST === true || window.LF_MASTER_TEST === '1' || window.__LF_MASTER_TEST__ === true || window.__LF_MASTER_TEST__ === '1' || window.__LF_E2E__) return true;
     if (window.navigator && window.navigator.webdriver) return true;

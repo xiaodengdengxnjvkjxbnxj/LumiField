@@ -3060,12 +3060,6 @@ ipcMain.handle('lf-wallpaper-video-start', async (event, payload = {}) => {
   const ownerId = wallpaperVideoOwner(event);
   if (!ownerId) return { ok:false, error:'INVALID_SENDER' };
   const optimizer = ensureWallpaperVideoOptimizer();
-  for (const [taskId, taskOwner] of wallpaperVideoTaskOwners) {
-    if (taskOwner === ownerId) {
-      await optimizer.cancel(taskId).catch(() => {});
-      wallpaperVideoTaskOwners.delete(taskId);
-    }
-  }
   const inputPath = String(payload.inputPath || '');
   const owner = getSenderWindow(event);
   const started = await optimizer.start({
@@ -3074,7 +3068,14 @@ ipcMain.handle('lf-wallpaper-video-start', async (event, payload = {}) => {
     title: path.basename(inputPath),
     display: wallpaperVideoDisplayBudget(owner, payload.display),
   });
-  if (started && started.taskId) wallpaperVideoTaskOwners.set(String(started.taskId), ownerId);
+  const startedTaskId = String(started && started.taskId || '');
+  for (const [taskId, taskOwner] of wallpaperVideoTaskOwners) {
+    if (taskOwner === ownerId && taskId !== startedTaskId) {
+      await optimizer.cancel(taskId).catch(() => {});
+      wallpaperVideoTaskOwners.delete(taskId);
+    }
+  }
+  if (startedTaskId) wallpaperVideoTaskOwners.set(startedTaskId, ownerId);
   return publicWallpaperVideoResult(started);
 });
 
