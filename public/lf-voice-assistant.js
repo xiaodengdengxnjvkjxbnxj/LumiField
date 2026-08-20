@@ -236,10 +236,10 @@
     if (!page || page.querySelector('#lf-voice-assistant')) return page;
     page.innerHTML =
       '<section id="lf-voice-assistant" class="lf-voice-assistant" aria-label="语音助手设置">' +
-        '<div class="lf-va-intro"><div><b>AI 语音助手</b><span>仅控制 LumiField 的搜索与播放。</span></div><em id="lf-va-runtime-badge">已关闭</em></div>' +
+        '<div class="lf-va-intro"><div><b>AI 语音助手</b><span>语音识别与大模型共同控制 LF 内的播放、视觉、天气和用户设置。</span></div><em id="lf-va-runtime-badge">已关闭</em></div>' +
         '<label class="lf-va-switch-row lf-va-master"><span><b>启用语音助手</b><small>关闭后释放麦克风、热键、悬浮窗与识别服务。</small></span><input id="lf-va-enabled" type="checkbox"><i aria-hidden="true"></i></label>' +
         '<div class="lf-va-section">' +
-          '<label class="lf-va-switch-row"><span><b>语音唤醒</b><small>说出唤醒词后，仅接受搜索和播放指令。</small></span><input id="lf-va-voice-wake" type="checkbox"><i aria-hidden="true"></i></label>' +
+          '<label class="lf-va-switch-row"><span><b>语音唤醒</b><small>说出唤醒词后，固定命令本地执行，其他明确指令交给已配置的大模型。</small></span><input id="lf-va-voice-wake" type="checkbox"><i aria-hidden="true"></i></label>' +
           '<label class="lf-va-field"><span>唤醒词</span><input id="lf-va-wake-word" type="text" maxlength="32" autocomplete="off" spellcheck="false" value="小艺，小艺"></label>' +
         '</div>' +
         '<div class="lf-va-section">' +
@@ -463,12 +463,20 @@
         toast('语音助手设置未生效：' + state.error);
         return false;
       }
-      if (!writeScopedSettings(candidate, expectedScope)) {
+      var api = desktopApi();
+      var persisted = api && typeof api.setAIAssistantSettings === 'function'
+        ? await api.setAIAssistantSettings({ voice:candidate })
+        : { ok:false, error:'ASSISTANT_SETTINGS_MAIN_UNAVAILABLE' };
+      if (!isCurrent()) return false;
+      if (!persisted || persisted.ok !== true) {
         await configureMain(previous);
         if (!isCurrent()) return false;
-        setError('settings', '设置保存校验失败，原设置已恢复。');
+        setError('settings', '设置未能安全保存，原设置已恢复：' + String(persisted && persisted.error || 'SAVE_FAILED'));
         toast(state.error);
         return false;
+      }
+      if (!writeScopedSettings(candidate, expectedScope)) {
+        setError('settings', '主进程设置已保存，但当前页面的本地镜像更新失败。');
       }
       if (!isCurrent()) return false;
       state.settings = candidate;
@@ -681,7 +689,7 @@
     if (/^(?:下一首|下一个|切到下一首|切换下一首)$/.test(text)) return { ok:true, action:'next', wakeMatched:woke, wakeTriggered:wakeTriggered };
     var search = /^(?:搜索|搜一下|查找)(?:歌曲)?\s*(.{1,80})$/.exec(text) || /^(?:播放歌曲|播放)\s*(.{1,80})$/.exec(text);
     if (search && search[1] && search[1].trim()) return { ok:true, action:'search', query:search[1].trim(), wakeMatched:woke, wakeTriggered:wakeTriggered };
-    return { ok:false, error:'COMMAND_NOT_ALLOWED' };
+    return { ok:false, error:'COMMAND_NOT_ALLOWED', text:text, wakeMatched:woke, wakeTriggered:wakeTriggered };
   }
   function validDirectCommand(payload) {
     var allowed = { search:1, play:1, pause:1, previous:1, next:1, show:1 };
@@ -731,7 +739,12 @@
       var parsed = parseTranscript(payload.text);
       if (!parsed.ok) {
         if (parsed.error === 'COMMAND_NOT_ALLOWED') {
-          setError('command', '只支持搜索歌曲、播放、暂停、上一首和下一首。');
+          var ai = global.LumiFieldAIAssistant;
+          if (ai && typeof ai.handleNaturalLanguage === 'function') {
+            if (parsed.wakeTriggered) show('wake-word');
+            return ai.handleNaturalLanguage(parsed.text || payload.text, { source:'voice', wakeMatched:true });
+          }
+          setError('command', 'AI 模型尚未配置，当前只支持搜索歌曲、播放、暂停、上一首和下一首。');
           render();
         }
         return parsed;
@@ -798,6 +811,23 @@
   }
   async function applyLoadedSettings(serial) {
     if (serial !== state.switchSerial || state.disposed) return;
+    var api = desktopApi();
+    if (api && typeof api.getAIAssistantSettings === 'function') {
+      var authoritative;
+      try { authoritative = await api.getAIAssistantSettings(); }
+      catch (error) { authoritative = { ok:false, error:String(error && error.message || error || 'ASSISTANT_SETTINGS_READ_FAILED') }; }
+      if (serial !== state.switchSerial || state.disposed) return;
+      if (authoritative && authoritative.ok === true && authoritative.found && authoritative.settings && authoritative.settings.voice) {
+        state.settings = normalizeSettings(authoritative.settings.voice);
+        writeScopedSettings(state.settings, state.scopeKey);
+      } else if (authoritative && authoritative.ok === true && !authoritative.found && typeof api.setAIAssistantSettings === 'function') {
+        var migrated = await api.setAIAssistantSettings({ voice:state.settings });
+        if (serial !== state.switchSerial || state.disposed) return;
+        if (!migrated || migrated.ok !== true) setError('settings', '主进程设置迁移失败：' + String(migrated && migrated.error || 'SAVE_FAILED'));
+      } else if (!authoritative || authoritative.ok !== true) {
+        setError('settings', '主进程设置读取失败：' + String(authoritative && authoritative.error || 'READ_FAILED'));
+      }
+    }
     var configured = await configureMain(state.settings);
     if (serial !== state.switchSerial || state.disposed) return;
     if (!configured || configured.ok !== true) {

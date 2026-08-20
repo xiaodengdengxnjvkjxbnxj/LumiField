@@ -24,6 +24,13 @@ Expected implementation boundary:
 - `desktop/main.js` and `desktop/preload.js`: lifecycle and narrow bridge
   wiring only.
 
+The v1.1.44 AI Provider extension remains on the same independent LF side of
+this boundary. `desktop/lf-ai-provider-main.js`, `public/lf-ai-assistant.js`
+and `public/lf-ai-assistant.css` add the actual large-model configuration and
+LF Tool path; their fixed Provider identities, credential isolation, explicit
+intent gate, cost boundary and trusted development permission are recorded in
+`AI_PROVIDER_AND_TOOL_SECURITY.md`.
+
 The canonical renderer bridge is expected to expose only:
 
 - `configureVoiceAssistant(config)`;
@@ -36,11 +43,17 @@ The canonical renderer bridge is expected to expose only:
 - `getVoiceAssistantDebug()`, whose main-process result is disabled unless an
   explicit LF test environment is active.
 
+The AI bridge additionally exposes only settings read/write, write-only Key
+set/clear, an explicit connection test, an explicit query, an official Key-page
+opener and a test-environment-only debug snapshot. No Key read API exists.
+
 ## Product and security boundaries
 
-- Recognition may dispatch only `search`, `play`, `pause`, `previous` and
-  `next`. `show` is an internal UI reveal action, not an operating-system
-  command.
+- Recognition handles `search`, `play`, `pause`, `previous` and `next`
+  locally. `show` is an internal UI reveal action, not an operating-system
+  command. Only an explicitly woken command outside that fixed grammar may be
+  delegated to the configured model, and the returned LF actions still pass
+  the main-process allowlist and explicit-intent gate.
 - Search uses LF's existing `submitSearchInput`/`doSearch` path. Transport uses
   LF's existing `togglePlay`, `prevTrack`, `nextTrack`, `playQueue`,
   `currentIdx` and `audio`; it creates no second player or queue.

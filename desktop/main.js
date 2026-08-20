@@ -19,6 +19,7 @@ const { createIntegrityVerifier, createIntegrityStatusHook } = require('./lf-int
 const { migrateLegacyPlatformSessions } = require('./lf-legacy-platform-session-migration');
 const { createWindowStateCoordinator } = require('./lf-window-state-coordinator');
 const { createVoiceAssistantController } = require('./lf-voice-assistant-main');
+const { createAIAssistantController } = require('./lf-ai-provider-main');
 const { createSplashController } = require('./lf-splash-main');
 const QRCode = require('qrcode');
 
@@ -54,6 +55,7 @@ let desktopLyricsLastMiddleAt = 0;
 let wallpaperWindow = null;
 let wallpaperState = {};
 let voiceAssistantController = null;
+let aiAssistantController = null;
 let windowStateCoordinator = null;
 let windowStateDisplayEventsBound = false;
 let mainWindowStateTimer = null;
@@ -3926,6 +3928,45 @@ async function currentLFDeveloperAuthorization() {
   };
 }
 
+async function currentLFAIAssistantScope() {
+  const capturedToken = String(loadLFSecureSession().token || '');
+  if (!capturedToken) {
+    return {
+      ok: true,
+      scopeHash: crypto.createHash('sha256').update('lumifield-ai-assistant:anonymous').digest('hex'),
+      generation: 0,
+    };
+  }
+  const result = await callLFService(
+    'POST',
+    '/v1/auth/status',
+    capturedToken,
+    {},
+    () => ensureLFBackend().authStatus(capturedToken, {})
+  );
+  if (capturedToken !== String(loadLFSecureSession().token || '')) {
+    return { ok: false, stale: true, error: 'STALE_ACCOUNT_SCOPE' };
+  }
+  const userId = String(result && result.user && result.user.id || '').trim();
+  if (!result || result.ok !== true || result.authenticated !== true || !userId) {
+    return { ok: false, error: 'INVALID_SESSION' };
+  }
+  const tokenHash = crypto.createHash('sha256').update(capturedToken).digest('hex');
+  return {
+    ok: true,
+    scopeHash: crypto.createHash('sha256').update(`lumifield-ai-assistant:${userId}`).digest('hex'),
+    generation: Number.parseInt(tokenHash.slice(0, 12), 16),
+  };
+}
+
+async function openAuthorizedAIDeveloperTools() {
+  const authorization = await currentLFDeveloperAuthorization();
+  if (!authorization.allowed) return { ok: false, error: authorization.error || 'DEVELOPMENT_PERMISSION_REQUIRED' };
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return { ok: false, error: 'MAIN_WINDOW_UNAVAILABLE' };
+  mainWindow.webContents.openDevTools({ mode: 'detach', activate: true });
+  return { ok: true };
+}
+
 async function handleLFDeveloperShortcut(targetWindow) {
   if (lfDeveloperShortcutPromise) return lfDeveloperShortcutPromise;
   lfDeveloperShortcutPromise = (async () => {
@@ -4251,6 +4292,17 @@ if (!gotSingleInstanceLock) {
       getOverlayUrl: () => overlayUrl('lf-voice-overlay.html'),
       log: writeStartupLog,
     });
+    aiAssistantController = createAIAssistantController({
+      app,
+      ipcMain,
+      BrowserWindow,
+      safeStorage,
+      shell,
+      getMainWindow: () => mainWindow,
+      resolveAccountScope: currentLFAIAssistantScope,
+      authorizeDeveloperAccess: currentLFDeveloperAuthorization,
+      openDeveloperTools: openAuthorizedAIDeveloperTools,
+    });
     try {
       migrateLegacyPlatformSessions({
         appDataPath: app.getPath('appData'),
@@ -4340,6 +4392,10 @@ if (!gotSingleInstanceLock) {
     if (voiceAssistantController) {
       voiceAssistantController.dispose();
       voiceAssistantController = null;
+    }
+    if (aiAssistantController) {
+      aiAssistantController.dispose();
+      aiAssistantController = null;
     }
     if (musicPlatformManager) {
       musicPlatformManager.dispose();

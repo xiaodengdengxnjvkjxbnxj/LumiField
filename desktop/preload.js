@@ -47,6 +47,73 @@ function stemStartPayload(file, options) {
   };
 }
 
+function aiAssistantSettingsPatch(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const patch = {};
+  if (source.voice && typeof source.voice === 'object' && !Array.isArray(source.voice)) {
+    patch.voice = {
+      enabled: source.voice.enabled,
+      voiceWake: source.voice.voiceWake,
+      wakeWord: source.voice.wakeWord,
+      songSync: source.voice.songSync,
+      topEdgeWake: source.voice.topEdgeWake,
+      hotkey: source.voice.hotkey,
+    };
+  }
+  if (source.assistant && typeof source.assistant === 'object' && !Array.isArray(source.assistant)) {
+    const providers = {};
+    for (const id of ['zhipu', 'groq', 'qwen']) {
+      const item = source.assistant.providers && source.assistant.providers[id];
+      if (item && typeof item === 'object' && !Array.isArray(item)) providers[id] = {
+        model: item.model,
+        baseUrl: item.baseUrl,
+        freeOnlyAcknowledged: item.freeOnlyAcknowledged,
+      };
+    }
+    patch.assistant = {
+      provider: source.assistant.provider,
+      responseStyle: source.assistant.responseStyle,
+      providers,
+    };
+  }
+  return patch;
+}
+
+function aiAssistantQueryPayload(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const context = source.context && typeof source.context === 'object' && !Array.isArray(source.context) ? source.context : {};
+  const controls = Array.isArray(context.controls) ? context.controls.slice(0, 160).map(item => {
+    const control = item && typeof item === 'object' && !Array.isArray(item) ? item : {};
+    return {
+      id: String(control.id || '').slice(0, 80),
+      kind: String(control.kind || '').slice(0, 12),
+      label: String(control.label || '').slice(0, 64),
+      inputType: String(control.inputType || '').slice(0, 16),
+      value: ['string', 'number', 'boolean'].includes(typeof control.value) ? control.value : '',
+      min: Number(control.min),
+      max: Number(control.max),
+      options: Array.isArray(control.options) ? control.options.slice(0, 16).map(option => ({
+        value: String(option && option.value || '').slice(0, 80),
+        label: String(option && option.label || '').slice(0, 48),
+      })) : [],
+    };
+  }) : [];
+  return {
+    text: String(source.text || '').slice(0, 800),
+    source: source.source === 'voice' ? 'voice' : 'text',
+    explicitUserAction: source.explicitUserAction === true,
+    context: {
+      playing: context.playing === true,
+      title: String(context.title || '').slice(0, 160),
+      artist: String(context.artist || '').slice(0, 120),
+      position: Number(context.position) || 0,
+      duration: Number(context.duration) || 0,
+      view: String(context.view || '').slice(0, 32),
+      controls,
+    },
+  };
+}
+
 async function requestVoiceAssistantMicrophone() {
   let stream = null;
   try {
@@ -247,6 +314,14 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   requestVoiceAssistantMicrophone,
   openVoiceAssistantMicrophoneSettings: () => ipcRenderer.invoke('lumifield-voice-assistant-open-microphone-settings'),
   getVoiceAssistantDebug: () => ipcRenderer.invoke('lumifield-voice-assistant-debug'),
+  getAIAssistantSettings: () => ipcRenderer.invoke('lumifield-ai-assistant-settings-read'),
+  setAIAssistantSettings: (patch) => ipcRenderer.invoke('lumifield-ai-assistant-settings-write', aiAssistantSettingsPatch(patch)),
+  setAIAssistantApiKey: (provider, apiKey) => ipcRenderer.invoke('lumifield-ai-assistant-key-set', String(provider || ''), String(apiKey || '')),
+  clearAIAssistantApiKey: (provider) => ipcRenderer.invoke('lumifield-ai-assistant-key-clear', String(provider || '')),
+  testAIAssistantConnection: (provider) => ipcRenderer.invoke('lumifield-ai-assistant-test-connection', String(provider || '')),
+  runAIAssistant: (payload) => ipcRenderer.invoke('lumifield-ai-assistant-query', aiAssistantQueryPayload(payload)),
+  openAIProviderKeyPage: (provider) => ipcRenderer.invoke('lumifield-ai-assistant-open-key-url', String(provider || '')),
+  getAIAssistantDebug: () => ipcRenderer.invoke('lumifield-ai-assistant-debug'),
   onVoiceAssistantCommand: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload || {});
