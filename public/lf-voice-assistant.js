@@ -224,7 +224,9 @@
     var known = {
       WINDOWS_SYSTEM_SPEECH_REQUIRED:'当前 Windows 缺少 System.Speech 语音识别支持。',
       NO_RECOGNIZER:'Windows 未安装可用的语音识别器。',
-      SPEECH_PROCESS_EXITED:'语音识别服务意外退出，请关闭后重新启用。',
+      NO_ZH_RECOGNIZER:'Windows 未安装中文语音识别，请在语言设置中添加中文语音组件。',
+      ZH_GRAMMAR_UNAVAILABLE:'Windows 中文语音识别语法加载失败，请重新启用语音助手。',
+      SPEECH_PROCESS_EXITED:'语音识别服务意外退出，正在自动恢复。',
       SPEECH_PROCESS_FAILED:'语音识别服务启动失败。'
     };
     return known[reason] || reason;

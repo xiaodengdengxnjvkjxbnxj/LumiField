@@ -80,9 +80,10 @@ when an ordinary foreground window intersects its proposed bounds, and restores
 when the obstruction moves. Foreground rectangles are converted from physical
 pixels to Electron DIP coordinates, clamped to the target display work area,
 and re-evaluated after display add/remove/metrics changes. Explicit wake,
-hotkey or enabled top-edge dwell may reveal the overlay temporarily without
-taking focus; afterward normal obstruction policy resumes. Geometry sampling
-must use one bounded, state-diffed timer and must stop when disabled.
+hotkey, voice wake or enabled top-edge dwell opens the overlay without taking
+focus. It remains open without a timeout and closes only after a real pointer
+click outside its native bounds. Geometry and click sampling use one bounded,
+state-diffed probe that stops when the feature is disabled.
 
 ## Verification classification
 

@@ -109,6 +109,7 @@ public static class LFVoiceWindowProbe {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder value, int maxCount);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int virtualKey);
   [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
   [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT point, uint flags);
   [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFOEX info);
@@ -120,6 +121,7 @@ public static class LFVoiceWindowProbe {
 try { [LFVoiceWindowProbe]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch {}
 $overlayHandle = [int64]${safeOverlayHandle}
 $last = ""
+$lastLeftDown = $false
 while ($true) {
   try {
     $cursor = New-Object LFVoiceWindowProbe+POINT
@@ -128,6 +130,10 @@ while ($true) {
     $cursorMonitor = New-Object LFVoiceWindowProbe+MONITORINFOEX
     $cursorMonitor.cbSize = [Runtime.InteropServices.Marshal]::SizeOf($cursorMonitor)
     [LFVoiceWindowProbe]::GetMonitorInfo($cursorMonitorHandle, [ref]$cursorMonitor) | Out-Null
+    $leftState = [LFVoiceWindowProbe]::GetAsyncKeyState(1)
+    $leftDown = (($leftState -band 0x8000) -ne 0)
+    $leftClicked = (($leftState -band 1) -ne 0) -or ($leftDown -and -not $lastLeftDown)
+    $lastLeftDown = $leftDown
 
     $hwnd = [LFVoiceWindowProbe]::GetForegroundWindow()
     $rect = New-Object LFVoiceWindowProbe+RECT
@@ -172,7 +178,7 @@ while ($true) {
     $intersectsTop = $validWindow -and
       $rect.Right -gt $overlayLeft -and $rect.Left -lt $overlayRight -and
       $rect.Bottom -gt $overlayTop -and $rect.Top -lt $overlayBottom
-    $cursorTolerance = [Math]::Max(3, [int][Math]::Round(3 * $scale))
+    $cursorTolerance = [Math]::Max(10, [int][Math]::Round(10 * $scale))
     $cursorAtTop = $cursor.Y -ge $cursorMonitor.rcMonitor.Top -and $cursor.Y -le ($cursorMonitor.rcMonitor.Top + $cursorTolerance)
     $state = [ordered]@{
       foregroundPid = [int]$windowPid
@@ -185,6 +191,8 @@ while ($true) {
       rect = [ordered]@{ left=$rect.Left; top=$rect.Top; right=$rect.Right; bottom=$rect.Bottom }
       monitor = [ordered]@{ left=$foregroundMonitor.rcMonitor.Left; top=$foregroundMonitor.rcMonitor.Top; right=$foregroundMonitor.rcMonitor.Right; bottom=$foregroundMonitor.rcMonitor.Bottom }
       cursorAtTop = [bool]$cursorAtTop
+      cursor = [ordered]@{ x=$cursor.X; y=$cursor.Y }
+      leftClicked = [bool]$leftClicked
       cursorMonitor = [ordered]@{ left=$cursorMonitor.rcMonitor.Left; top=$cursorMonitor.rcMonitor.Top; right=$cursorMonitor.rcMonitor.Right; bottom=$cursorMonitor.rcMonitor.Bottom }
     }
     $json = $state | ConvertTo-Json -Compress -Depth 3
@@ -193,7 +201,7 @@ while ($true) {
     $errorJson = '{"probeError":"WINDOW_PROBE_FAILED"}'
     if ($last -ne $errorJson) { [Console]::Out.WriteLine($errorJson); [Console]::Out.Flush(); $last = $errorJson }
   }
-  Start-Sleep -Milliseconds 220
+  Start-Sleep -Milliseconds 80
 }`;
 }
 
@@ -215,17 +223,30 @@ public static class LFVoiceSpeechRunner {
     try {
       var recognizers = SpeechRecognitionEngine.InstalledRecognizers();
       var info = recognizers.FirstOrDefault(item => item.Culture.Name.Equals("zh-CN", StringComparison.OrdinalIgnoreCase))
-        ?? recognizers.FirstOrDefault(item => item.Culture.TwoLetterISOLanguageName.Equals("zh", StringComparison.OrdinalIgnoreCase))
-        ?? recognizers.FirstOrDefault();
-      if (info == null) { Console.WriteLine("UNAVAILABLE\tNO_RECOGNIZER"); return; }
+        ?? recognizers.FirstOrDefault(item => item.Culture.TwoLetterISOLanguageName.Equals("zh", StringComparison.OrdinalIgnoreCase));
+      if (info == null) {
+        Console.WriteLine("UNAVAILABLE\t" + Convert.ToBase64String(Encoding.UTF8.GetBytes("NO_ZH_RECOGNIZER")));
+        return;
+      }
       engine = new SpeechRecognitionEngine(info.Id);
-      var phrases = new [] { wakeWord, "播放", "继续播放", "暂停", "暂停播放", "上一首", "下一首", "搜索歌曲" }
-        .Where(value => !String.IsNullOrWhiteSpace(value)).Distinct().ToArray();
-      var choices = new Choices(phrases);
-      var builder = new GrammarBuilder { Culture = info.Culture };
-      builder.Append(choices);
-      engine.LoadGrammar(new Grammar(builder));
-      try { engine.LoadGrammar(new DictationGrammar()); } catch {}
+      var compactWake = new string((wakeWord ?? "").Where(value => !Char.IsWhiteSpace(value) && !Char.IsPunctuation(value) && !Char.IsSymbol(value)).ToArray());
+      var spacedWake = String.Join(" ", compactWake.ToCharArray());
+      var commands = new [] { "播放", "继续播放", "暂停", "暂停播放", "上一首", "下一首", "搜索歌曲" };
+      var wakeVariants = new [] { compactWake, spacedWake }.Where(value => !String.IsNullOrWhiteSpace(value)).Distinct().ToArray();
+      var phrases = wakeVariants.Concat(commands).Concat(wakeVariants.SelectMany(wake => commands.Select(command => wake + command))).Distinct().ToArray();
+      var grammarLoaded = false;
+      try {
+        var choices = new Choices(phrases);
+        var builder = new GrammarBuilder { Culture = info.Culture };
+        builder.Append(choices);
+        engine.LoadGrammar(new Grammar(builder));
+        grammarLoaded = true;
+      } catch {}
+      try { engine.LoadGrammar(new DictationGrammar()); grammarLoaded = true; } catch {}
+      if (!grammarLoaded) {
+        Console.WriteLine("UNAVAILABLE\t" + Convert.ToBase64String(Encoding.UTF8.GetBytes("ZH_GRAMMAR_UNAVAILABLE")));
+        return;
+      }
       engine.SpeechRecognized += (sender, args) => {
         if (args.Result == null || String.IsNullOrWhiteSpace(args.Result.Text)) return;
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(args.Result.Text));
@@ -288,9 +309,12 @@ function createVoiceAssistantController(options = {}) {
   let speechBuffer = '';
   let speechExpectedStop = false;
   let speechGeneration = 0;
+  let speechRestartTimer = null;
+  let speechRestartAttempts = 0;
   let recognition = { state: 'stopped', available: process.platform === 'win32', reason: '' };
-  let revealUntil = 0;
-  let revealTimer = null;
+  let overlayOpen = false;
+  let overlayDismissed = false;
+  let overlayOpenedAt = 0;
   let voiceArmedUntil = 0;
   let voiceArmedTimer = null;
   let activeDisplayId = null;
@@ -380,8 +404,8 @@ function createVoiceAssistantController(options = {}) {
   function visibilityState() {
     const display = targetDisplay();
     const topEdgeActive = !!(config.topEdgeWake && foregroundState && foregroundState.cursorAtTop);
-    const temporary = topEdgeActive || Date.now() < revealUntil;
-    const awaitingProbe = process.platform === 'win32' && !foregroundState && !temporary;
+    const explicitlyOpen = overlayOpen || topEdgeActive;
+    const awaitingProbe = process.platform === 'win32' && !foregroundState && !explicitlyOpen;
     const foregroundDisplay = monitorToDisplay(foregroundState && foregroundState.monitor);
     const exactTopOverlap = rectanglesIntersect(foregroundRectInDip(), overlayBounds(display));
     const obstructed = !!(
@@ -390,10 +414,10 @@ function createVoiceAssistantController(options = {}) {
     );
     return {
       display,
-      temporary,
+      explicitlyOpen,
       obstructed,
-      visible: config.enabled && !awaitingProbe && (temporary || !obstructed),
-      reason: awaitingProbe ? 'awaiting-foreground-probe' : topEdgeActive ? 'top-edge-reveal' : temporary ? 'temporary-reveal' : obstructed ? (foregroundState.fullscreen ? 'foreground-fullscreen' : 'foreground-top-overlap') : 'clear',
+      visible: config.enabled && !overlayDismissed && !awaitingProbe && (explicitlyOpen || !obstructed),
+      reason: overlayDismissed ? 'outside-click-dismissed' : awaitingProbe ? 'awaiting-foreground-probe' : topEdgeActive ? 'top-edge-open' : overlayOpen ? 'explicit-open' : obstructed ? (foregroundState.fullscreen ? 'foreground-fullscreen' : 'foreground-top-overlap') : 'clear',
     };
   }
 
@@ -409,6 +433,8 @@ function createVoiceAssistantController(options = {}) {
       recognition: { ...recognition },
       visible: visibility.visible,
       visibilityReason: visibility.reason,
+      overlayOpen,
+      overlayDismissed,
       listeningForCommand: Date.now() < voiceArmedUntil,
     };
   }
@@ -448,16 +474,31 @@ function createVoiceAssistantController(options = {}) {
     publishState();
   }
 
-  function reveal(durationMs = 3600) {
+  function openOverlay() {
     if (!config.enabled) return false;
-    revealUntil = Math.max(revealUntil, Date.now() + finiteNumber(durationMs, 800, 10000, 3600));
-    if (revealTimer) clearTimeout(revealTimer);
-    revealTimer = setTimeout(() => {
-      revealTimer = null;
-      revealUntil = 0;
-      updateOverlayVisibility();
-    }, Math.max(0, revealUntil - Date.now()) + 20);
-    if (typeof revealTimer.unref === 'function') revealTimer.unref();
+    overlayOpen = true;
+    overlayDismissed = false;
+    overlayOpenedAt = Date.now();
+    updateOverlayVisibility();
+    return true;
+  }
+
+  function cursorPointInOverlay(cursor) {
+    if (!cursor || !overlayWindow || overlayWindow.isDestroyed()) return false;
+    let point = { x: Number(cursor.x) || 0, y: Number(cursor.y) || 0 };
+    try {
+      if (typeof screen.screenToDipPoint === 'function') point = screen.screenToDipPoint(point);
+    } catch (_) {}
+    const bounds = overlayWindow.getBounds();
+    return point.x >= bounds.x && point.x < bounds.x + bounds.width
+      && point.y >= bounds.y && point.y < bounds.y + bounds.height;
+  }
+
+  function dismissFromOutsideClick(cursor) {
+    if (!overlayWindow || overlayWindow.isDestroyed() || !overlayWindow.isVisible()) return false;
+    if (Date.now() - overlayOpenedAt < 180 || cursorPointInOverlay(cursor)) return false;
+    overlayOpen = false;
+    overlayDismissed = true;
     updateOverlayVisibility();
     return true;
   }
@@ -471,7 +512,7 @@ function createVoiceAssistantController(options = {}) {
       if (!command.query) return false;
     }
     if (source === 'voice') command.wakeMatched = detail && detail.wakeMatched !== false;
-    if (safeAction === 'show') reveal(4200);
+    if (safeAction === 'show') openOverlay();
     const owner = mainWindow();
     if (!owner || owner.webContents.isDestroyed()) return false;
     owner.webContents.send(CHANNELS.command, command);
@@ -493,8 +534,8 @@ function createVoiceAssistantController(options = {}) {
         publishState(true);
       }, 9020);
       if (typeof voiceArmedTimer.unref === 'function') voiceArmedTimer.unref();
-      reveal(5200);
-      recognition = { ...recognition, state: 'command', lastConfidence: finiteNumber(confidence, 0, 1, 0) };
+      openOverlay();
+      recognition = { ...recognition, state: 'command', lastEvent: 'recognized', reason: '', lastConfidence: finiteNumber(confidence, 0, 1, 0) };
       publishState(true);
     }
     const owner = mainWindow();
@@ -541,9 +582,11 @@ function createVoiceAssistantController(options = {}) {
         failForegroundProbe(child, generation, 'probe-error');
         return;
       }
+      foregroundRestartAttempts = 0;
       const wasAtTop = !!(foregroundState && foregroundState.cursorAtTop);
       foregroundState = parsed;
-      if (config.topEdgeWake && parsed.cursorAtTop && !wasAtTop) reveal(2600);
+      if (config.topEdgeWake && parsed.cursorAtTop && !wasAtTop) openOverlay();
+      if (parsed.leftClicked === true && dismissFromOutsideClick(parsed.cursor)) return;
       updateOverlayVisibility();
     } catch (error) {
       failForegroundProbe(child, generation, 'invalid-output', error);
@@ -598,7 +641,7 @@ function createVoiceAssistantController(options = {}) {
       });
       child.stderr.on('data', chunk => {
         const message = chunk.toString('utf8').trim();
-        if (message) failForegroundProbe(child, generation, 'stderr', new Error(message.slice(0, 800)));
+        if (message && !/^#< CLIXML\s*$/i.test(message)) failForegroundProbe(child, generation, 'stderr', new Error(message.slice(0, 800)));
       });
       child.once('exit', () => {
         if (generation !== foregroundGeneration || foregroundProbe !== child) return;
@@ -638,6 +681,7 @@ function createVoiceAssistantController(options = {}) {
   function handleSpeechLine(line) {
     const parts = line.split('\t');
     if (parts[0] === 'READY') {
+      speechRestartAttempts = 0;
       recognition = { state: 'listening', available: true, culture: clampText(parts[1], 24), reason: '' };
       publishState(true);
       return;
@@ -647,11 +691,30 @@ function createVoiceAssistantController(options = {}) {
       publishState(true);
       return;
     }
+    if (parts[0] === 'REJECTED') {
+      recognition = { ...recognition, state: 'listening', available: true, lastEvent: 'rejected', reason: 'SPEECH_REJECTED' };
+      publishState(true);
+      return;
+    }
     if (parts[0] === 'TEXT' && parts[2]) {
       let transcript = '';
       try { transcript = Buffer.from(parts[2], 'base64').toString('utf8'); } catch (_) {}
       if (transcript) handleTranscript(transcript, Number(parts[1]));
     }
+  }
+
+  function scheduleSpeechRestart(reason) {
+    if (!config.enabled || !config.voiceWake || disposed || speechRestartTimer || speechRestartAttempts >= 4) return;
+    if (recognition.reason === 'NO_ZH_RECOGNIZER' || recognition.reason === 'ZH_GRAMMAR_UNAVAILABLE') return;
+    const delays = [500, 1500, 4000, 8000];
+    const delay = delays[speechRestartAttempts] || delays[delays.length - 1];
+    speechRestartAttempts += 1;
+    speechRestartTimer = setTimeout(() => {
+      speechRestartTimer = null;
+      if (config.enabled && config.voiceWake && !disposed) startSpeechRecognition();
+    }, delay);
+    if (typeof speechRestartTimer.unref === 'function') speechRestartTimer.unref();
+    safeLog(`LF voice recognizer restart scheduled (${reason || 'unknown'}, attempt ${speechRestartAttempts})`);
   }
 
   function startSpeechRecognition() {
@@ -689,13 +752,15 @@ function createVoiceAssistantController(options = {}) {
         speechBuffer = '';
         recognition = { state: 'unavailable', available: false, reason: clampText(error.message, 240) || 'SPEECH_PROCESS_FAILED' };
         publishState(true);
+        scheduleSpeechRestart('process-error');
       });
       child.once('exit', () => {
         if (generation !== speechGeneration || speechProcess !== child) return;
         speechProcess = null;
         speechBuffer = '';
-        if (!speechExpectedStop && config.enabled && config.voiceWake && recognition.state !== 'unavailable') {
-          recognition = { state: 'unavailable', available: false, reason: 'SPEECH_PROCESS_EXITED' };
+        if (!speechExpectedStop && config.enabled && config.voiceWake) {
+          if (recognition.state !== 'unavailable') recognition = { state: 'unavailable', available: false, reason: 'SPEECH_PROCESS_EXITED' };
+          scheduleSpeechRestart('unexpected-exit');
         } else if (speechExpectedStop) {
           recognition = { state: 'stopped', available: process.platform === 'win32', reason: '' };
         }
@@ -705,6 +770,7 @@ function createVoiceAssistantController(options = {}) {
       speechProcess = null;
       recognition = { state: 'unavailable', available: false, reason: clampText(error.message, 240) || 'SPEECH_PROCESS_FAILED' };
       publishState(true);
+      scheduleSpeechRestart('spawn-error');
     }
   }
 
@@ -712,6 +778,9 @@ function createVoiceAssistantController(options = {}) {
     const child = speechProcess;
     speechGeneration += 1;
     speechExpectedStop = true;
+    if (speechRestartTimer) clearTimeout(speechRestartTimer);
+    speechRestartTimer = null;
+    speechRestartAttempts = 0;
     speechProcess = null;
     speechBuffer = '';
     voiceArmedUntil = 0;
@@ -789,9 +858,9 @@ function createVoiceAssistantController(options = {}) {
   }
 
   function stopRuntime() {
-    revealUntil = 0;
-    if (revealTimer) clearTimeout(revealTimer);
-    revealTimer = null;
+    overlayOpen = false;
+    overlayDismissed = false;
+    overlayOpenedAt = 0;
     stopForegroundProbe();
     detachDisplayListeners();
     stopSpeechRecognition();
@@ -813,10 +882,13 @@ function createVoiceAssistantController(options = {}) {
     if (!config.voiceWake) stopSpeechRecognition();
     else if (restartSpeech) {
       stopSpeechRecognition();
-      const timer = setTimeout(startSpeechRecognition, 950);
-      if (typeof timer.unref === 'function') timer.unref();
+      speechRestartTimer = setTimeout(() => {
+        speechRestartTimer = null;
+        startSpeechRecognition();
+      }, 950);
+      if (typeof speechRestartTimer.unref === 'function') speechRestartTimer.unref();
     } else startSpeechRecognition();
-    if (nextValue && nextValue.show === true) reveal(4200);
+    if (nextValue && nextValue.show === true) openOverlay();
     updateOverlayVisibility();
     publishState(true);
     return publicState();
@@ -902,7 +974,7 @@ function createVoiceAssistantController(options = {}) {
     });
     ipcMain.handle(CHANNELS.show, event => {
       if (!isMainSender(event)) return { ok: false, error: 'INVALID_SENDER' };
-      return { ok: reveal(4600), enabled: config.enabled };
+      return { ok: openOverlay(), enabled: config.enabled };
     });
     ipcMain.handle(CHANNELS.settings, event => {
       if (!isMainSender(event)) return { ok: false, error: 'INVALID_SENDER' };
@@ -935,8 +1007,13 @@ function createVoiceAssistantController(options = {}) {
         foregroundRestartAttempts,
         displayListenersAttached,
         speechProcessActive: !!speechProcess,
+        speechRestartPending: !!speechRestartTimer,
+        speechRestartAttempts,
         recognition: { ...recognition },
         foreground: foregroundState,
+        overlayOpen,
+        overlayDismissed,
+        overlayBounds: overlayWindow && !overlayWindow.isDestroyed() ? overlayWindow.getBounds() : null,
         allowedCommands: Array.from(ALLOWED_COMMANDS),
       };
     });
@@ -948,7 +1025,7 @@ function createVoiceAssistantController(options = {}) {
   return {
     applyConfig,
     stopRuntime,
-    show: () => reveal(4600),
+    show: () => openOverlay(),
     getState: publicState,
     dispose() {
       if (disposed) return;

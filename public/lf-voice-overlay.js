@@ -23,6 +23,7 @@
 
   function recognitionLabel(recognition) {
     var state = recognition && recognition.state || 'stopped';
+    if (recognition && recognition.lastEvent === 'rejected') return '未识别，请重试';
     if (state === 'listening') return '正在聆听';
     if (state === 'command') return '请说命令';
     if (state === 'starting') return '正在启动';
@@ -45,7 +46,9 @@
     toggle.disabled = !state.songSync;
     toggle.dataset.playing = String(playing);
     toggle.querySelector('span').textContent = playing ? 'Ⅱ' : '▶';
-    toggle.title = toggle.getAttribute('aria-label') = playing ? '暂停' : '播放';
+    var toggleLabel = playing ? '暂停' : '播放';
+    toggle.title = toggleLabel;
+    toggle.setAttribute('aria-label', toggleLabel);
     shell.dataset.recognition = recognition.state || 'stopped';
     status.dataset.state = recognition.state || 'stopped';
     statusText.textContent = recognitionLabel(recognition);
