@@ -2672,6 +2672,11 @@ var musicAccountPreferenceError = '';
 var musicAccountStatusSerial = { netease:0, qq:0, kugou:0, kugou_concept:0, qishui:0 };
 var musicAccountLoginSerial = { netease:0, qq:0, kugou:0, kugou_concept:0, qishui:0 };
 var musicAccountLogoutSerial = { netease:0, qq:0, kugou:0, kugou_concept:0, qishui:0 };
+var musicAccountPlaylistSyncState = {
+  netease:{ promise:null, guard:null }, qq:{ promise:null, guard:null },
+  kugou:{ promise:null, guard:null }, kugou_concept:{ promise:null, guard:null },
+  qishui:{ promise:null, guard:null }
+};
 var playlistAccountProvider = 'netease';
 var playlistProviderRequestSerial = 0;
 var platformPlaylistLoaded = { netease:false, qq:false, kugou:false, kugou_concept:false, qishui:false };
@@ -22164,6 +22169,53 @@ async function fetchMusicProviderPlaylists(provider) {
     playlists: (Array.isArray(result.playlists) ? result.playlists : []).map(function(pl){ return normalizeUserPlaylist(provider, pl); })
   };
 }
+function syncValidatedMusicProviderPlaylists(provider, options) {
+  options = options || {};
+  if (!isMusicAccountProvider(provider)) return Promise.resolve({ ok:false, error:'INVALID_PROVIDER' });
+  var operationGuard = musicAccountOperationGuard();
+  if (!operationGuard.ready || !hasValidatedPlatformLogin(provider)) {
+    return Promise.resolve({ ok:false, provider:provider, stale:!operationGuard.ready, error:operationGuard.ready ? 'NOT_LOGGED_IN' : 'ACCOUNT_SCOPE_NOT_READY' });
+  }
+  var syncState = musicAccountPlaylistSyncState[provider];
+  if (syncState.promise && syncState.guard && isMusicAccountOperationCurrent(syncState.guard)) return syncState.promise;
+  var request;
+  if (options.selectProvider === true) {
+    request = setPlaylistAccountProvider(provider, { force:true, refresh:true });
+  } else if (provider === playlistAccountProvider) {
+    request = refreshUserPlaylists(true, { provider:provider });
+  } else {
+    request = fetchMusicProviderPlaylists(provider).then(function(loaded){
+      if (!isMusicAccountOperationCurrent(operationGuard) || !hasValidatedPlatformLogin(provider)) {
+        return { ok:false, provider:provider, stale:true, error:'STALE_ACCOUNT_SCOPE' };
+      }
+      var lists = setProviderPlaylistCache(provider, loaded.playlists);
+      syncPlatformPlaylistCount(provider, lists, loaded.result);
+      var status = platformStatus(provider);
+      if (status) delete status.playlistError;
+      var openUserModal = document.getElementById('user-modal');
+      if (multiProviderMode && openUserModal && openUserModal.classList.contains('show')) renderMultiProviderAccountList();
+      return { ok:true, provider:provider, background:true, playlists:lists.slice() };
+    }).catch(function(error){
+      if (!isMusicAccountOperationCurrent(operationGuard)) return { ok:false, provider:provider, stale:true, error:'STALE_ACCOUNT_SCOPE' };
+      var status = platformStatus(provider);
+      if (status) status.playlistError = String(error && (error.message || error.code) || 'PLATFORM_PLAYLISTS_FAILED');
+      console.warn('[PlatformAccountPlaylistSync]', provider, error);
+      return { ok:false, provider:provider, error:String(error && (error.message || error.code) || 'PLATFORM_PLAYLISTS_FAILED') };
+    });
+  }
+  var tracked = Promise.resolve(request).then(function(result){
+    if (!isMusicAccountOperationCurrent(operationGuard)) return { ok:false, provider:provider, stale:true, error:'STALE_ACCOUNT_SCOPE' };
+    return result;
+  }).finally(function(){
+    if (syncState.promise === tracked) {
+      syncState.promise = null;
+      syncState.guard = null;
+    }
+  });
+  syncState.promise = tracked;
+  syncState.guard = operationGuard;
+  return tracked;
+}
 function renderPlaylistProviderLoggedOut(provider) {
   var meta = platformMeta(provider);
   var list = document.getElementById('pl-list');
@@ -26677,8 +26729,16 @@ window.applyMusicPlatformLoginState = function(state, options) {
         persistMusicAccountPreferences();
       }
       var providerPlaylists = providerPlaylistCache(provider);
-      if (options.suppressDataRefresh !== true && provider === playlistAccountProvider &&
-          (!wasLoggedIn || !platformPlaylistLoaded[provider] || !providerPlaylists.length || options.forceRefresh)) {
+      var needsPlaylistSync = options.suppressDataRefresh !== true &&
+        (!wasLoggedIn || !platformPlaylistLoaded[provider] || !providerPlaylists.length || options.forceRefresh);
+      if (provider === 'qq' && options.source === 'desktop-event') {
+        needsPlaylistSync = options.suppressDataRefresh !== true && (!wasLoggedIn || !platformPlaylistLoaded.qq);
+      }
+      if (provider === 'qq' && options.source === 'desktop-event' && needsPlaylistSync) {
+        syncValidatedMusicProviderPlaylists(provider, { selectProvider:shouldActivate }).catch(function(error){
+          console.warn('[PlatformAccountSync]', provider, error);
+        });
+      } else if (needsPlaylistSync && provider === playlistAccountProvider) {
         if (/^(kugou|kugou_concept|qishui)$/.test(provider)) scheduleBackendAccountDataRefresh(provider);
         else refreshUserPlaylists(true).catch(function(error){ console.warn('[PlatformAccountSync]', provider, error); });
       }
@@ -27146,7 +27206,7 @@ async function submitQQCookieLogin() {
     });
     if (!multiProviderMode) setActiveAccountProvider('qq');
     if (input) input.value = '';
-    if (playlistAccountProvider === 'qq') refreshUserPlaylists(true);
+    await syncValidatedMusicProviderPlaylists('qq', { selectProvider:!multiProviderMode });
     var manualQQPlaybackReady = !!info.playbackKeyReady;
     if (statusEl) { statusEl.textContent = manualQQPlaybackReady ? 'QQ 音乐会话已保存' : 'QQ 账号已同步，播放授权不完整，部分歌曲会自动换源'; statusEl.className = 'scan'; }
     setTimeout(function(){
