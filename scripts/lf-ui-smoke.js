@@ -26,9 +26,12 @@ fs.writeFileSync(path.join(migrationDir, 'legacy-upstream-platform-session-v2.js
 const consolePrecheck = process.argv.includes('--console-precheck');
 const skipScreenshots = process.env.LF_UI_SKIP_SCREENSHOTS === '1';
 const stageVideoFixture = [
+  String(process.env.LF_UI_STAGE_VIDEO || '').trim(),
+  'D:\\HuaweiMoveData\\Users\\35992\\Desktop\\文件13\\视频五.mp4',
+  'D:\\HuaweiMoveData\\Users\\35992\\Desktop\\文件13\\视频一.mp4',
   'C:\\Users\\35992\\Desktop\\文件13\\视频五.mp4',
   'C:\\Users\\35992\\Desktop\\文件13\\视频一.mp4',
-].find(file => fs.existsSync(file));
+].find(file => file && fs.existsSync(file));
 const errors = [];
 const appLog = [];
 const screenshots = [];
@@ -2013,11 +2016,13 @@ async function run() {
   const spectrumThree = await spectrumMode(3);
   pass('spectrum keeps only real modes one and three',
     spectrumOne.debug.mode === 1 && spectrumOne.debug.stageObjectPresent && spectrumOne.debug.stageMeshPresent &&
-    spectrumOne.debug.mountType === 'three-world-stage' && spectrumOne.debug.renderedBandCount === 48 &&
+    spectrumOne.debug.mountType === 'three-world-stage' && spectrumOne.debug.renderedBandCount === 52 &&
     spectrumOne.debug.analyticAntialias === true && spectrumOne.debug.geometryType === 'analytic-rounded-capsule-plane' &&
+    spectrumOne.debug.backingStores.largeCount === 0 &&
     spectrumThree.active && spectrumThree.nonzero > 30 && spectrumThree.alpha > 1000 && spectrumThree.pointerEvents === 'none' &&
     spectrumThree.minY < spectrumThree.height * 0.25 && spectrumThree.maxY > spectrumThree.height * 0.72 &&
     spectrumThree.state.mode === 3 && spectrumThree.debug.topCount === 52 && spectrumThree.debug.bottomCount === 52 &&
+    spectrumThree.debug.backingStores.largeCount === 1 && spectrumThree.debug.backingStores.main.width === 1 && spectrumThree.debug.backingStores.secondary.width > 1 &&
     !['shape','barCount','verticalCount','verticalGap','simulatedPeaks'].some(function (key) {
       return Object.prototype.hasOwnProperty.call(spectrumThree.state, key);
     }), {

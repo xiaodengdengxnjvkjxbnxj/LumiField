@@ -928,14 +928,21 @@
     spectrumCanvasDpr = normalDpr;
     [[spectrumCanvas, spectrumCtx, normalDpr], [spectrumMainCanvas, spectrumMainCtx, normalDpr]].forEach(function (entry) {
       var canvas = entry[0], ctx = entry[1], dpr = entry[2];
-      var width = Math.max(1, Math.round(innerWidth * dpr));
-      var height = Math.max(1, Math.round(innerHeight * dpr));
-      if (!canvas || !ctx || (canvas.width === width && canvas.height === height)) return;
-      canvas.width = width;
-      canvas.height = height;
+      if (!canvas || !ctx) return;
+      var ownsBackingStore = spectrumState.mode === 3 &&
+        (spectrumViewName() === 'main' ? canvas === spectrumMainCanvas : canvas === spectrumCanvas);
+      var width = ownsBackingStore ? Math.max(1, Math.round(innerWidth * dpr)) : 1;
+      var height = ownsBackingStore ? Math.max(1, Math.round(innerHeight * dpr)) : 1;
+      var backingDpr = ownsBackingStore ? dpr : 1;
       canvas.style.width = innerWidth + 'px';
       canvas.style.height = innerHeight + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (canvas.width === width && canvas.height === height && canvas._lfSpectrumDpr === backingDpr) return;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      canvas._lfSpectrumDpr = backingDpr;
+      ctx.setTransform(backingDpr, 0, 0, backingDpr, 0, 0);
     });
   }
 
@@ -1689,12 +1696,7 @@
       ? (spectrumFps < 20 ? 100 : (spectrumFps < 38 ? 66 : 40))
       : (spectrumFps < 38 ? 34 : (referenceMode ? 16.7 : 20));
     if (now - spectrumLastTime < drawInterval) return;
-    var expectedDpr = Math.max(1, Math.min(1.5, Math.max(1, devicePixelRatio || 1),
-      Math.sqrt(SPECTRUM_PIXEL_BUDGET / Math.max(1, innerWidth * innerHeight))));
-    var expectedWidth = Math.round(innerWidth * expectedDpr);
-    var expectedHeight = Math.round(innerHeight * expectedDpr);
-    if (!spectrumCanvas || spectrumCanvas.width !== expectedWidth || spectrumCanvas.height !== expectedHeight) resizeSpectrumCanvas();
-    var count = referenceMode ? 48 : effectiveSpectrumCount();
+    var count = effectiveSpectrumCount();
     if (!count) {
       clearSpectrumCanvases();
       if (spectrumStage.group) spectrumStage.group.visible = false;
@@ -1734,7 +1736,8 @@
       updateSpectrumStage(values, energyVisible);
     } else {
       clearSpectrumCanvases();
-      updateSpectrumStage(values, energyVisible);
+      if (spectrumStage.group) spectrumStage.group.visible = false;
+      if (spectrumStage.mesh) spectrumStage.mesh.visible = false;
     }
     spectrumLastTime = now;
   }
@@ -1751,7 +1754,7 @@
     var requestedCount = effectiveSpectrumCount();
     var modeOne = spectrumState.mode === 1;
     var referenceMode = modeOne && spectrumViewName() === 'secondary';
-    var count = referenceMode ? 48 : requestedCount;
+    var count = requestedCount;
     var layout = modeOne ? spectrumStage : spectrumEdgeLayout;
     var activeCanvas = spectrumViewName() === 'main' ? spectrumMainCanvas : spectrumCanvas;
     var material = spectrumStage.mesh && spectrumStage.mesh.material;
@@ -1792,6 +1795,11 @@
         main: spectrumMainCanvas && spectrumMainCanvas.id,
         secondary: spectrumCanvas && spectrumCanvas.id
       },
+      backingStores: {
+        main: spectrumMainCanvas ? { width:spectrumMainCanvas.width, height:spectrumMainCanvas.height } : null,
+        secondary: spectrumCanvas ? { width:spectrumCanvas.width, height:spectrumCanvas.height } : null,
+        largeCount: [spectrumMainCanvas,spectrumCanvas].filter(function (canvas) { return canvas && (canvas.width > 1 || canvas.height > 1); }).length
+      },
       geometryIdentity: modeOne ? spectrumStage.geometryIdentity : 'edge-bars-' + count,
       geometryRebuildCount: spectrumStage.rebuildCount,
       geometryInstanceCount: modeOne && spectrumStage.mesh ? spectrumStage.mesh.count : count * 2,
@@ -1804,7 +1812,7 @@
       referenceAppearance: modeOne && spectrumViewName() === 'secondary' ? {
         source: 'user-video-tears-spectrum-only',
         sourceSha256: 'F2C54CB4531B2749FD646623ECBA98D0B42BFD9C1B4AF5DDF8BDEE550D568498',
-        barCount: 48,
+        barCount: count,
         palette: ['#55b3d2', '#9ba7ea', '#b076d1'],
         shape: 'single-baseline-rounded-capsule-plane'
       } : null,
@@ -1842,7 +1850,8 @@
       projectedBaselineSlope: modeOne && spectrumViewName() === 'secondary' ? spectrumReferenceMetrics.baselineSlope : 0,
       projectedBaselineRms: modeOne && spectrumViewName() === 'secondary' ? spectrumReferenceMetrics.baselineRms : 0,
       projectedBarHeights: modeOne && spectrumViewName() === 'secondary' ? spectrumReferenceMetrics.barHeights.slice() : [],
-      active: !!spectrumState.enabled && spectrumSurfaceAvailable() && spectrumMaxEnergy > 0.0025,
+      active: !!spectrumState.enabled && spectrumSurfaceAvailable() && spectrumMaxEnergy > 0.0025 &&
+        !(modeOne && spectrumViewName() === 'main'),
       maxEnergy: spectrumMaxEnergy, paused: !window.audio || !!window.audio.paused,
       releaseHidden: spectrumReleaseSettled,
       topCount: spectrumState.mode === 3 ? count : 0,
@@ -1894,8 +1903,10 @@
       stageTransformSource: window.particles ? 'particles' : 'scene',
       stageMeshPresent: !!spectrumStage.mesh,
       stageMeshName: spectrumStage.mesh ? spectrumStage.mesh.name : '',
+      stageVisible: !!(spectrumStage.group && spectrumStage.group.visible && spectrumStage.mesh && spectrumStage.mesh.visible),
       stageWorldTransform: spectrumStage.group ? {
         parent: spectrumStage.group.parent && (spectrumStage.group.parent.name || spectrumStage.group.parent.type),
+        root: spectrumStage.anchor && spectrumStage.anchor.parent && (spectrumStage.anchor.parent.name || spectrumStage.anchor.parent.type),
         position: spectrumStage.group.position.toArray(), quaternion: spectrumStage.group.quaternion.toArray(),
         scale: spectrumStage.group.scale.toArray(), cameraDistance: window.camera && spectrumStage.group.position.distanceTo(window.camera.position)
       } : null
