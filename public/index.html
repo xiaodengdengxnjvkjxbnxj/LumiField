@@ -474,6 +474,8 @@ body.home-controls-locked.immersive-mode #bottom-bar{opacity:0!important;pointer
 #progress-bar{position:relative;z-index:1;align-self:center;width:calc(100% - clamp(86px,10vw,156px));height:4px;margin:4px auto 1px;background:rgba(255,255,255,0.095);border-radius:999px;cursor:pointer;transition:height .2s,background .2s,box-shadow .2s,width .2s;overflow:visible;box-shadow:inset 0 1px 1px rgba(255,255,255,.12),inset 0 -1px 1px rgba(0,0,0,.20)}
 #progress-bar:hover,#progress-bar.is-dragging{height:5px;background:rgba(255,255,255,.14);box-shadow:0 0 18px rgba(var(--fc-accent-rgb),.10),inset 0 1px 1px rgba(255,255,255,.18)}
 #progress-fill{height:100%;width:0%;background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(var(--fc-accent-rgb),.74));border-radius:999px;transition:width .12s linear;box-shadow:0 0 16px rgba(var(--fc-accent-rgb),.18)}
+#progress-climax-marker{position:absolute;left:clamp(2px,var(--lf-climax-position,50%),calc(100% - 2px));top:50%;width:4px;height:4px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.24),0 0 7px rgba(255,255,255,.62);transform:translate(-50%,-50%);opacity:0;pointer-events:none;transition:opacity .14s;z-index:2}
+#progress-climax-marker.visible{opacity:1}
 #progress-thumb{position:absolute;left:0;top:50%;width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff 0,#fff 28%,rgba(194,235,255,.86) 74%);box-shadow:0 0 0 1px rgba(255,255,255,.34),0 0 18px rgba(178,229,255,.28);transform:translate(-50%,-50%) scale(.72);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s}
 #progress-bar:hover #progress-thumb,#progress-bar.is-dragging #progress-thumb{opacity:1;transform:translate(-50%,-50%) scale(1)}
 #controls{position:relative;z-index:1;width:100%;display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(380px,auto) minmax(400px,1.08fr);align-items:center;gap:18px}
@@ -2347,7 +2349,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </div>
     <div id="mini-queue-list" class="mini-queue-list"></div>
   </div>
-  <div id="progress-bar"><div id="progress-fill"></div><div id="progress-thumb" aria-hidden="true"></div></div>
+  <div id="progress-bar"><div id="progress-fill"></div><div id="progress-climax-marker" aria-hidden="true"></div><div id="progress-thumb" aria-hidden="true"></div></div>
   <div id="controls">
     <div class="control-cluster actions">
       <div class="control-track">
@@ -22622,6 +22624,54 @@ function setProgressVisual(percent) {
   if (fill) fill.style.width = percent + '%';
   if (thumb) thumb.style.left = percent + '%';
 }
+var progressClimaxMarkerState = { songKey:'', startSec:null, source:'', requestKey:'' };
+var progressClimaxMarkerRequestSerial = 0;
+var progressClimaxMediaSongKey = '';
+function hideProgressClimaxMarker(songKey) {
+  var marker = document.getElementById('progress-climax-marker');
+  progressClimaxMarkerState = { songKey:String(songKey || ''), startSec:null, source:'', requestKey:'' };
+  progressClimaxMarkerRequestSerial += 1;
+  if (!marker) return;
+  marker.classList.remove('visible');
+  marker.style.removeProperty('--lf-climax-position');
+  marker.removeAttribute('title');
+  marker.removeAttribute('data-source');
+  marker.removeAttribute('data-start-sec');
+}
+function updateProgressClimaxMarker() {
+  var marker = document.getElementById('progress-climax-marker');
+  if (!marker) return;
+  var api = window.LumiFieldClimaxPreview;
+  var owner = api && typeof api.getMarkerOwner === 'function' ? api.getMarkerOwner() : null;
+  var song = owner && owner.song ? owner.song : (typeof currentCoverSong === 'function' ? currentCoverSong() : (playQueue && playQueue[currentIdx]));
+  var songKey = owner && owner.songKey ? String(owner.songKey) : (song && api && typeof api.songKey === 'function' ? api.songKey(song) : (song && typeof queueItemKey === 'function' ? queueItemKey(song) : ''));
+  if (!song || !songKey) { hideProgressClimaxMarker(''); return; }
+  if (songKey !== progressClimaxMarkerState.songKey) hideProgressClimaxMarker(songKey);
+  var durationSec = normalizePlaybackDurationSeconds(owner && owner.duration) || playbackDurationFromSong(song);
+  if (!durationSec && progressClimaxMediaSongKey === songKey) durationSec = getPlaybackDurationSeconds();
+  var known = api && typeof api.getKnownStart === 'function' ? api.getKnownStart(song, durationSec) : null;
+  if (!known && api && typeof api.ensureStart === 'function' && progressClimaxMarkerState.requestKey !== songKey) {
+    progressClimaxMarkerState.requestKey = songKey;
+    var requestSerial = ++progressClimaxMarkerRequestSerial;
+    Promise.resolve(api.ensureStart(song, durationSec)).then(function (resolved) {
+      if (!resolved || requestSerial !== progressClimaxMarkerRequestSerial || progressClimaxMarkerState.songKey !== songKey) return;
+      updateProgressClimaxMarker();
+    }).catch(function () {});
+  }
+  var startSec = Number(known && known.startSec);
+  if (!isFinite(startSec) || startSec <= 0 || !isFinite(durationSec) || durationSec <= 0 || startSec >= durationSec) {
+    marker.classList.remove('visible');
+    return;
+  }
+  var percent = clampRange(startSec / durationSec * 100, 0, 100);
+  progressClimaxMarkerState.startSec = startSec;
+  progressClimaxMarkerState.source = String(known.source || '');
+  marker.style.setProperty('--lf-climax-position', percent.toFixed(4) + '%');
+  marker.setAttribute('data-source', progressClimaxMarkerState.source);
+  marker.setAttribute('data-start-sec', startSec.toFixed(3));
+  marker.title = '高潮位置 ' + formatProgramTime(startSec);
+  marker.classList.add('visible');
+}
 function updatePlaybackProgressUi() {
   var durationSec = getPlaybackDurationSeconds();
   var currentSec = getPlaybackCurrentSeconds();
@@ -22629,12 +22679,20 @@ function updatePlaybackProgressUi() {
   setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
   var timeDisplay = document.getElementById('time-display');
   if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  updateProgressClimaxMarker();
 }
 function bindPlaybackProgressEvents(audioEl) {
   if (!audioEl) return;
   if (window.LFAudioControls && typeof window.LFAudioControls.bindAudio === 'function') window.LFAudioControls.bindAudio(audioEl);
   if (audioEl._lumifieldProgressBound) return;
   audioEl._lumifieldProgressBound = true;
+  audioEl.addEventListener('loadedmetadata', function () {
+    var api = window.LumiFieldClimaxPreview;
+    var owner = api && typeof api.getMarkerOwner === 'function' ? api.getMarkerOwner() : null;
+    var mediaSong = owner && owner.song ? owner.song : (typeof currentCoverSong === 'function' ? currentCoverSong() : null);
+    progressClimaxMediaSongKey = mediaSong && api && typeof api.songKey === 'function' ? api.songKey(mediaSong) : (mediaSong && typeof queueItemKey === 'function' ? queueItemKey(mediaSong) : '');
+  });
+  audioEl.addEventListener('emptied', function () { progressClimaxMediaSongKey = ''; });
   ['loadedmetadata', 'durationchange', 'timeupdate', 'seeked', 'play', 'pause', 'emptied'].forEach(function(name){
     audioEl.addEventListener(name, updatePlaybackProgressUi);
     audioEl.addEventListener(name, function(){
@@ -22645,6 +22703,7 @@ function bindPlaybackProgressEvents(audioEl) {
     audioEl.addEventListener(name, function(){ syncPlaybackStateFromAudioEvent(name); });
   });
 }
+document.addEventListener('lumifield-climax-start-update', function () { updateProgressClimaxMarker(); });
 function progressRatioFromPointer(e) {
   var durationSec = getPlaybackDurationSeconds();
   if (!audio || !durationSec) return null;

@@ -41,7 +41,7 @@
     var id = text(song.id || song.mid || song.songmid || song.hash || song.localKey, 160);
     var name = text(song.name || song.title, 256);
     if (!provider || !id || !name) return null;
-    return {
+    var sanitized = {
       id:id,
       provider:provider,
       source:provider,
@@ -66,13 +66,17 @@
       mediaType:text(song.mediaType || song.qishuiMediaType, 32),
       qishuiMediaType:text(song.qishuiMediaType || song.mediaType, 32),
       duration:Math.max(0, number(song.duration || song.durationMs || song.dt, 0)),
-      climaxStartSec:Math.max(0, number(song.climaxStartSec, 0)),
       fee:number(song.fee, 0),
       playable:song.playable === true ? true : (song.playable === false ? false : null),
       playlistId:text(song.playlistId, 160),
       sourcePlaylistId:text(song.sourcePlaylistId, 160),
       queueId:text(song.queueId, 160)
     };
+    ['climaxStartSec', 'chorusStartSec', 'highlightStartSec'].forEach(function (field) {
+      var value = number(song[field], NaN);
+      if (isFinite(value) && value > 0) sanitized[field] = value;
+    });
+    return sanitized;
   }
 
   function emptyRoot() { return { schema:SCHEMA, version:VERSION, profiles:{} }; }

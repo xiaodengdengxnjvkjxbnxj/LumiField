@@ -928,7 +928,7 @@ function normalizeClimaxStartSec(raw, durationValue) {
     ['chorusStartMs', raw.chorusStartMs],
     ['highlightStartMs', raw.highlightStartMs],
     ['climaxStart', raw.climaxStart],
-    ['chorusStart', raw.chorusStart || raw.chorus_start || raw.chorus_start_time],
+    ['chorusStart', raw.chorusStart ?? raw.chorus_start ?? raw.chorus_start_time],
     ['highlightStart', raw.highlightStart],
     ['previewStartTime', raw.previewStartTime],
     ['auditionStartTime', raw.auditionStartTime],
@@ -940,13 +940,14 @@ function normalizeClimaxStartSec(raw, durationValue) {
     ['audio_features.chorus_start', audioFeatures.chorus_start ?? audioFeatures.chorusStart],
   ];
   for (const [field, candidate] of candidates) {
+    if (candidate == null || (typeof candidate === 'string' && !candidate.trim())) continue;
     let value = Number(candidate);
-    if (!Number.isFinite(value) || value < 0) continue;
+    if (!Number.isFinite(value) || value <= 0) continue;
     if (/ms|start_time/i.test(field) || (value > 1000 && (!durationSec || value > durationSec * 1.8))) value /= 1000;
-    if (!Number.isFinite(value) || value < 0 || (durationSec > 0 && value >= durationSec - 0.15)) continue;
+    if (!Number.isFinite(value) || value <= 0 || (durationSec > 0 && value >= durationSec - 0.15)) continue;
     return Math.round(value * 1000) / 1000;
   }
-  return null;
+  return undefined;
 }
 function mapSongRecord(s) {
   s = s || {};

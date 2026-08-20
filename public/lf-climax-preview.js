@@ -1,10 +1,11 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
-  var CACHE_KEY = 'lumifield-climax-analysis-v1';
+  var VERSION = '1.1.0';
+  var CACHE_KEY = 'lumifield-climax-analysis-v2';
   var DEFAULT_HOLD_MS = 620;
   var DEFAULT_SEGMENT_SECONDS = 60;
+  var MIN_CLIMAX_START_SECONDS = 0.5;
   var MAX_CACHE_ROWS = 96;
   var state = {
     phase: 'idle',
@@ -36,6 +37,7 @@
   };
   var analysisCache = readAnalysisCache();
   var chip = null;
+  var markerResolve = { generation:0, key:'', promise:null, failedKey:'', failedAt:0 };
 
   function clamp(value, min, max) {
     value = Number(value);
@@ -160,13 +162,13 @@
   function stableSongKey(song) {
     if (!song) return '';
     try {
-      if (typeof beatMapSongKey === 'function') {
-        var beatKey = beatMapSongKey(song);
-        if (beatKey) return beatKey;
-      }
       if (typeof queueItemKey === 'function') {
         var queueKey = queueItemKey(song);
         if (queueKey) return queueKey;
+      }
+      if (typeof beatMapSongKey === 'function') {
+        var beatKey = beatMapSongKey(song);
+        if (beatKey) return beatKey;
       }
     } catch (_) {}
     return [
@@ -233,15 +235,57 @@
     for (var i = 0; i < rows.length; i++) {
       var value = normalizeStartValue(rows[i][1], rows[i][0], duration);
       if (value != null) {
-        return { startSec: fitSegmentStart(value, duration), source: 'platform-metadata', field: rows[i][0] };
+        var fitted = fitSegmentStart(value, duration);
+        if (Number.isFinite(fitted)) return { startSec: fitted, source: 'platform-metadata', field: rows[i][0] };
       }
     }
     return null;
   }
   function fitSegmentStart(start, duration) {
-    var length = segmentSeconds();
-    if (!duration || duration <= length + 0.15) return 0;
-    return clamp(start, 0, Math.max(0, duration - length));
+    start = Number(start);
+    duration = durationSeconds(duration);
+    if (!Number.isFinite(start) || start < MIN_CLIMAX_START_SECONDS) return NaN;
+    if (!duration) return start;
+    var maxStart = duration - 0.15;
+    if (maxStart < MIN_CLIMAX_START_SECONDS) return NaN;
+    return clamp(start, MIN_CLIMAX_START_SECONDS, maxStart);
+  }
+  function publishResolvedStart(song, choice, duration) {
+    if (!choice) return null;
+    var fitted = fitSegmentStart(choice.startSec, duration || choice.duration || songDuration(song));
+    if (!Number.isFinite(fitted)) return null;
+    var key = stableSongKey(song);
+    var result = Object.assign({}, choice, { startSec:fitted, duration:duration || choice.duration || songDuration(song) || 0 });
+    if (key) {
+      analysisCache[key] = {
+        startSec:result.startSec,
+        duration:result.duration,
+        source:result.source || 'lf-analysis-cache',
+        score:Number(result.score) || 0,
+        updatedAt:now()
+      };
+      writeAnalysisCache();
+    }
+    try { document.dispatchEvent(new CustomEvent('lumifield-climax-start-update', { detail:{ songKey:key, startSec:result.startSec, source:result.source || '' } })); } catch (_) {}
+    return result;
+  }
+  function getKnownStart(song, duration) {
+    duration = durationSeconds(duration) || songDuration(song);
+    var metadata = platformClimaxStart(song, duration);
+    if (metadata) return metadata;
+    var key = stableSongKey(song);
+    var cached = key && analysisCache[key];
+    if (cached) {
+      var cachedStart = fitSegmentStart(cached.startSec, duration || cached.duration);
+      if (Number.isFinite(cachedStart)) return { startSec:cachedStart, duration:duration || cached.duration || 0, source:cached.source || 'lf-analysis-cache', cached:true };
+    }
+    try {
+      var beatKey = typeof beatMapSongKey === 'function' ? beatMapSongKey(song) : key;
+      var map = typeof beatMapCache !== 'undefined' && beatMapCache && beatMapCache[beatKey];
+      var fromMap = beatMapClimaxStart(map, duration);
+      if (fromMap) return fromMap;
+    } catch (_) {}
+    return null;
   }
   function eventValue(event, key, fallback) {
     if (typeof event === 'number') return key === 'time' ? event : (fallback == null ? 0.5 : fallback);
@@ -251,7 +295,8 @@
   function beatMapClimaxStart(map, duration) {
     if (!map || typeof map !== 'object') return null;
     if (Number.isFinite(Number(map.climaxStartSec))) {
-      return { startSec: fitSegmentStart(Number(map.climaxStartSec), duration || durationSeconds(map.duration)), source: 'lf-analysis-cache', cachedField: true };
+      var cachedStart = fitSegmentStart(Number(map.climaxStartSec), duration || durationSeconds(map.duration));
+      if (Number.isFinite(cachedStart)) return { startSec: cachedStart, source: 'lf-analysis-cache', cachedField: true };
     }
     duration = duration || durationSeconds(map.duration);
     var events = (Array.isArray(map.cameraBeats) && map.cameraBeats.length ? map.cameraBeats
@@ -261,10 +306,10 @@
       return Number.isFinite(time) && time >= 0;
     });
     if (!events.length || !duration) return null;
-    var windowLen = Math.min(segmentSeconds(), duration);
-    if (duration <= windowLen + 0.15) return { startSec: 0, source: 'lf-analysis-cache', score: 0 };
-    var maxStart = Math.max(0, duration - windowLen);
-    var minStart = duration >= 90 ? Math.min(20, duration * 0.08) : 0;
+    if (duration <= MIN_CLIMAX_START_SECONDS + 0.2) return null;
+    var windowLen = Math.min(segmentSeconds(), Math.max(1, Math.min(duration - MIN_CLIMAX_START_SECONDS, duration * 0.55)));
+    var maxStart = Math.max(MIN_CLIMAX_START_SECONDS, duration - windowLen);
+    var minStart = Math.min(maxStart, duration >= 90 ? Math.min(20, duration * 0.08) : MIN_CLIMAX_START_SECONDS);
     var candidates = {};
     for (var grid = minStart; grid <= maxStart + 0.001; grid += 4) candidates[grid.toFixed(3)] = grid;
     events.forEach(function (event) {
@@ -327,7 +372,7 @@
       return bs - as || eventValue(a, 'time', 0) - eventValue(b, 'time', 0);
     })[0];
     if (align) best.startSec = fitSegmentStart(eventValue(align, 'time', best.startSec), duration);
-    return best;
+    return Number.isFinite(best.startSec) ? best : null;
   }
   function normalizedCorrelation(values, offset, length, lag) {
     if (length < 4 || lag <= 0 || offset + length + lag > values.length) return 0;
@@ -348,11 +393,14 @@
     }
     return aPower > 0 && bPower > 0 ? clamp(numerator / Math.sqrt(aPower * bPower), -1, 1) : 0;
   }
-  async function analyzeAudioForClimax(audioUrl, durationHint, generation) {
+  function analysisIsActive(generation, guard) {
+    return typeof guard === 'function' ? guard() : generation === state.generation && state.holding;
+  }
+  async function analyzeAudioForClimax(audioUrl, durationHint, generation, guard) {
     var response = await fetch(audioUrl);
     if (!response.ok) throw new Error('CLIMAX_AUDIO_HTTP_' + response.status);
     var bytes = await response.arrayBuffer();
-    if (generation !== state.generation || !state.holding) throw new Error('CLIMAX_CANCELLED');
+    if (!analysisIsActive(generation, guard)) throw new Error('CLIMAX_CANCELLED');
     var Ctx = global.AudioContext || global.webkitAudioContext;
     if (!Ctx) throw new Error('CLIMAX_AUDIO_CONTEXT_UNAVAILABLE');
     var context = new Ctx();
@@ -362,7 +410,7 @@
     } finally {
       try { await context.close(); } catch (_) {}
     }
-    if (generation !== state.generation || !state.holding) throw new Error('CLIMAX_CANCELLED');
+    if (!analysisIsActive(generation, guard)) throw new Error('CLIMAX_CANCELLED');
     if (!buffer || !buffer.length) throw new Error('CLIMAX_DECODE_EMPTY');
     var duration = durationSeconds(buffer.duration) || durationHint;
     var frameSec = 0.5;
@@ -392,19 +440,17 @@
       onset[frame] = count ? diff / count : 0;
       if (frame && frame % 80 === 0) {
         await new Promise(function (resolve) { setTimeout(resolve, 0); });
-        if (generation !== state.generation || !state.holding) throw new Error('CLIMAX_CANCELLED');
+        if (!analysisIsActive(generation, guard)) throw new Error('CLIMAX_CANCELLED');
       }
     }
     var sortedEnergy = Array.prototype.slice.call(energy).sort(function (a, b) { return a - b; });
     var sortedOnset = Array.prototype.slice.call(onset).sort(function (a, b) { return a - b; });
     var e90 = sortedEnergy[Math.min(sortedEnergy.length - 1, Math.floor(sortedEnergy.length * 0.90))] || 0.001;
     var o90 = sortedOnset[Math.min(sortedOnset.length - 1, Math.floor(sortedOnset.length * 0.90))] || 0.001;
-    var windowSec = Math.min(segmentSeconds(), duration);
+    if (duration <= MIN_CLIMAX_START_SECONDS + 0.2) throw new Error('CLIMAX_AUDIO_TOO_SHORT');
+    var windowSec = Math.min(segmentSeconds(), Math.max(1, Math.min(duration - MIN_CLIMAX_START_SECONDS, duration * 0.55)));
     var windowFrames = Math.max(1, Math.floor(windowSec / frameSec));
-    if (duration <= windowSec + 0.15) {
-      return { startSec: 0, duration: duration, source: 'local-energy-analysis', score: 1 };
-    }
-    var minFrame = duration >= 90 ? Math.floor(Math.min(20, duration * 0.08) / frameSec) : 0;
+    var minFrame = Math.max(1, Math.floor((duration >= 90 ? Math.min(20, duration * 0.08) : MIN_CLIMAX_START_SECONDS) / frameSec));
     var maxFrame = Math.max(minFrame, frameCount - windowFrames);
     var stepFrames = Math.max(1, Math.round(2 / frameSec));
     var best = null;
@@ -451,8 +497,10 @@
         peakFrame = pf;
       }
     }
+    var detectedStart = fitSegmentStart(peakFrame * frameSec, duration);
+    if (!Number.isFinite(detectedStart)) throw new Error('CLIMAX_ANALYSIS_ZERO_START_REJECTED');
     return {
-      startSec: fitSegmentStart(peakFrame * frameSec, duration),
+      startSec: detectedStart,
       duration: duration,
       source: 'local-energy-analysis',
       score: best.score,
@@ -494,15 +542,17 @@
     var metadata = platformClimaxStart(song, duration)
       || platformClimaxStart(source.data && source.data.resolvedSong, duration)
       || platformClimaxStart(source.data, duration);
-    if (metadata) {
-      metadata.duration = duration;
-      return metadata;
-    }
+    if (metadata) return publishResolvedStart(song, metadata, duration);
     var key = stableSongKey(song);
+    if (markerResolve.key === key && markerResolve.promise) {
+      var resolving = await markerResolve.promise;
+      if (resolving) return resolving;
+    }
     var cached = key && analysisCache[key];
-    if (cached && Number.isFinite(Number(cached.startSec)) && (!duration || !cached.duration || Math.abs(Number(cached.duration) - duration) < 2.5)) {
+    var fittedCached = cached && fitSegmentStart(Number(cached.startSec), duration || Number(cached.duration));
+    if (cached && Number.isFinite(fittedCached) && (!duration || !cached.duration || Math.abs(Number(cached.duration) - duration) < 2.5)) {
       return {
-        startSec: fitSegmentStart(Number(cached.startSec), duration || Number(cached.duration)),
+        startSec: fittedCached,
         duration: duration || Number(cached.duration) || 0,
         source: cached.source === 'local-energy-analysis' ? 'local-analysis-cache' : 'lf-analysis-cache',
         score: Number(cached.score) || 0,
@@ -513,30 +563,47 @@
     var fromMap = beatMapClimaxStart(map, duration);
     if (fromMap) {
       fromMap.duration = duration || durationSeconds(map && map.duration);
-      if (key) {
-        analysisCache[key] = {
-          startSec: fromMap.startSec,
-          duration: fromMap.duration,
-          source: 'lf-analysis-cache',
-          score: fromMap.score || 0,
-          updatedAt: now(),
-        };
-        writeAnalysisCache();
-      }
-      return fromMap;
+      return publishResolvedStart(song, fromMap, fromMap.duration);
     }
     var local = await analyzeAudioForClimax(source.audioUrl, duration, generation);
-    if (key) {
-      analysisCache[key] = {
-        startSec: local.startSec,
-        duration: local.duration,
-        source: 'local-energy-analysis',
-        score: local.score || 0,
-        updatedAt: now(),
-      };
-      writeAnalysisCache();
-    }
-    return local;
+    return publishResolvedStart(song, local, local.duration);
+  }
+  function ensureStart(song, duration) {
+    duration = durationSeconds(duration) || songDuration(song);
+    var known = getKnownStart(song, duration);
+    if (known) return Promise.resolve(known);
+    var key = stableSongKey(song);
+    if (!key) return Promise.resolve(null);
+    if (markerResolve.key === key && markerResolve.promise) return markerResolve.promise;
+    if (markerResolve.failedKey === key && now() - markerResolve.failedAt < 15000) return Promise.resolve(null);
+    var generation = ++markerResolve.generation;
+    markerResolve.key = key;
+    var guard = function () { return generation === markerResolve.generation && markerResolve.key === key; };
+    markerResolve.promise = (async function () {
+      var map = await cachedBeatMap(song);
+      if (!guard()) throw new Error('CLIMAX_CANCELLED');
+      var fromMap = beatMapClimaxStart(map, duration || durationSeconds(map && map.duration));
+      if (fromMap) return publishResolvedStart(song, fromMap, duration || durationSeconds(map && map.duration));
+      var source = await resolveSource(song);
+      if (!guard()) throw new Error('CLIMAX_CANCELLED');
+      var sourceDuration = source.duration || duration;
+      var metadata = platformClimaxStart(source.data && source.data.resolvedSong, sourceDuration)
+        || platformClimaxStart(source.data, sourceDuration);
+      if (metadata) return publishResolvedStart(song, metadata, sourceDuration);
+      var local = await analyzeAudioForClimax(source.audioUrl, sourceDuration, generation, guard);
+      if (!guard()) throw new Error('CLIMAX_CANCELLED');
+      return publishResolvedStart(song, local, local.duration);
+    })().catch(function (error) {
+      if (guard() && !/CLIMAX_CANCELLED/.test(String(error && error.message))) {
+        markerResolve.failedKey = key;
+        markerResolve.failedAt = now();
+        logEvent('marker-resolve-unavailable', { songKey:key, error:String(error && error.message || error) });
+      }
+      return null;
+    }).finally(function () {
+      if (generation === markerResolve.generation) markerResolve.promise = null;
+    });
+    return markerResolve.promise;
   }
   function pageSignature() {
     var body = document.body;
@@ -624,11 +691,36 @@
   }
   async function seekMedia(media, seconds, generation) {
     seconds = Math.max(0, Number(seconds) || 0);
-    if (Math.abs((media.currentTime || 0) - seconds) < 0.025) return;
-    var wait = mediaEvent(media, ['seeked', 'canplay'], 9000, generation).catch(function () {});
-    media.currentTime = seconds;
-    await wait;
+    if (Math.abs((media.currentTime || 0) - seconds) <= 0.30) return;
+    await new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () { finish(new Error('CLIMAX_SEEK_TIMEOUT')); }, 9000);
+      function cleanup() {
+        clearTimeout(timer);
+        media.removeEventListener('seeked', onSeeked);
+        media.removeEventListener('error', onError);
+      }
+      function finish(error) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error); else resolve();
+      }
+      function onSeeked() {
+        if (generation != null && generation !== state.generation) finish(new Error('CLIMAX_CANCELLED'));
+        else if (Math.abs((Number(media.currentTime) || 0) - seconds) > 0.30) finish(new Error('CLIMAX_SEEK_MISMATCH'));
+        else finish();
+      }
+      function onError() {
+        var detail = media.error && (media.error.message || ('MEDIA_ERR_' + media.error.code));
+        finish(new Error(detail || 'CLIMAX_SEEK_MEDIA_ERROR'));
+      }
+      media.addEventListener('seeked', onSeeked);
+      media.addEventListener('error', onError);
+      try { media.currentTime = seconds; } catch (error) { finish(error); }
+    });
     if (generation != null && generation !== state.generation) throw new Error('CLIMAX_CANCELLED');
+    if (Math.abs((Number(media.currentTime) || 0) - seconds) > 0.30) throw new Error('CLIMAX_SEEK_MISMATCH');
   }
   async function beginMediaPreview(source, choice, generation) {
     if (generation !== state.generation || !state.holding) throw new Error('CLIMAX_CANCELLED');
@@ -658,18 +750,16 @@
       var duration = durationSeconds(media.duration) || choice.duration || source.duration || songDuration(state.song);
       var wanted = segmentSeconds();
       var start = fitSegmentStart(choice.startSec, duration);
+      if (!Number.isFinite(start)) throw new Error('CLIMAX_START_INVALID');
       var available = Math.max(0.12, duration ? duration - start : wanted);
       var segment = Math.min(wanted, available);
-      if (duration && duration <= wanted + 0.15) {
-        start = 0;
-        segment = Math.max(0.12, duration - 0.04);
-      }
       state.startSec = start;
       state.segmentSec = segment;
       state.endSec = start + segment;
       state.sourceKind = choice.source || 'unknown';
       state.sourceUrl = source.audioUrl;
       await seekMedia(media, start, generation);
+      if (Math.abs((Number(media.currentTime) || 0) - start) > 0.30) throw new Error('CLIMAX_SEEK_MISMATCH');
       if (typeof audioReady !== 'undefined' && !audioReady && typeof initAudio === 'function') initAudio();
       if (typeof resumeAudioAnalysis === 'function') await resumeAudioAnalysis();
       await media.play();
@@ -678,6 +768,7 @@
       state.startedAt = performance.now();
       state.loopCount = 0;
       state.lastLoopAt = state.startedAt;
+      if (typeof updatePlaybackProgressUi === 'function') updatePlaybackProgressUi();
       if (state.target) state.target.classList.add('lf-climax-active');
       logEvent('preview-start', {
         origin: state.origin,
@@ -846,6 +937,11 @@
     state.holding = true;
     state.pageSignature = pageSignature();
     state.lastError = '';
+    state.startSec = 0;
+    state.endSec = 0;
+    state.segmentSec = 0;
+    state.sourceKind = '';
+    state.sourceUrl = '';
     state.loopCount = 0;
     if (state.target) state.target.classList.add('lf-climax-hold');
     var generation = state.generation;
@@ -886,7 +982,12 @@
     state.origin = '';
     state.target = null;
     state.hitId = '';
+    state.startSec = 0;
+    state.endSec = 0;
+    state.segmentSec = 0;
+    state.sourceKind = '';
     state.sourceUrl = '';
+    if (typeof updatePlaybackProgressUi === 'function') updatePlaybackProgressUi();
     return true;
   }
   function consumeClick(event) {
@@ -1072,6 +1173,19 @@
         audioIdentity: typeof audio !== 'undefined' && audio ? String(audio) : '',
         queueKeys: typeof playQueue !== 'undefined' ? playQueue.map(stableSongKey) : [],
         currentIdx: typeof currentIdx !== 'undefined' ? currentIdx : -1,
+      };
+    },
+    getKnownStart: getKnownStart,
+    ensureStart: ensureStart,
+    songKey: stableSongKey,
+    getMarkerOwner: function () {
+      if (!state.holding || (state.phase !== 'preparing' && state.phase !== 'playing') || !state.song) return null;
+      return {
+        song:state.song,
+        songKey:state.songKey,
+        startSec:Number.isFinite(state.startSec) && state.startSec >= MIN_CLIMAX_START_SECONDS ? state.startSec : null,
+        duration:durationSeconds(typeof audio !== 'undefined' && audio ? audio.duration : 0) || songDuration(state.song),
+        source:state.sourceKind || ''
       };
     },
     computePlatformStart: platformClimaxStart,

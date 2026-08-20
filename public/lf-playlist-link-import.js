@@ -260,7 +260,7 @@
       throw trackError;
     }
     var duration = Math.max(0, finite(raw.duration != null ? raw.duration : (raw.durationMs != null ? raw.durationMs : raw.dt), 0));
-    return {
+    var sanitized = {
       provider:songProvider, source:songProvider, type:text(raw.type, 32) || songProvider,
       id:songId, songId:songId,
       qqId:idValue(raw.qqId), mid:idValue(raw.mid || raw.songmid), songmid:idValue(raw.songmid || raw.mid),
@@ -272,10 +272,13 @@
       name:name, title:name, artist:text(raw.artist || raw.author, 320), artists:safeArtists(raw.artists),
       artistId:idValue(raw.artistId), artistMid:idValue(raw.artistMid), album:text(raw.album, 320),
       cover:safeUrl(raw.cover || raw.pic || raw.image, true), duration:duration, durationMs:duration,
-      fee:finite(raw.fee, 0), playable:raw.playable === false ? false : (raw.playable === true ? true : null),
-      climaxStartSec:Math.max(0, finite(raw.climaxStartSec, 0)), chorusStartSec:Math.max(0, finite(raw.chorusStartSec, 0)),
-      highlightStartSec:Math.max(0, finite(raw.highlightStartSec, 0))
+      fee:finite(raw.fee, 0), playable:raw.playable === false ? false : (raw.playable === true ? true : null)
     };
+    ['climaxStartSec', 'chorusStartSec', 'highlightStartSec'].forEach(function (field) {
+      var value = finite(raw[field], NaN);
+      if (isFinite(value) && value > 0) sanitized[field] = value;
+    });
+    return sanitized;
   }
   function normalizedUpdatedAt(value) {
     if (typeof value === 'number' && isFinite(value) && value > 0) return value;

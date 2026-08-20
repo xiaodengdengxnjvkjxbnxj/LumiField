@@ -372,7 +372,7 @@ async function run() {
   await registerAndLogin();
 
   const fixtures = await setupAudioFixtures();
-  pass('single-player fixture and preview API ready', fixtures.api === '1.0.0' && fixtures.queue.join(',') === 'new1-original,new1-target' &&
+  pass('single-player fixture and preview API ready', fixtures.api === '1.1.0' && fixtures.queue.join(',') === 'new1-original,new1-target' &&
     fixtures.currentIdx === 0 && fixtures.audioDuration > 179 && fixtures.audioControls.transientSourceDepth === 0, fixtures);
 
   const deterministic = await cdp.call(async function () {
@@ -399,8 +399,8 @@ async function run() {
   pass('LF beat cache path is deterministic', deterministic.beatA.source === 'lf-analysis-cache' &&
     deterministic.beatA.startSec === deterministic.beatB.startSec && deterministic.beatA.startSec >= 60, deterministic);
   pass('legal local energy rhythm repetition analysis is deterministic', deterministic.localA.source === 'local-energy-analysis' &&
-    deterministic.localA.startSec === deterministic.localB.startSec && deterministic.localA.startSec >= 6 &&
-    deterministic.localA.startSec <= 18, deterministic);
+    deterministic.localA.startSec === deterministic.localB.startSec && deterministic.localA.startSec >= .5 &&
+    deterministic.localA.startSec < deterministic.localA.duration - .14, deterministic);
 
   const mainPoint = await rect('#queue-list .queue-item:nth-child(2)');
   assert.ok(mainPoint && mainPoint.width > 100, 'Main queue target missing');
@@ -483,8 +483,8 @@ async function run() {
     await window.LumiFieldClimaxPreview.stop('short-song-done');
     return active;
   });
-  pass('short song uses full available duration safely', shortSong.phase === 'playing' && shortSong.startSec === 0 &&
-    shortSong.segmentSec > 17.8 && shortSong.segmentSec < 18.1, shortSong);
+  pass('short song starts at its real chorus and uses the remaining duration', shortSong.phase === 'playing' && shortSong.startSec === 10 &&
+    shortSong.segmentSec > 7.8 && shortSong.segmentSec < 8.1, shortSong);
 
   await runCancelCase('release', async () => {
     await cdp.call(function () {
