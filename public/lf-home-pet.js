@@ -75,7 +75,7 @@
     var left = Math.max(28, Math.min(52, global.innerWidth * 0.034));
     var desired = Math.max(54, Math.min(64, global.innerWidth * 0.052));
     var maxByHome = home ? (home.top - top - 4 - MOTION_SAFE_TOP - 2) / (SOURCE_ASPECT * 1.08) : desired;
-    var maxBySearch = search ? search.left - left - 12 : desired;
+    var maxBySearch = search ? (search.left - left - 20) / 2 : desired;
     var width = Math.floor(Math.min(desired, maxByHome, maxBySearch));
     var visualHeight = width * SOURCE_ASPECT;
     var safeBottom = Math.ceil(visualHeight * 0.08 + 2);
@@ -92,6 +92,7 @@
     state.root.style.setProperty('--lf-home-pet-visual-width', width + 'px');
     state.root.style.setProperty('--lf-home-pet-visual-height', visualHeight + 'px');
     state.root.style.setProperty('--lf-home-pet-safe-top', MOTION_SAFE_TOP + 'px');
+    state.root.style.setProperty('--lf-home-pet-greeting-width', width + 'px');
     state.root.style.left = Math.round(left) + 'px';
     state.root.style.top = Math.round(top) + 'px';
     state.root.style.width = width + 'px';
@@ -161,7 +162,9 @@
     var search = rectOf('#search-area');
     var petRect = rect ? { left:rect.left, top:rect.top, right:rect.right, bottom:rect.bottom, width:rect.width, height:rect.height } : null;
     var svg = root ? root.querySelector('.lf-home-pet-source-svg') : null;
+    var greeting = root ? root.querySelector('.lf-home-pet-greeting') : null;
     var svgBounds = svg ? svg.getBoundingClientRect() : null;
+    var greetingBounds = greeting ? greeting.getBoundingClientRect() : null;
     var visualWidth = root ? parseFloat(root.style.getPropertyValue('--lf-home-pet-visual-width')) || 0 : 0;
     var visualHeight = root ? parseFloat(root.style.getPropertyValue('--lf-home-pet-visual-height')) || 0 : 0;
     var blockers = blockerRects();
@@ -183,6 +186,14 @@
       eyeY:source ? source.eyeY : 0,
       eyeLimitX:8,
       eyeLimitY:8,
+      trackingRadiusX:source ? source.trackingRadiusX : 0,
+      trackingRadiusY:source ? source.trackingRadiusY : 0,
+      trackingMapping:source ? source.mapping : '',
+      hovered:!!(source && source.hovered),
+      greeting:source ? source.greeting : '',
+      greetingCount:root ? root.querySelectorAll('.lf-home-pet-greeting').length : 0,
+      greetingVisible:!!(greeting && greeting.getAttribute('data-visible') === 'true'),
+      greetingBounds:greetingBounds ? { left:greetingBounds.left, top:greetingBounds.top, right:greetingBounds.right, bottom:greetingBounds.bottom, width:greetingBounds.width, height:greetingBounds.height } : null,
       rect:petRect,
       visualWidth:visualWidth,
       visualHeight:visualHeight,
@@ -193,6 +204,7 @@
       searchRect:search,
       blockerRects:blockers,
       blockerOverlaps:blockers.filter(function (entry) { return rectanglesOverlap(petRect, entry.rect); }).map(function (entry) { return entry.selector; }),
+      greetingBlockerOverlaps:blockers.filter(function (entry) { return rectanglesOverlap(greetingBounds, entry.rect); }).map(function (entry) { return entry.selector; }),
       overlapsHome:rectanglesOverlap(petRect, home),
       overlapsSearch:rectanglesOverlap(petRect, search),
       eligible:shouldMount(),

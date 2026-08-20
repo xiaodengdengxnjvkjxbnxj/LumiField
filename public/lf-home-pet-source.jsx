@@ -21,8 +21,19 @@ const runtime = {
   pointerFrames: 0,
   eyeX: 0,
   eyeY: 0,
+  trackingRadiusX: 0,
+  trackingRadiusY: 0,
+  hovered: false,
+  greeting: '',
   paused: false
 };
+
+function localGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return '早上好';
+  if (hour < 18) return '中午好';
+  return '晚上好';
+}
 
 function MeshGradientSVG({ paused = false }) {
   const svgRef = useRef(null);
@@ -30,12 +41,14 @@ function MeshGradientSVG({ paused = false }) {
   const latestPointerRef = useRef({ x: 0, y: 0 });
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [eyeOffset, setEyeOffset] = useState({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState(false);
+  const [greeting, setGreeting] = useState('');
   const reducedMotion = useReducedMotion();
   const motionPaused = paused || reducedMotion;
 
   useEffect(() => {
     runtime.mounts += 1;
-    runtime.listenerCount += 1;
+    runtime.listenerCount += 2;
     const handleMouseMove = (event) => {
       latestPointerRef.current = { x: event.clientX, y: event.clientY };
       if (pointerRafRef.current) return;
@@ -45,15 +58,28 @@ function MeshGradientSVG({ paused = false }) {
         setMousePosition(latestPointerRef.current);
       });
     };
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+    const handleWindowMouseOut = (event) => {
+      if (event.relatedTarget || event.toElement) return;
+      latestPointerRef.current = { x: -100000, y: -100000 };
       if (pointerRafRef.current) cancelAnimationFrame(pointerRafRef.current);
       pointerRafRef.current = 0;
-      runtime.listenerCount = Math.max(0, runtime.listenerCount - 1);
+      runtime.hovered = false;
+      runtime.greeting = '';
+      setMousePosition(latestPointerRef.current);
+    };
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseout', handleWindowMouseOut, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseout', handleWindowMouseOut);
+      if (pointerRafRef.current) cancelAnimationFrame(pointerRafRef.current);
+      pointerRafRef.current = 0;
+      runtime.listenerCount = Math.max(0, runtime.listenerCount - 2);
       runtime.unmounts += 1;
       runtime.eyeX = 0;
       runtime.eyeY = 0;
+      runtime.hovered = false;
+      runtime.greeting = '';
     };
   }, []);
 
@@ -62,16 +88,26 @@ function MeshGradientSVG({ paused = false }) {
     if (!rect) return;
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
-    const deltaX = (mousePosition.x - centerX) * 0.08;
-    const deltaY = (mousePosition.y - centerY) * 0.08;
+    const deltaX = mousePosition.x - centerX;
+    const deltaY = mousePosition.y - centerY;
     const maxOffset = 8;
+    const radiusX = Math.max(220, window.innerWidth * 0.32);
+    const radiusY = Math.max(160, window.innerHeight * 0.32);
     const next = {
-      x: Math.max(-maxOffset, Math.min(maxOffset, deltaX)),
-      y: Math.max(-maxOffset, Math.min(maxOffset, deltaY))
+      x: Math.max(-maxOffset, Math.min(maxOffset, maxOffset * Math.tanh(deltaX / radiusX))),
+      y: Math.max(-maxOffset, Math.min(maxOffset, maxOffset * Math.tanh(deltaY / radiusY)))
     };
+    const nextHovered = mousePosition.x >= rect.left && mousePosition.x <= rect.right && mousePosition.y >= rect.top && mousePosition.y <= rect.bottom;
+    const nextGreeting = nextHovered ? localGreeting() : '';
     runtime.eyeX = next.x;
     runtime.eyeY = next.y;
+    runtime.trackingRadiusX = radiusX;
+    runtime.trackingRadiusY = radiusY;
+    runtime.hovered = nextHovered;
+    runtime.greeting = nextGreeting;
     setEyeOffset(next);
+    setHovered(nextHovered);
+    setGreeting(nextGreeting);
   }, [mousePosition]);
 
   useEffect(() => {
@@ -128,6 +164,9 @@ function MeshGradientSVG({ paused = false }) {
           transition={{ type: 'spring', stiffness: 150, damping: 15 }}
         />
       </svg>
+      <div className="lf-home-pet-greeting" data-visible={hovered ? 'true' : 'false'} aria-hidden="true">
+        {greeting}
+      </div>
     </motion.div>
   );
 }
@@ -169,6 +208,11 @@ export function getDebug(host) {
     eyeLimit: 8,
     eyeX: runtime.eyeX,
     eyeY: runtime.eyeY,
+    trackingRadiusX: runtime.trackingRadiusX,
+    trackingRadiusY: runtime.trackingRadiusY,
+    mapping: 'viewport-tanh',
+    hovered: runtime.hovered,
+    greeting: runtime.greeting,
     pointerFrames: runtime.pointerFrames,
     listenerCount: runtime.listenerCount,
     mounts: runtime.mounts,

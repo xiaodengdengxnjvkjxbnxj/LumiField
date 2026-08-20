@@ -16,6 +16,7 @@
   top:var(--lf-home-pet-safe-top,8px);
   width:var(--lf-home-pet-visual-width,60px);
   height:var(--lf-home-pet-visual-height,75px);
+  overflow:visible;
 }
 #lf-home-pet .lf-home-pet-source-svg,
 #lf-home-pet .lf-home-pet-source-gradient,
@@ -26,6 +27,31 @@
 #lf-home-pet [data-paper-shader] canvas { position:absolute;inset:0;z-index:0;width:100%;height:100%;display:block;contain:strict; }
 #lf-home-pet .lf-home-pet-source-eye { fill:currentColor; }
 #lf-home-pet .lf-home-pet-source-blink { animation:lf-home-pet-source-blink 3s infinite ease-in-out; }
+#lf-home-pet .lf-home-pet-greeting {
+  position:absolute;
+  left:calc(100% + 8px);
+  top:0;
+  box-sizing:border-box;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  width:max-content;
+  max-width:var(--lf-home-pet-greeting-width,var(--lf-home-pet-visual-width,60px));
+  min-height:24px;
+  max-height:var(--lf-home-pet-visual-height,75px);
+  padding:5px 6px;
+  border:1px solid rgba(255,255,255,.45);
+  border-radius:12px 12px 12px 4px;
+  background:linear-gradient(145deg,rgba(31,42,79,.82),rgba(64,51,104,.76));
+  box-shadow:0 8px 20px rgba(18,23,55,.22),inset 0 1px 0 rgba(255,255,255,.26);
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.15;
+  white-space:nowrap;
+  pointer-events:none;
+}
+#lf-home-pet .lf-home-pet-greeting[data-visible="true"] { display:flex; }
 
 @keyframes lf-home-pet-source-blink {
   0%,90%,100% { ry:30; }
