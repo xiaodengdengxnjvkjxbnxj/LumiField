@@ -1292,8 +1292,17 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .pl-detail-play{height:30px;min-width:98px;padding:0 12px;border-radius:999px;border:1px solid rgba(var(--fc-accent-rgb),.32);background:rgba(var(--fc-accent-rgb),.10);color:#fff;font:700 11.5px var(--font-sans);display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
 .pl-detail-play svg{width:13px;height:13px;fill:currentColor}
 .pl-detail-top-btn{height:30px;min-width:82px;flex:0 0 auto;padding:0 12px}
-.pl-detail-list{display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
-.pl-detail-row{display:flex;align-items:center;gap:9px;padding:7px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);cursor:pointer}
+.pl-detail-search{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin:0 0 8px}
+.pl-detail-search input{width:100%;height:32px;min-width:0;padding:0 11px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(4,7,12,.62);color:#fff;font:500 11.5px var(--font-sans);outline:none}
+.pl-detail-search input:focus{border-color:rgba(var(--fc-accent-rgb),.48);box-shadow:0 0 0 2px rgba(var(--fc-accent-rgb),.10)}
+.pl-detail-search button{height:32px;min-width:48px;padding:0 10px;border-radius:10px}
+.pl-detail-search-status{min-height:16px;margin:-2px 2px 6px;color:rgba(255,255,255,.48);font-size:10.5px;line-height:16px}
+.pl-detail-list{display:flex;flex-direction:column;gap:6px;scroll-behavior:auto}
+.pl-detail-list.is-virtualized{display:block;position:relative;height:min(420px,46vh);min-height:180px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;contain:strict;scrollbar-gutter:stable}
+.pl-detail-row{display:flex;align-items:center;gap:9px;min-height:48px;padding:7px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);cursor:pointer;box-sizing:border-box}
+.pl-detail-list.is-virtualized .pl-detail-row{height:48px;margin-bottom:6px}
+.pl-detail-virtual-spacer{height:0;pointer-events:none}
+.pl-detail-empty{display:flex;min-height:96px;align-items:center;justify-content:center;padding:18px;text-align:center;color:rgba(255,255,255,.42);font-size:11.5px;line-height:1.7}
 .pl-detail-row:hover{background:rgba(255,255,255,.055)}
 .pl-detail-count{margin-left:auto;color:rgba(255,255,255,.38);font-size:10.5px;white-space:nowrap}
 .pl-detail-progress{height:28px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.34);font-size:10.5px}
@@ -1302,6 +1311,13 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .pl-detail-row-title{font-size:11.5px;font-weight:650;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-detail-row-artist{display:inline-flex;max-width:100%;border:0;background:transparent;color:rgba(var(--fc-accent-rgb),.68);font:500 10.5px var(--font-sans);padding:0;margin-top:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-detail-row-artist:hover{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.lf-3d-playlist-search{position:fixed;z-index:26;display:none;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:13px;background:rgba(4,7,12,.84);box-shadow:0 14px 34px rgba(0,0,0,.30);backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15)}
+.lf-3d-playlist-search.show{display:grid}
+.lf-3d-playlist-search input{width:100%;height:32px;min-width:0;padding:0 11px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.055);color:#fff;font:500 11.5px var(--font-sans);outline:none}
+.lf-3d-playlist-search input:focus{border-color:rgba(var(--fc-accent-rgb),.52);box-shadow:0 0 0 2px rgba(var(--fc-accent-rgb),.10)}
+.lf-3d-playlist-search button{height:32px;min-width:46px;padding:0 9px;border-radius:9px}
+.lf-3d-playlist-search-status{grid-column:1/-1;min-height:14px;padding:0 4px;color:rgba(255,255,255,.52);font-size:10px;line-height:14px}
+body.empty-home-active .lf-3d-playlist-search,body.splash-active .lf-3d-playlist-search{display:none!important}
 .pl-card.expanded{border-color:rgba(var(--fc-accent-rgb),.32);background:rgba(var(--fc-accent-rgb),.060)}
 .pl-card.podcast-card{border-color:rgba(0,245,212,.075);background:rgba(0,245,212,.030)}
 .pl-card.podcast-card:hover{border-color:rgba(0,245,212,.20);background:rgba(0,245,212,.070)}
@@ -2782,8 +2798,12 @@ var queuePanelDirty = false;
 var PLAYLIST_PANEL_BATCH_SIZE = 28;
 var playlistPanelRenderLimit = PLAYLIST_PANEL_BATCH_SIZE;
 var playlistPanelLazyBound = false;
-var PLAYLIST_DETAIL_INITIAL_RENDER = 64;
-var PLAYLIST_DETAIL_BATCH_SIZE = 48;
+var PLAYLIST_DETAIL_ROW_HEIGHT = 54;
+var PLAYLIST_DETAIL_OVERSCAN = 5;
+var PLAYLIST_DETAIL_VIRTUAL_THRESHOLD = 32;
+var PLAYLIST_DETAIL_ROW_MEMO_LIMIT = 512;
+var playlistPanelDetailVirtualFrame = 0;
+var playlistPanelDetailRowMemo = new Map();
 var smoothWheelScrollBound = false;
 var coverProcessToken = 0, activeCoverLoadImage = null, activeCoverUiObjectUrl = '';
 var RETIRED_VISUAL_MODEL_STORAGE_MIGRATION_KEY = 'lumifield-retired-visual-model-storage-v1';
@@ -5453,7 +5473,7 @@ var particlePointerLocalHit = new THREE.Vector3();
 var particlePointerQuat = new THREE.Quaternion();
 var particlePointerFrame = { dirty:false, ndcX:0, ndcY:0 };
 var CLICK_THRESHOLD = 6;  // 像素, 拖动 > 6px 视为 drag
-var UI_HIT_SELECTOR = '#search-area,#top-right,#fullscreen-diy-zone,#fx-panel,#fx-fab,#fx-fab-hide-btn,#playlist-panel,#bottom-bar,#thumb-wrap,#empty-home,#visual-guide,#trial-banner,#source-fallback-notice,.modal-mask,#toast,#beat-chip,#drop-overlay';
+var UI_HIT_SELECTOR = '#search-area,#top-right,#fullscreen-diy-zone,#fx-panel,#fx-fab,#fx-fab-hide-btn,#playlist-panel,#bottom-bar,#thumb-wrap,#empty-home,#visual-guide,#trial-banner,#source-fallback-notice,.modal-mask,#toast,#beat-chip,#drop-overlay,.lf-3d-playlist-search';
 
 function isPointerOverUi(e) {
   if (!e) return false;
@@ -5538,6 +5558,7 @@ var globalHoverPointerFrames = 0;
 function processGlobalHoverPointer(e){
   globalHoverPointerFrames += 1;
   revealCursorForActivity();
+  processInterfaceHoverPointer(e);
   updateControlsAutoHideFromPointer(e.clientX, e.clientY);
   idleGuidePointerMove(e);
   if (window.LumiFieldAudioEchoManager && typeof window.LumiFieldAudioEchoManager.ownsCanvasInput === 'function' && window.LumiFieldAudioEchoManager.ownsCanvasInput()) {
@@ -14334,6 +14355,8 @@ function makeContentListManager() {
   var rows = [];           // 每行一张卡 (歌曲)
   var panel = null;
   var allTracks = [];
+  var sourceTracks = [];
+  var visibleOriginalIndices = [];
   var renderedStart = -1;
   var CONTENT_VISIBLE_RADIUS = 3;
   var CONTENT_MAX_RENDER = CONTENT_VISIBLE_RADIUS * 2 + 1;
@@ -14360,6 +14383,11 @@ function makeContentListManager() {
   var activationTokenByKey = Object.create(null);
   var lastActivationKey = '', lastActivationAt = -1000;
   var sharedHighlight = null;
+  var searchOverlay = null;
+  var searchDraft = '', searchQuery = '', searchApplied = false;
+  var searchCorpus = [], searchRestoreIndex = 0;
+  var searchListeners = [];
+  var searchLayoutKey = '';
   var LOADING_ANIM_INTERVAL = 1 / 30;
   var DETAIL_BASE = { x: 1.28, y: 0.18, z: 1.36, rx: -0.008, ry: 0.020 };
   var PANEL_DELETE_BOUNDS = { left: 816, right: 876, top: 44, bottom: 112 };
@@ -14392,6 +14420,169 @@ function makeContentListManager() {
       window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
+  function originalIndexForVisible(index) {
+    var original = Number(visibleOriginalIndices[index]);
+    return isFinite(original) && original >= 0 ? original : index;
+  }
+
+  function resetContentSearchState() {
+    searchDraft = '';
+    searchQuery = '';
+    searchApplied = false;
+    searchCorpus = [];
+    searchRestoreIndex = 0;
+    visibleOriginalIndices = sourceTracks.map(function(_, index){ return index; });
+  }
+
+  function setContentSourceTracks(tracks) {
+    sourceTracks = (tracks || []).map(function(song){ return contentKind === 'playlist' ? cloneSong(song) : song; });
+    searchCorpus = sourceTracks.map(playlistDetailSearchCorpus);
+    visibleOriginalIndices = sourceTracks.map(function(_, index){ return index; });
+    allTracks = sourceTracks.slice();
+  }
+
+  function listenSearch(node, type, handler) {
+    node.addEventListener(type, handler);
+    searchListeners.push(function(){ node.removeEventListener(type, handler); });
+  }
+
+  function updateSearchOverlayStatus() {
+    if (!searchOverlay) return;
+    var input = searchOverlay.querySelector('input');
+    var status = searchOverlay.querySelector('.lf-3d-playlist-search-status');
+    var clearButton = searchOverlay.querySelector('[data-lf-3d-search-clear]');
+    var disabled = contentState !== 'ready' || contentKind !== 'playlist';
+    if (input) {
+      input.disabled = disabled;
+      if (input.value !== searchDraft) input.value = searchDraft;
+    }
+    var submitButton = searchOverlay.querySelector('[data-lf-3d-search-submit]');
+    if (submitButton) submitButton.disabled = disabled;
+    if (clearButton) clearButton.disabled = disabled || (!searchDraft && !searchApplied);
+    if (status) {
+      status.textContent = searchApplied
+        ? (allTracks.length && !(allTracks[0] && allTracks[0].lfContentState === 'search-empty')
+          ? ('当前歌单匹配 ' + allTracks.length + '/' + sourceTracks.length + ' 首')
+          : '当前歌单中没有找到这首歌曲。可以尝试使用主界面顶部的全局搜索继续查找。')
+        : (disabled ? '歌单载入后可搜索' : ('当前歌单共 ' + sourceTracks.length + ' 首'));
+    }
+  }
+
+  function applyContentSearch(rawQuery) {
+    if (!open || contentKind !== 'playlist' || contentState !== 'ready') return false;
+    var draft = String(rawQuery == null ? searchDraft : rawQuery).trim();
+    var query = normalizePlaylistDetailSearchText(draft);
+    searchDraft = draft;
+    if (!query) return clearContentSearch();
+    if (!searchApplied) searchRestoreIndex = originalIndexForVisible(Math.round(centerTarget));
+    searchApplied = true;
+    searchQuery = query;
+    visibleOriginalIndices = [];
+    allTracks = [];
+    for (var index = 0; index < sourceTracks.length; index++) {
+      if ((searchCorpus[index] || '').indexOf(query) < 0) continue;
+      visibleOriginalIndices.push(index);
+      allTracks.push(sourceTracks[index]);
+    }
+    if (!allTracks.length) {
+      visibleOriginalIndices = [-1];
+      allTracks = [{ name:'当前歌单中没有找到这首歌曲。可以尝试使用主界面顶部的全局搜索继续查找。', artist:'', lfContentState:'search-empty' }];
+    }
+    confirmedIndex = confirmedKey ? allTracks.findIndex(function(song){ return animatedPlaylistSongKey(song) === confirmedKey; }) : -1;
+    centerTarget = 0;
+    centerSmooth = 0;
+    selectedIndex = allTracks[0] && allTracks[0].id ? 0 : -1;
+    selectedKey = selectedIndex >= 0 ? rowSongKey(allTracks[0], originalIndexForVisible(0)) : '';
+    panelDirty = true;
+    rowsDirty = true;
+    renderedStart = -1;
+    syncRenderedRows(true);
+    updateSearchOverlayStatus();
+    return true;
+  }
+
+  function clearContentSearch() {
+    if (!open || contentKind !== 'playlist') return false;
+    searchDraft = '';
+    searchQuery = '';
+    searchApplied = false;
+    allTracks = sourceTracks.slice();
+    visibleOriginalIndices = sourceTracks.map(function(_, index){ return index; });
+    confirmedIndex = confirmedKey ? allTracks.findIndex(function(song){ return animatedPlaylistSongKey(song) === confirmedKey; }) : -1;
+    centerTarget = Math.max(0, Math.min(allTracks.length - 1, Number(searchRestoreIndex) || 0));
+    centerSmooth = centerTarget;
+    applySelectedRowIndex(Math.round(centerTarget));
+    panelDirty = true;
+    rowsDirty = true;
+    renderedStart = -1;
+    syncRenderedRows(true);
+    updateSearchOverlayStatus();
+    return true;
+  }
+
+  function ensureSearchOverlay() {
+    if (contentKind !== 'playlist' || !openPlaylistRef) return;
+    if (!searchOverlay) {
+      var root = document.createElement('div');
+      root.className = 'lf-3d-playlist-search';
+      root.setAttribute('role', 'search');
+      root.setAttribute('aria-label', '当前歌单内搜索');
+      root.innerHTML = '<input type="search" placeholder="当前歌单内搜索" aria-label="当前歌单内搜索" autocomplete="off">' +
+        '<button type="button" class="fx-mini-btn" data-lf-3d-search-submit="1">搜索</button>' +
+        '<button type="button" class="fx-mini-btn ghost" data-lf-3d-search-clear="1">清空</button>' +
+        '<div class="lf-3d-playlist-search-status" role="status" aria-live="polite"></div>';
+      document.body.appendChild(root);
+      searchOverlay = root;
+      var input = root.querySelector('input');
+      listenSearch(input, 'input', function(){ searchDraft = input.value; updateSearchOverlayStatus(); });
+      listenSearch(input, 'keydown', function(event){
+        if (event.isComposing || event.keyCode === 229) return;
+        if (event.key === 'Enter') {
+          event.preventDefault(); event.stopPropagation(); applyContentSearch(input.value);
+        } else if (event.key === 'Escape' && (searchApplied || input.value)) {
+          event.preventDefault(); event.stopPropagation(); clearContentSearch();
+        }
+      });
+      listenSearch(root.querySelector('[data-lf-3d-search-submit]'), 'click', function(event){
+        event.preventDefault(); event.stopPropagation(); applyContentSearch(input.value);
+      });
+      listenSearch(root.querySelector('[data-lf-3d-search-clear]'), 'click', function(event){
+        event.preventDefault(); event.stopPropagation(); clearContentSearch();
+      });
+    }
+    searchOverlay.classList.add('show');
+    updateSearchOverlayStatus();
+  }
+
+  function destroySearchOverlay() {
+    while (searchListeners.length) {
+      try { searchListeners.pop()(); } catch (e) {}
+    }
+    if (searchOverlay && searchOverlay.parentNode) searchOverlay.parentNode.removeChild(searchOverlay);
+    searchOverlay = null;
+    searchLayoutKey = '';
+  }
+
+  function updateSearchOverlayLayout() {
+    if (!searchOverlay || !open || contentKind !== 'playlist' || !panel || !panel.mesh || !isVisualStageInteractionActive()) {
+      if (searchOverlay) searchOverlay.classList.remove('show');
+      return;
+    }
+    var rect = contentMeshScreenRect(panel.mesh, 0);
+    if (!rect) { searchOverlay.classList.remove('show'); return; }
+    var width = Math.max(280, Math.min(460, rect.right - rect.left - 44));
+    var left = Math.max(8, Math.min(innerWidth - width - 8, rect.left + (rect.right - rect.left - width) / 2));
+    var top = Math.max(8, Math.min(innerHeight - 92, rect.top + 10));
+    var key = Math.round(left) + ':' + Math.round(top) + ':' + Math.round(width);
+    if (key !== searchLayoutKey) {
+      searchLayoutKey = key;
+      searchOverlay.style.left = Math.round(left) + 'px';
+      searchOverlay.style.top = Math.round(top) + 'px';
+      searchOverlay.style.width = Math.round(width) + 'px';
+    }
+    searchOverlay.classList.add('show');
+  }
+
   var animatedDebugSource = {
     snapshot:function() {
       return {
@@ -14403,7 +14594,7 @@ function makeContentListManager() {
         pendingToken:pendingToken,
         sharedHighlight:sharedHighlight,
         visibleRowKeys:rows.filter(function(row){ return row && row.mesh && row.mesh.visible; }).map(function(row){
-          return rowSongKey(row.song, row.index);
+          return rowSongKey(row.song, row.originalIndex);
         }),
         reducedMotion:reducedMotion()
       };
@@ -14494,7 +14685,7 @@ function makeContentListManager() {
   function applySelectedRowIndex(index) {
     if (index < 0 || index >= allTracks.length) return false;
     selectedIndex = index;
-    selectedKey = rowSongKey(allTracks[index], index);
+    selectedKey = rowSongKey(allTracks[index], originalIndexForVisible(index));
     centerTarget = index;
     return true;
   }
@@ -14549,7 +14740,7 @@ function makeContentListManager() {
 
   async function activateRow(row, source) {
     if (!row || !row.song) return false;
-    var requestedKey = rowSongKey(row.song, row.index);
+    var requestedKey = rowSongKey(row.song, row.originalIndex);
     var activationAt = performance.now();
     if (requestedKey && requestedKey === lastActivationKey && activationAt - lastActivationAt < 320) return false;
     lastActivationKey = requestedKey;
@@ -14560,9 +14751,9 @@ function makeContentListManager() {
       safeShelfCloseContent('content-play-podcast-radio');
       return true;
     }
-    var idx = row.index;
-    var playIndex = allTracks.slice(0, idx + 1).filter(function(song){ return song && song.id; }).length - 1;
-    var allSongs = allTracks.filter(function(song){ return song && song.id; }).map(function(song){
+    var originalIndex = originalIndexForVisible(row.index);
+    var playIndex = sourceTracks.slice(0, originalIndex + 1).filter(function(song){ return song && song.id; }).length - 1;
+    var allSongs = sourceTracks.filter(function(song){ return song && song.id; }).map(function(song){
       var queued = cloneSong(song);
       if (openPlaylistRef) {
         queued.sourcePlaylistKey = openPlaylistRef.key;
@@ -14642,7 +14833,9 @@ function makeContentListManager() {
         ? '加载失败'
         : (contentState === 'empty'
           ? '歌单为空'
-          : (playableCount ? (playableCount + ' 首歌曲') : (isLoading ? '正在载入' : '暂无可播放歌曲'))));
+          : (searchApplied
+            ? (playableCount ? ('匹配 ' + playableCount + '/' + sourceTracks.length + ' 首歌曲') : '当前歌单无匹配歌曲')
+            : (playableCount ? (playableCount + ' 首歌曲') : (isLoading ? '正在载入' : '暂无可播放歌曲')))));
     ctx.fillText(countLabel, 74, 128);
     var coverUrl = sourceCard && sourceCard.item && sourceCard.item.cover;
     var coverSize = 96, coverX = W - 172, coverY = 56;
@@ -14748,7 +14941,7 @@ function makeContentListManager() {
     ctx.stroke();
     ctx.font = '700 18px Inter, Arial';
     ctx.fillStyle = isCenter ? canvasAccent(0.95) : 'rgba(255,255,255,0.34)';
-    var n = String(row.index + 1);
+    var n = String((isFinite(row.originalIndex) && row.originalIndex >= 0 ? row.originalIndex : row.index) + 1);
     if (n.length < 2) n = '0' + n;
     ctx.fillText(n, 32, 52);
     var coverSize = 54;
@@ -14940,6 +15133,16 @@ function makeContentListManager() {
     }
   }
 
+  function disposeRow(row) {
+    if (!row) return;
+    if (row.mesh && row.mesh.parent) row.mesh.parent.remove(row.mesh);
+    if (row.mesh && row.mesh.material) {
+      if (row.mesh.material.map) row.mesh.material.map.dispose();
+      row.mesh.material.dispose();
+    }
+    if (row.mesh && row.mesh.geometry) row.mesh.geometry.dispose();
+  }
+
   function disposeRows() {
     disposeRowList(rows);
     renderedStart = -1;
@@ -14979,7 +15182,10 @@ function makeContentListManager() {
     var end = Math.min(total - 1, start + CONTENT_MAX_RENDER - 1);
     start = Math.max(0, end - CONTENT_MAX_RENDER + 1);
     if (!force && start === renderedStart && rows.length === (end - start + 1)) {
-      rows.forEach(function(row) { row.song = allTracks[row.index] || row.song; });
+      rows.forEach(function(row) {
+        row.song = allTracks[row.index] || row.song;
+        row.originalIndex = originalIndexForVisible(row.index);
+      });
       if (rowsDirty || refreshLoading) {
         rows.forEach(function(row) {
           var isCenter = Math.abs(row.index - centerSmooth) < 0.5;
@@ -14991,14 +15197,23 @@ function makeContentListManager() {
       }
       return;
     }
-    disposeRows();
+    var previousRows = rows.slice();
+    var previousByIndex = Object.create(null);
+    previousRows.forEach(function(row){ previousByIndex[row.index] = row; });
+    var nextRows = [];
     renderedStart = start;
     for (var idx = start; idx <= end; idx++) {
-      var row = makeRow(allTracks[idx], idx);
-      rows.push(row);
+      var row = previousByIndex[idx] || makeRow(allTracks[idx], idx);
+      delete previousByIndex[idx];
+      row.index = idx;
+      row.originalIndex = originalIndexForVisible(idx);
+      row.song = allTracks[idx];
+      nextRows.push(row);
       drawRow(row, row.song, idx === Math.round(centerSmooth));
       row.lastCenter = idx === Math.round(centerSmooth);
     }
+    Object.keys(previousByIndex).forEach(function(key){ disposeRow(previousByIndex[key]); });
+    rows = nextRows;
     rowsDirty = false;
     rowDrawAt = nowT;
   }
@@ -15107,6 +15322,10 @@ function makeContentListManager() {
       activationTokenByKey = Object.create(null);
       lastActivationKey = '';
       lastActivationAt = -1000;
+      sourceTracks = [];
+      visibleOriginalIndices = [];
+      destroySearchOverlay();
+      resetContentSearchState();
       panelDirty = true;
       rowsDirty = true;
       panelDrawAt = -10;
@@ -15117,6 +15336,7 @@ function makeContentListManager() {
           group.name = 'LumiFieldShelfContentDetail';
         scene.add(group);
       }
+      ensureSearchOverlay();
       var openLayout = detailLayout();
       var openSkullDetail = shouldUseSkullSafeShelfCamera();
       var openDynamicDetail = !openSkullDetail && shouldUseShelfDynamicCamera('shelf-detail') && camera;
@@ -15171,11 +15391,14 @@ function makeContentListManager() {
           contentError = podcastCollectionKey ? '播客加载失败' : String(e && e.userMessage || '歌单加载失败，请稍后重试');
           contentErrorCode = String(e && (e.code || e.message) || 'PLAYLIST_LOAD_FAILED');
           contentLoginProvider = e && e.kind === 'login' ? parsedPlaylistRef.provider : '';
+          sourceTracks = [];
+          visibleOriginalIndices = [];
           allTracks = [{ name: contentError, artist: e && e.kind === 'login' ? '请在账户区重新登录后重试' : '', lfContentState: 'error' }];
           panelDirty = true;
           rowsDirty = true;
           startRowsLoadedIntro();
           syncRenderedRows(true);
+          updateSearchOverlayStatus();
         } catch (renderErrorErr) {
           console.warn('[ShelfContentErrorRender]', playlistId, renderErrorErr);
         }
@@ -15193,11 +15416,14 @@ function makeContentListManager() {
           contentError = '';
           contentErrorCode = '';
           contentLoginProvider = '';
+          sourceTracks = [];
+          visibleOriginalIndices = [];
           allTracks = [{ name: podcastCollectionKey ? '播客为空' : '歌单为空', artist: '', lfContentState: 'empty' }];
           panelDirty = true;
           rowsDirty = true;
           startRowsLoadedIntro();
           syncRenderedRows(true);
+          updateSearchOverlayStatus();
           if (requestAbortController === requestController) requestAbortController = null;
           return;
         }
@@ -15205,7 +15431,7 @@ function makeContentListManager() {
         contentError = '';
         contentErrorCode = '';
         contentLoginProvider = '';
-        allTracks = podcastCollectionKey ? tracks : tracks.map(cloneSong);
+        setContentSourceTracks(tracks);
         centerTarget = 0; centerSmooth = 0;
         applySelectedRowIndex(0);
         if (restoreConfirmedPlayback()) {
@@ -15216,6 +15442,7 @@ function makeContentListManager() {
         rowsDirty = true;
         startRowsLoadedIntro();
         syncRenderedRows(true);
+        updateSearchOverlayStatus();
         if (requestAbortController === requestController) requestAbortController = null;
       } catch (renderReadyErr) {
         console.warn('[ShelfContentReadyRender]', playlistId, renderReadyErr);
@@ -15247,6 +15474,10 @@ function makeContentListManager() {
       sharedHighlight = null;
       renderedStart = -1;
       allTracks = [];
+      sourceTracks = [];
+      visibleOriginalIndices = [];
+      resetContentSearchState();
+      destroySearchOverlay();
       contentKind = 'playlist';
       sourceCard = null;
       openPlaylistRef = null;
@@ -15336,6 +15567,7 @@ function makeContentListManager() {
         }
       }
       updateSharedHighlight(dt, false);
+      updateSearchOverlayLayout();
     },
     next: function() {
       if (allTracks.length) {
@@ -15412,6 +15644,15 @@ function makeContentListManager() {
         cacheKey: openPlaylistRef && openPlaylistRef.key || '',
         tracks: debugTracks,
         allTracks: debugTracks,
+        sourceTrackCount:sourceTracks.filter(function(song){ return song && song.id; }).length,
+        visibleTrackCount:debugTracks.length,
+        searchDraft:searchDraft,
+        searchQuery:searchQuery,
+        searchApplied:searchApplied,
+        searchOverlayCount:document.querySelectorAll('.lf-3d-playlist-search').length,
+        renderedRowCount:rows.length,
+        renderedRowIndices:rows.map(function(row){ return row.index; }),
+        originalRowIndices:rows.map(function(row){ return row.originalIndex; }),
         error: debugError,
         errorCode: debugError && debugError.code || '',
         message: contentError || (contentState === 'empty' ? '歌单为空' : ''),
@@ -15670,7 +15911,7 @@ function makeContentListManager() {
       var mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 240 + i;
       group.add(mesh);
-      return { canvas: cv, texture: tx, mesh: mesh, song: song, index: i, fxPulse: 0 };
+      return { canvas: cv, texture: tx, mesh: mesh, song: song, index: i, originalIndex: originalIndexForVisible(i), fxPulse: 0 };
     }
 }
 
@@ -15698,13 +15939,24 @@ function drawCanvasHeart(ctx, cx, cy, size, color) {
   ctx.fill();
   ctx.restore();
 }
+function trimPlaylistCoverCacheBounded() {
+  var keys = Object.keys(playlistCoverCache);
+  if (keys.length <= 240) return;
+  keys.filter(function(key){ return playlistCoverCache[key] && !playlistCoverCache[key].loading; })
+    .sort(function(a, b){ return Number(playlistCoverCache[a].lastUsed || 0) - Number(playlistCoverCache[b].lastUsed || 0); })
+    .slice(0, Math.max(0, keys.length - 200))
+    .forEach(function(key){ delete playlistCoverCache[key]; });
+}
 function requestPlaylistCover(url, cb) {
   if (!url) { if (cb) cb(null); return; }
   var rec = playlistCoverCache[url];
+  if (rec) rec.lastUsed = performance.now();
   if (rec && rec.loaded) { if (cb) setTimeout(function(){ cb(rec.img); }, 0); return; }
   if (rec && rec.loading) { if (cb) rec.waiters.push(cb); return; }
-  rec = playlistCoverCache[url] = { loaded:false, loading:true, waiters: cb ? [cb] : [], img:null, failed:false };
+  rec = playlistCoverCache[url] = { loaded:false, loading:true, waiters: cb ? [cb] : [], img:null, failed:false, lastUsed:performance.now() };
+  trimPlaylistCoverCacheBounded();
   var img = new Image();
+  img.decoding = 'async';
   if (!isInlineCoverSrc(url)) img.crossOrigin = 'anonymous';
   img.onload = function(){
     rec.loaded = true; rec.loading = false; rec.img = img;
@@ -21694,13 +21946,8 @@ function applyConfirmedPlaylistRemoval(ref) {
     if (!remainingCoverUrls[url]) delete playlistCoverCache[url];
   });
   if (playlistPanelDetailState && playlistPanelDetailState.key === ref.key) {
-    playlistPanelDetailState.token += 1;
-    playlistPanelDetailState.key = '';
-    playlistPanelDetailState.loading = false;
-    playlistPanelDetailState.error = '';
-    playlistPanelDetailState.playlist = null;
-    playlistPanelDetailState.tracks = [];
-    playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+    playlistPanelDetailState = createPlaylistPanelDetailState({ token:Number(playlistPanelDetailState.token || 0) + 1 });
+    playlistPanelDetailRowMemo.clear();
   }
   var currentContent = shelfManager && shelfManager.getContentList && shelfManager.getContentList();
   var currentRef = currentContent && currentContent.getOpenPlaylistRef && currentContent.getOpenPlaylistRef();
@@ -21867,15 +22114,8 @@ function clearPlaylistPanelDetailForProviderSwitch() {
     playlistPanelDetailAbortController = null;
   }
   if (typeof playlistPanelDetailState !== 'undefined' && playlistPanelDetailState) {
-    playlistPanelDetailState.key = '';
-    playlistPanelDetailState.loading = false;
-    playlistPanelDetailState.phase = 'idle';
-    playlistPanelDetailState.error = '';
-    playlistPanelDetailState.loginProvider = '';
-    playlistPanelDetailState.playlist = null;
-    playlistPanelDetailState.tracks = [];
-    playlistPanelDetailState.token = Number(playlistPanelDetailState.token || 0) + 1;
-    playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+    playlistPanelDetailState = createPlaylistPanelDetailState({ token:Number(playlistPanelDetailState.token || 0) + 1 });
+    playlistPanelDetailRowMemo.clear();
   }
 }
 function renderPlaylistProviderTabs() {
@@ -22031,12 +22271,164 @@ async function refreshUserPlaylists(force, options) {
   }
 }
 var playlistPanelDetailAbortController = null;
-var playlistPanelDetailState = { key: '', loading: false, phase: 'idle', error: '', loginProvider: '', playlist: null, tracks: [], token: 0, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
+function createPlaylistPanelDetailState(seed) {
+  return Object.assign({
+    key:'', loading:false, phase:'idle', error:'', loginProvider:'', playlist:null, tracks:[], token:0,
+    searchDraft:'', searchQuery:'', searchApplied:false, searchCorpus:[], filteredIndices:null,
+    virtualScrollTop:0, fullScrollTop:0, virtualStart:-1, virtualEnd:-1, virtualRenderCount:0
+  }, seed || {});
+}
+var playlistPanelDetailState = createPlaylistPanelDetailState();
 function playlistPanelKey(provider, id) {
   return parsePlaylistReference(id, provider).key;
 }
 function playlistPanelProviderId(provider, id) {
   return parsePlaylistReference(id, provider).providerId;
+}
+function normalizePlaylistDetailSearchText(value) {
+  var text = String(value == null ? '' : value);
+  try { text = text.normalize('NFKC'); } catch (e) {}
+  return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+}
+function playlistDetailSearchCorpus(song) {
+  var album = song && (song.album || song.albumName || song.al && song.al.name) || '';
+  var aliases = song && (song.alias || song.aliases || song.alia) || [];
+  if (Array.isArray(aliases)) aliases = aliases.join(' ');
+  return normalizePlaylistDetailSearchText([
+    song && (song.name || song.title) || '',
+    song && (song.artist || song.singer || song.artistsText) || '',
+    album,
+    aliases
+  ].join(' '));
+}
+function playlistDetailVisibleCount(st) {
+  if (!st) return 0;
+  return st.searchApplied && Array.isArray(st.filteredIndices) ? st.filteredIndices.length : (st.tracks || []).length;
+}
+function playlistDetailOriginalIndexAt(st, visibleIndex) {
+  if (!st || visibleIndex < 0) return -1;
+  if (st.searchApplied && Array.isArray(st.filteredIndices)) return Number(st.filteredIndices[visibleIndex]);
+  return visibleIndex;
+}
+function playlistPanelDetailRowHtml(originalIndex) {
+  var st = playlistPanelDetailState;
+  var song = st && st.tracks && st.tracks[originalIndex];
+  if (!song) return '';
+  var signature = [st.token, originalIndex, song.id || '', song.name || '', song.artist || '', song.cover || song.picUrl || ''].join('|');
+  var cached = playlistPanelDetailRowMemo.get(signature);
+  if (cached) return cached;
+  var thumb = songCoverSrc(song, 60);
+  var imgTag = thumb ? '<img src="' + escHtml(thumb) + '" alt="" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.opacity=0.2">' : '<div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06);flex:0 0 auto"></div>';
+  var html = '<div class="pl-detail-row" data-pl-detail-row="' + originalIndex + '">' +
+    imgTag +
+    '<div style="flex:1;min-width:0"><div class="pl-detail-row-title">' + escHtml(song.name || '') + '</div>' +
+    '<button type="button" class="pl-detail-row-artist" data-pl-detail-artist="' + originalIndex + '">' + escHtml(song.artist || '未知歌手') + '</button></div>' +
+  '</div>';
+  playlistPanelDetailRowMemo.set(signature, html);
+  if (playlistPanelDetailRowMemo.size > PLAYLIST_DETAIL_ROW_MEMO_LIMIT) {
+    var oldest = playlistPanelDetailRowMemo.keys().next();
+    if (!oldest.done) playlistPanelDetailRowMemo.delete(oldest.value);
+  }
+  return html;
+}
+function playlistPanelDetailVirtualHtml(st, viewportHeight) {
+  var count = playlistDetailVisibleCount(st);
+  if (!count) {
+    return '<div class="pl-detail-empty">' + (st.searchApplied
+      ? '当前歌单中没有找到这首歌曲。可以尝试使用主界面顶部的全局搜索继续查找。'
+      : '歌单为空') + '</div>';
+  }
+  if ((st.tracks || []).length <= PLAYLIST_DETAIL_VIRTUAL_THRESHOLD) {
+    var completeHtml = '';
+    for (var completeIndex = 0; completeIndex < count; completeIndex++) {
+      completeHtml += playlistPanelDetailRowHtml(playlistDetailOriginalIndexAt(st, completeIndex));
+    }
+    st.virtualStart = 0;
+    st.virtualEnd = count;
+    st.virtualRenderCount = count;
+    return completeHtml;
+  }
+  viewportHeight = Math.max(180, Number(viewportHeight) || 360);
+  var maxScroll = Math.max(0, count * PLAYLIST_DETAIL_ROW_HEIGHT - viewportHeight);
+  st.virtualScrollTop = Math.max(0, Math.min(maxScroll, Number(st.virtualScrollTop) || 0));
+  var start = Math.max(0, Math.floor(st.virtualScrollTop / PLAYLIST_DETAIL_ROW_HEIGHT) - PLAYLIST_DETAIL_OVERSCAN);
+  var visibleRows = Math.ceil(viewportHeight / PLAYLIST_DETAIL_ROW_HEIGHT) + PLAYLIST_DETAIL_OVERSCAN * 2;
+  var end = Math.min(count, start + visibleRows);
+  var html = '<div class="pl-detail-virtual-spacer" style="height:' + (start * PLAYLIST_DETAIL_ROW_HEIGHT) + 'px"></div>';
+  for (var visibleIndex = start; visibleIndex < end; visibleIndex++) {
+    html += playlistPanelDetailRowHtml(playlistDetailOriginalIndexAt(st, visibleIndex));
+  }
+  html += '<div class="pl-detail-virtual-spacer" style="height:' + Math.max(0, (count - end) * PLAYLIST_DETAIL_ROW_HEIGHT) + 'px"></div>';
+  st.virtualStart = start;
+  st.virtualEnd = end;
+  st.virtualRenderCount = end - start;
+  return html;
+}
+function renderPlaylistPanelDetailVirtualRows(list, force) {
+  var st = playlistPanelDetailState;
+  if (!list || !st || list.getAttribute('data-pl-virtual-key') !== st.key) return;
+  var viewportHeight = list.clientHeight || 360;
+  var count = playlistDetailVisibleCount(st);
+  var start = count ? Math.max(0, Math.floor((Number(st.virtualScrollTop) || 0) / PLAYLIST_DETAIL_ROW_HEIGHT) - PLAYLIST_DETAIL_OVERSCAN) : 0;
+  var visibleRows = Math.ceil(viewportHeight / PLAYLIST_DETAIL_ROW_HEIGHT) + PLAYLIST_DETAIL_OVERSCAN * 2;
+  var end = Math.min(count, start + visibleRows);
+  if (!force && start === st.virtualStart && end === st.virtualEnd) return;
+  list.innerHTML = playlistPanelDetailVirtualHtml(st, viewportHeight);
+}
+function bindPlaylistPanelDetailVirtualList() {
+  var st = playlistPanelDetailState;
+  if (!st || !st.key) return;
+  var list = document.querySelector('.pl-detail-list[data-pl-virtual-list="1"]');
+  if (!list || list.getAttribute('data-pl-virtual-key') !== st.key) return;
+  if (list.classList.contains('is-virtualized')) {
+    list.scrollTop = Math.max(0, Number(st.virtualScrollTop) || 0);
+    renderPlaylistPanelDetailVirtualRows(list, true);
+    list.scrollTop = Math.max(0, Number(st.virtualScrollTop) || 0);
+    if (list.__lfPlaylistDetailVirtualBound) return;
+    list.__lfPlaylistDetailVirtualBound = true;
+    list.addEventListener('wheel', function(e){ e.stopPropagation(); }, { passive:true });
+    list.addEventListener('scroll', function(){
+      if (playlistPanelDetailState.key !== st.key) return;
+      playlistPanelDetailState.virtualScrollTop = list.scrollTop;
+      if (!playlistPanelDetailState.searchApplied) playlistPanelDetailState.fullScrollTop = list.scrollTop;
+      if (playlistPanelDetailVirtualFrame) return;
+      playlistPanelDetailVirtualFrame = requestAnimationFrame(function(){
+        playlistPanelDetailVirtualFrame = 0;
+        if (playlistPanelDetailState.key === st.key && list.isConnected) renderPlaylistPanelDetailVirtualRows(list, false);
+      });
+    }, { passive:true });
+  }
+}
+function applyPlaylistPanelDetailSearch(rawQuery) {
+  var st = playlistPanelDetailState;
+  if (!st || !st.key || st.loading || st.error) return false;
+  var draft = String(rawQuery == null ? st.searchDraft : rawQuery).trim();
+  var query = normalizePlaylistDetailSearchText(draft);
+  st.searchDraft = draft;
+  if (!query) return clearPlaylistPanelDetailSearch();
+  if (!st.searchApplied) st.fullScrollTop = Number(st.virtualScrollTop) || 0;
+  st.searchApplied = true;
+  st.searchQuery = query;
+  st.filteredIndices = [];
+  for (var i = 0; i < st.tracks.length; i++) {
+    if ((st.searchCorpus[i] || '').indexOf(query) >= 0) st.filteredIndices.push(i);
+  }
+  st.virtualScrollTop = 0;
+  st.virtualStart = st.virtualEnd = -1;
+  renderPlaylistPanelDetailState({ focusSearch:true });
+  return true;
+}
+function clearPlaylistPanelDetailSearch() {
+  var st = playlistPanelDetailState;
+  if (!st || !st.key) return false;
+  st.searchDraft = '';
+  st.searchQuery = '';
+  st.searchApplied = false;
+  st.filteredIndices = null;
+  st.virtualScrollTop = Math.max(0, Number(st.fullScrollTop) || 0);
+  st.virtualStart = st.virtualEnd = -1;
+  renderPlaylistPanelDetailState({ focusSearch:true });
+  return true;
 }
 function playlistPanelDetailHtml(pl, provider) {
   var key = playlistPanelKey(provider, pl && pl.id);
@@ -22048,36 +22440,34 @@ function playlistPanelDetailHtml(pl, provider) {
   var cover = pl && pl.cover ? (provider === 'netease' ? (pl.cover + '?param=96y96') : pl.cover) : '';
   var deleteLabel = playlistMutationOperationLabel(playlistMutationOperation(provider, pl));
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
-  var renderLimit = loading ? 0 : Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, playlistPanelDetailState.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
-  renderLimit = Math.min(tracks.length, renderLimit);
-  var visibleTracks = loading ? [] : tracks.slice(0, renderLimit);
+  var visibleCount = playlistDetailVisibleCount(playlistPanelDetailState);
+  var virtualized = !loading && !detailError && tracks.length > PLAYLIST_DETAIL_VIRTUAL_THRESHOLD;
   var rows = loading
     ? '<div class="pl-detail-row"><div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06)"></div><div style="flex:1;min-width:0"><div class="pl-detail-row-title">正在载入歌单</div><div class="pl-detail-row-artist">请稍候</div></div></div>'
-    : (detailError ? '<div class="pl-panel-state error"><b>' + (loginProvider ? '平台登录已失效' : '歌单详情加载失败') + '</b><span>' + escHtml(detailError) + '</span><button type="button" ' + (loginProvider ? ('data-pl-detail-login="' + escHtml(loginProvider) + '"') : 'data-pl-detail-retry="1"') + '>' + (loginProvider ? ('重新登录' + escHtml(playlistProviderLabel(loginProvider))) : '重试') + '</button></div>' : visibleTracks.map(function(song, i){
-        var thumb = songCoverSrc(song, 60);
-        var imgTag = thumb ? '<img src="' + escHtml(thumb) + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:34px;height:34px;border-radius:7px;background:rgba(255,255,255,.06);flex:0 0 auto"></div>';
-        return '<div class="pl-detail-row" data-pl-detail-row="' + i + '">' +
-          imgTag +
-          '<div style="flex:1;min-width:0"><div class="pl-detail-row-title">' + escHtml(song.name || '') + '</div>' +
-          '<button type="button" class="pl-detail-row-artist" data-pl-detail-artist="' + i + '">' + escHtml(song.artist || '未知歌手') + '</button></div>' +
-        '</div>';
-      }).join(''));
-  if (!loading && !detailError && !rows) rows = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.30);font-size:11.5px">歌单为空</div>';
-  if (!loading && !detailError && tracks.length > renderLimit) {
-    rows += '<button type="button" class="fx-mini-btn ghost pl-detail-load-more" data-pl-detail-load-more="1">加载更多 ' + renderLimit + '/' + tracks.length + '</button>';
-  } else if (!loading && tracks.length > PLAYLIST_DETAIL_INITIAL_RENDER) {
-    rows += '<div class="pl-detail-progress">已显示全部 ' + tracks.length + ' 首</div>';
-  }
+    : (detailError ? '<div class="pl-panel-state error"><b>' + (loginProvider ? '平台登录已失效' : '歌单详情加载失败') + '</b><span>' + escHtml(detailError) + '</span><button type="button" ' + (loginProvider ? ('data-pl-detail-login="' + escHtml(loginProvider) + '"') : 'data-pl-detail-retry="1"') + '>' + (loginProvider ? ('重新登录' + escHtml(playlistProviderLabel(loginProvider))) : '重试') + '</button></div>' : playlistPanelDetailVirtualHtml(playlistPanelDetailState, 360));
+  var statusText = playlistPanelDetailState.searchApplied
+    ? ('当前歌单匹配 ' + visibleCount + '/' + tracks.length + ' 首')
+    : (tracks.length ? ('当前歌单共 ' + tracks.length + ' 首') : '');
+  var searchDisabled = loading || !!detailError ? ' disabled' : '';
+  var clearDisabled = (!playlistPanelDetailState.searchDraft && !playlistPanelDetailState.searchApplied) || loading || !!detailError ? ' disabled' : '';
   return '<div class="pl-inline-detail" data-pl-detail="' + escHtml(key) + '">' +
     '<div class="pl-detail-sticky">' +
-      '<div class="pl-detail-head">' + img + '<div style="flex:1;min-width:0"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div><div class="pl-detail-sub">' + escHtml((pl.trackCount || pl.songCount || tracks.length || 0) + ' 首 · ' + (pl.creator || (provider === 'local' ? '本地' : platformMeta(provider).label))) + '</div></div><div class="pl-detail-count">' + (loading ? '载入中' : (renderLimit + '/' + tracks.length)) + '</div></div>' +
+      '<div class="pl-detail-head">' + img + '<div style="flex:1;min-width:0"><div class="pl-detail-title">' + escHtml(pl.name || '歌单详情') + '</div><div class="pl-detail-sub">' + escHtml((pl.trackCount || pl.songCount || tracks.length || 0) + ' 首 · ' + (pl.creator || (provider === 'local' ? '本地' : platformMeta(provider).label))) + '</div></div><div class="pl-detail-count">' + (loading ? '载入中' : (playlistPanelDetailState.searchApplied ? (visibleCount + '/' + tracks.length) : (tracks.length + ' 首'))) + '</div></div>' +
       '<div class="pl-detail-actions"><button class="pl-detail-play" type="button" data-pl-detail-play="' + escHtml(key) + '"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>播放歌单</button><button class="fx-mini-btn ghost" type="button" data-pl-delete="' + escHtml(key) + '">' + escHtml(deleteLabel) + '</button></div>' +
+      '<div class="pl-detail-search"><input type="search" data-pl-detail-search-input="1" value="' + escHtml(playlistPanelDetailState.searchDraft) + '" placeholder="当前歌单内搜索" aria-label="当前歌单内搜索" autocomplete="off"' + searchDisabled + '><button class="fx-mini-btn" type="button" data-pl-detail-search-submit="1"' + searchDisabled + '>搜索</button><button class="fx-mini-btn ghost" type="button" data-pl-detail-search-clear="1"' + clearDisabled + '>清空</button></div>' +
+      '<div class="pl-detail-search-status" role="status" aria-live="polite">' + escHtml(statusText) + '</div>' +
     '</div>' +
-    '<div class="pl-detail-list">' + rows + '</div>' +
+    '<div class="pl-detail-list' + (virtualized ? ' is-virtualized' : '') + '" data-pl-virtual-list="1" data-pl-virtual-key="' + escHtml(key) + '">' + rows + '</div>' +
   '</div>';
 }
-function renderPlaylistPanelDetailState() {
+function renderPlaylistPanelDetailState(opts) {
+  opts = opts || {};
   renderUserPlaylistsList();
+  bindPlaylistPanelDetailVirtualList();
+  if (opts.focusSearch) requestAnimationFrame(function(){
+    var input = document.querySelector('[data-pl-detail-search-input]');
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  });
 }
 function updatePlaylistBackToTopState() {
   var panel = document.getElementById('playlist-panel');
@@ -22144,11 +22534,8 @@ async function openPlaylistPanelDetail(provider, pid, title) {
       try { playlistPanelDetailAbortController.abort(); } catch (abortError) {}
       playlistPanelDetailAbortController = null;
     }
-    playlistPanelDetailState.key = '';
-    playlistPanelDetailState.phase = 'idle';
-    playlistPanelDetailState.tracks = [];
-    playlistPanelDetailState.playlist = null;
-    playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+    playlistPanelDetailState = createPlaylistPanelDetailState({ token:Number(playlistPanelDetailState.token || 0) + 1 });
+    playlistPanelDetailRowMemo.clear();
     renderPlaylistPanelDetailState();
     return;
   }
@@ -22158,7 +22545,8 @@ async function openPlaylistPanelDetail(provider, pid, title) {
   playlistPanelDetailAbortController = window.AbortController ? new AbortController() : null;
   var detailController = playlistPanelDetailAbortController;
   var token = ++playlistPanelDetailState.token;
-  playlistPanelDetailState = { key: key, loading: true, phase: 'loading', error: '', loginProvider: '', playlist: pl, tracks: [], token: token, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
+  playlistPanelDetailState = createPlaylistPanelDetailState({ key:key, loading:true, phase:'loading', playlist:pl, token:token });
+  playlistPanelDetailRowMemo.clear();
   renderPlaylistPanelDetailState();
   scrollPlaylistPanelDetailIntoView(key);
   try {
@@ -22173,9 +22561,9 @@ async function openPlaylistPanelDetail(provider, pid, title) {
     playlistPanelDetailState.error = '';
     playlistPanelDetailState.loginProvider = '';
     playlistPanelDetailState.tracks = r.tracks.map(cloneSong);
+    playlistPanelDetailState.searchCorpus = playlistPanelDetailState.tracks.map(playlistDetailSearchCorpus);
     pl.songs = playlistPanelDetailState.tracks.slice();
     pl.trackCount = pl.songCount = pl.songs.length;
-    playlistPanelDetailState.renderLimit = Math.min(playlistPanelDetailState.tracks.length, PLAYLIST_DETAIL_INITIAL_RENDER);
     renderPlaylistPanelDetailState();
   } catch (e) {
     if (playlistLoadWasAborted(e) || playlistPanelDetailState.token !== token) return;
@@ -22185,7 +22573,7 @@ async function openPlaylistPanelDetail(provider, pid, title) {
     playlistPanelDetailState.error = String(e && e.userMessage || '歌单加载失败，请稍后重试');
     playlistPanelDetailState.loginProvider = e && e.kind === 'login' ? provider : '';
     playlistPanelDetailState.tracks = [];
-    playlistPanelDetailState.renderLimit = PLAYLIST_DETAIL_INITIAL_RENDER;
+    playlistPanelDetailState.searchCorpus = [];
     renderPlaylistPanelDetailState();
     showToast(playlistPanelDetailState.error);
   } finally {
@@ -22226,28 +22614,6 @@ function openPlaylistPanelDetailArtist(index) {
   var song = playlistPanelDetailState.tracks && playlistPanelDetailState.tracks[index];
   if (song) openArtistDetailForSong(song);
 }
-function growPlaylistPanelDetailRenderLimit(amount) {
-  var st = playlistPanelDetailState;
-  var total = st && st.tracks ? st.tracks.length : 0;
-  if (!st || st.loading || !st.key || !total) return false;
-  var current = Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, st.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
-  var next = Math.min(total, current + (amount || PLAYLIST_DETAIL_BATCH_SIZE));
-  if (next <= current) return false;
-  var panel = document.getElementById('playlist-panel');
-  var keepTop = panel ? panel.scrollTop : 0;
-  st.renderLimit = next;
-  renderPlaylistPanelDetailState();
-  if (panel) panel.scrollTop = keepTop;
-  return true;
-}
-function maybeGrowPlaylistPanelDetailRenderLimit() {
-  var panel = document.getElementById('playlist-panel');
-  var st = playlistPanelDetailState;
-  if (!panel || !st || st.loading || !st.key || !st.tracks || st.renderLimit >= st.tracks.length) return;
-  if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 240) {
-    growPlaylistPanelDetailRenderLimit();
-  }
-}
 function resetPlaylistPanelRenderLimit() {
   playlistPanelRenderLimit = PLAYLIST_PANEL_BATCH_SIZE;
 }
@@ -22263,7 +22629,6 @@ function bindPlaylistPanelLazyRender() {
   if (!panel || playlistPanelLazyBound) return;
   playlistPanelLazyBound = true;
   panel.addEventListener('scroll', function(){
-    maybeGrowPlaylistPanelDetailRenderLimit();
     if (queueViewTab !== 'playlists' || playlistPanelRenderLimit >= userPlaylists.length) return;
     if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 180) growPlaylistPanelRenderLimit();
   }, { passive: true });
@@ -22319,6 +22684,7 @@ function renderUserPlaylistsList(opts) {
   if (userPlaylists.length > renderedCount) {
     $pl.insertAdjacentHTML('beforeend', '<button type="button" class="fx-mini-btn ghost pl-load-more" data-pl-load-more="1">加载更多 ' + renderedCount + '/' + userPlaylists.length + '</button>');
   }
+  bindPlaylistPanelDetailVirtualList();
   if (opts.animate && seq === playlistRenderSeq) animateVisiblePanelList($pl, '.pl-card', document.getElementById('playlist-panel'));
   requestAnimationFrame(updatePlaylistBackToTopState);
 }
@@ -22369,11 +22735,19 @@ document.getElementById('pl-list').addEventListener('click', function(e){
     growPlaylistPanelRenderLimit();
     return;
   }
-  var detailLoadMore = e.target && e.target.closest ? e.target.closest('[data-pl-detail-load-more]') : null;
-  if (detailLoadMore) {
+  var detailSearchSubmit = e.target && e.target.closest ? e.target.closest('[data-pl-detail-search-submit]') : null;
+  if (detailSearchSubmit) {
     e.preventDefault();
     e.stopPropagation();
-    growPlaylistPanelDetailRenderLimit();
+    var searchInput = document.querySelector('[data-pl-detail-search-input]');
+    applyPlaylistPanelDetailSearch(searchInput ? searchInput.value : playlistPanelDetailState.searchDraft);
+    return;
+  }
+  var detailSearchClear = e.target && e.target.closest ? e.target.closest('[data-pl-detail-search-clear]') : null;
+  if (detailSearchClear) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearPlaylistPanelDetailSearch();
     return;
   }
   var playDetail = e.target && e.target.closest ? e.target.closest('[data-pl-detail-play]') : null;
@@ -22418,6 +22792,53 @@ document.getElementById('pl-list').addEventListener('click', function(e){
   var provider = card.getAttribute('data-playlist-provider') || 'netease';
   var pid = card.getAttribute('data-playlist-id') || '';
   openPlaylistPanelDetail(provider, pid, card.getAttribute('data-playlist-title') || '');
+});
+document.getElementById('pl-list').addEventListener('input', function(e){
+  if (!e.target || !e.target.matches || !e.target.matches('[data-pl-detail-search-input]')) return;
+  playlistPanelDetailState.searchDraft = e.target.value;
+  var clearButton = document.querySelector('[data-pl-detail-search-clear]');
+  if (clearButton) clearButton.disabled = !e.target.value && !playlistPanelDetailState.searchApplied;
+});
+document.getElementById('pl-list').addEventListener('keydown', function(e){
+  if (!e.target || !e.target.matches || !e.target.matches('[data-pl-detail-search-input]')) return;
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    applyPlaylistPanelDetailSearch(e.target.value);
+  } else if (e.key === 'Escape' && (playlistPanelDetailState.searchApplied || e.target.value)) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearPlaylistPanelDetailSearch();
+  }
+});
+window.LumiFieldPlaylistDetailPerformance = Object.freeze({
+  getDebug:function(){
+    var st = playlistPanelDetailState || createPlaylistPanelDetailState();
+    var list = document.querySelector('.pl-detail-list[data-pl-virtual-list="1"]');
+    var content = shelfManager && shelfManager.getContentList && shelfManager.getContentList();
+    return {
+      key:st.key,
+      provider:String(st.key || '').split(':')[0] || '',
+      totalTrackCount:(st.tracks || []).length,
+      visibleTrackCount:playlistDetailVisibleCount(st),
+      mountedRowCount:list ? list.querySelectorAll('.pl-detail-row').length : 0,
+      virtualized:!!(list && list.classList.contains('is-virtualized')),
+      virtualStart:st.virtualStart,
+      virtualEnd:st.virtualEnd,
+      virtualScrollTop:Number(st.virtualScrollTop) || 0,
+      fullScrollTop:Number(st.fullScrollTop) || 0,
+      searchDraft:st.searchDraft,
+      searchQuery:st.searchQuery,
+      searchApplied:st.searchApplied,
+      filteredIndices:Array.isArray(st.filteredIndices) ? st.filteredIndices.slice() : null,
+      rowMemoSize:playlistPanelDetailRowMemo.size,
+      virtualFramePending:!!playlistPanelDetailVirtualFrame,
+      pointerEvents:globalHoverPointerEvents,
+      pointerFrames:globalHoverPointerFrames,
+      threeD:content && content.getDebug ? content.getDebug() : null
+    };
+  }
 });
 var podcastListEl = document.getElementById('podcast-list');
 if (podcastListEl) {
@@ -29058,7 +29479,7 @@ function hideMainPlaylistPanelOutsideMainInterface() {
   var panel = document.getElementById('playlist-panel');
   if (panel) panel.classList.remove('peek', 'show', 'closing');
 }
-window.addEventListener('mousemove', function(e){
+function processInterfaceHoverPointer(e){
   var sa = document.getElementById('search-area');
   var fp = document.getElementById('fx-panel');
   var pp = document.getElementById('playlist-panel');
@@ -29134,7 +29555,7 @@ window.addEventListener('mousemove', function(e){
     newFocus = 'shelf-stage';
   }
   setFocusZone(newFocus, newFocus === 'queue');
-});
+}
 
 var desktopOverlayPushState = {
   lyricsAt: 0,
