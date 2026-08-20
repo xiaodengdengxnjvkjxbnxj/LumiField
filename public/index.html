@@ -13283,6 +13283,7 @@ function makeShelfManager() {
 
   function drawCard(card, item) {
     item = item || card.item || {};
+    if (card && card.deleteEffectActive === true) return;
     var nextDrawKey = cardDrawSignature(card, item);
     if (card.drawKey === nextDrawKey) return;
     card.drawKey = nextDrawKey;
@@ -15433,15 +15434,18 @@ function makeContentListManager() {
     getDeleteVisualSnapshot: function(expectedKey) {
       // 新增功能14只属于副界面的 Three.js 3D 歌单；Home/二维歌单不创建消散快照。
       if (typeof isVisualStageInteractionActive !== 'function' || !isVisualStageInteractionActive()) return null;
-      if (!open || contentKind !== 'playlist' || !openPlaylistRef || !sourceCard || !sourceCard.canvas || !sourceCard.mesh) return null;
+      if (!open || contentKind !== 'playlist' || !openPlaylistRef) return null;
       if (expectedKey && String(expectedKey) !== String(openPlaylistRef.key)) return null;
-      var source = document.createElement('canvas');
-      source.width = sourceCard.canvas.width;
-      source.height = sourceCard.canvas.height;
-      var sourceContext = source.getContext('2d');
-      if (!sourceContext) return null;
-      sourceContext.drawImage(sourceCard.canvas, 0, 0);
-      var params = sourceCard.mesh.geometry && sourceCard.mesh.geometry.parameters || {};
+      var card = sourceCard;
+      if (shelfManager && typeof shelfManager.getOpenContentIndex === 'function' && typeof shelfManager.getCardAt === 'function') {
+        var liveCard = shelfManager.getCardAt(shelfManager.getOpenContentIndex());
+        var liveItem = liveCard && liveCard.item;
+        var liveRef = liveItem && parsePlaylistReference(liveItem.rawPlaylistId || liveItem.playlistId || '', liveItem.provider || 'netease');
+        if (liveCard && liveRef && liveRef.key === openPlaylistRef.key) card = liveCard;
+      }
+      if (!card || !card.canvas || !card.mesh) return null;
+      sourceCard = card;
+      var params = card.mesh.geometry && card.mesh.geometry.parameters || {};
       var halfWidth = (params.width || 2.05) / 2;
       var halfHeight = (params.height || 1.025) / 2;
       var corners = [
@@ -15451,24 +15455,48 @@ function makeContentListManager() {
         new THREE.Vector3(-halfWidth,  halfHeight, 0)
       ];
       var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      sourceCard.mesh.updateMatrixWorld(true);
+      card.mesh.updateMatrixWorld(true);
       for (var index = 0; index < corners.length; index++) {
-        corners[index].applyMatrix4(sourceCard.mesh.matrixWorld).project(camera);
+        corners[index].applyMatrix4(card.mesh.matrixWorld).project(camera);
         var screenX = (corners[index].x + 1) * innerWidth / 2;
         var screenY = (1 - corners[index].y) * innerHeight / 2;
         minX = Math.min(minX, screenX); maxX = Math.max(maxX, screenX);
         minY = Math.min(minY, screenY); maxY = Math.max(maxY, screenY);
       }
       if (![minX, minY, maxX, maxY].every(isFinite) || maxX - minX < 8 || maxY - minY < 8) return null;
-      var card = sourceCard;
+      var lastClearedX = card.canvas.width;
       return {
         key:String(openPlaylistRef.key),
-        sourceCanvas:source,
+        sourceCanvas:card.canvas,
+        originalTarget:true,
         bounds:{ left:minX, top:minY, width:maxX - minX, height:maxY - minY },
-        hideOriginal:function() {
-          if (!card || !card.mesh) return;
-          card.mesh.userData.lfDeleteParticleHidden = true;
-          card.mesh.visible = false;
+        beginOriginal:function() {
+          if (!card || !card.mesh || !card.canvas || !card.ctx) throw new Error('PLAYLIST_DELETE_ORIGINAL_UNAVAILABLE');
+          card.deleteEffectActive = true;
+          card.mesh.userData.lfDeleteEffectActive = true;
+          card.mesh.visible = true;
+          lastClearedX = card.canvas.width;
+        },
+        applyOriginalProgress:function(progress) {
+          if (!card || !card.canvas || !card.ctx || !card.texture) return false;
+          var nextX = Math.max(0, Math.min(card.canvas.width, Math.floor(card.canvas.width * (1 - Math.max(0, Math.min(1, Number(progress) || 0))))));
+          if (nextX < lastClearedX) {
+            card.ctx.clearRect(nextX, 0, lastClearedX - nextX, card.canvas.height);
+            lastClearedX = nextX;
+            card.texture.needsUpdate = true;
+          }
+          return true;
+        },
+        finishOriginal:function(completed, imageData) {
+          if (!card || !card.canvas || !card.ctx || !card.texture) return;
+          if (!completed && imageData) {
+            card.ctx.putImageData(imageData, 0, 0);
+            card.texture.needsUpdate = true;
+          } else if (completed && card.mesh) {
+            card.mesh.visible = false;
+          }
+          card.deleteEffectActive = false;
+          if (card.mesh && card.mesh.userData) delete card.mesh.userData.lfDeleteEffectActive;
         }
       };
     },
@@ -21482,6 +21510,27 @@ function deleteLocalPlaylistRecord(ref) {
   }
   return { ok: true, provider: 'local', id: ref.id, operation: 'delete-local' };
 }
+function validateLocalPlaylistRecordDeletion(ref) {
+  var candidates = (localPlaylists || []).concat(userPlaylists || []);
+  if (!candidates.some(function(item){ return playlistMatchesRef(item, ref, 'local'); })) {
+    var notFound = new Error('LOCAL_PLAYLIST_NOT_FOUND');
+    notFound.code = 'LOCAL_PLAYLIST_NOT_FOUND';
+    throw notFound;
+  }
+  var merged = localPlaylists.length ? localPlaylists.slice() : (userPlaylists || []).filter(function(item){ return item && item.provider === 'local'; });
+  var next = removePlaylistRefFromList(merged, ref, 'local');
+  var probeKey = LOCAL_PLAYLIST_STORE_KEY + ':delete-preflight';
+  try {
+    localStorage.setItem(probeKey, JSON.stringify(next));
+    localStorage.removeItem(probeKey);
+  } catch (error) {
+    try { localStorage.removeItem(probeKey); } catch (_) {}
+    var persistError = new Error('LOCAL_PLAYLIST_PERSIST_FAILED');
+    persistError.code = 'LOCAL_PLAYLIST_PERSIST_FAILED';
+    throw persistError;
+  }
+  return { ok:true, provider:'local', id:ref.id, operation:'delete-local', deferredCommit:true };
+}
 function deleteImportedPlaylistRecord(ref) {
   var imported = window.LumiFieldPlaylistLinkImport;
   if (!imported || typeof imported.removeImportedPlaylist !== 'function') {
@@ -21496,6 +21545,24 @@ function deleteImportedPlaylistRecord(ref) {
     throw failed;
   }
   return result;
+}
+function validateImportedPlaylistRecordDeletion(ref) {
+  var imported = window.LumiFieldPlaylistLinkImport;
+  if (!imported || typeof imported.getImportedPlaylists !== 'function' || typeof imported.removeImportedPlaylist !== 'function') {
+    var unavailable = new Error('IMPORTED_PLAYLIST_STORE_UNAVAILABLE');
+    unavailable.code = 'IMPORTED_PLAYLIST_STORE_UNAVAILABLE';
+    throw unavailable;
+  }
+  var exists = imported.getImportedPlaylists().some(function(item) {
+    return playlistMatchesRef(item, ref, item && (item.sourceProvider || item.provider) || ref.provider) ||
+      String(item && item.sourceProvider || '') === String(ref.provider || '') && String(item && item.sourcePlaylistId || '') === String(ref.id || '');
+  });
+  if (!exists) {
+    var notFound = new Error('IMPORTED_PLAYLIST_NOT_FOUND');
+    notFound.code = 'IMPORTED_PLAYLIST_NOT_FOUND';
+    throw notFound;
+  }
+  return { ok:true, provider:ref.provider, id:ref.id, operation:'delete-local', imported:true, deferredCommit:true };
 }
 function applyConfirmedPlaylistRemoval(ref) {
   playlistProviderRequestSerial++;
@@ -21591,10 +21658,11 @@ async function confirmPlaylistDelete() {
   if (no) no.disabled = true;
   if (status) status.textContent = '正在向平台确认…';
   try {
+    var deferredLocalCommit = null;
     var result = pending.localOrigin === 'imported'
-      ? deleteImportedPlaylistRecord(pending)
+      ? (deferredLocalCommit = function(){ return deleteImportedPlaylistRecord(pending); }, validateImportedPlaylistRecordDeletion(pending))
       : (pending.provider === 'local'
-      ? deleteLocalPlaylistRecord(pending)
+      ? (deferredLocalCommit = function(){ return deleteLocalPlaylistRecord(pending); }, validateLocalPlaylistRecordDeletion(pending))
       : await apiJson('/api/playlist/mutate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -21637,6 +21705,10 @@ async function confirmPlaylistDelete() {
     }
     if (requestSerial !== playlistMutationState.requestSerial) return false;
     if (pending.accountScope !== String(musicPlatformAccountScope || '')) return false;
+    if (deferredLocalCommit) {
+      result = deferredLocalCommit();
+      if (!result || result.ok !== true) throw new Error(result && (result.code || result.error || result.message) || 'PLAYLIST_LOCAL_COMMIT_FAILED');
+    }
     applyConfirmedPlaylistRemoval(pending);
     playlistMutationState.lastResult = {
       ok: true,

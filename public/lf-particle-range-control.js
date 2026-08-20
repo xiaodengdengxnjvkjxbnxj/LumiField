@@ -6,6 +6,8 @@
   var SOURCE = Object.freeze({
     material: '桌面/文件13/鸿蒙.mp4 (reference only; not packaged)',
     referenceVideoSha256: '47074935E9D21BE26F38579C324BB1A08932F65DBB9E61E802AFC9358EBB9E87',
+    playlistRemovalMaterial: '桌面/文件13/消散.mp4 (reference only; not packaged)',
+    playlistRemovalReferenceVideoSha256: '3FDD9569045F97D60F64B8667A6E91A14B357CC261DF7D079C0B72DD85C79675',
     sourceMode: 'FRAME_ANALYZED_REFERENCE_VIDEO',
     implementation: 'LUMIFIELD_INDEPENDENT_IMPLEMENTATION',
     releaseGate: 'NOT_BLOCKED_BY_REFERENCE_VIDEO'
@@ -45,6 +47,7 @@
     deleteStarts:0,
     deleteCompletions:0,
     deleteDuplicates:0,
+    deleteRestores:0,
     lastDeleteKey:'',
     completedDeleteKeys:Object.create(null),
     listenerCount:0
@@ -362,7 +365,7 @@
     if (!context) return 0;
     var alive = 0;
     context.save();
-    context.globalCompositeOperation = 'lighter';
+    var compositeMode = '';
     for (var index = 0; index < state.particles.length; index += 1) {
       var particle = state.particles[index];
       if (!particle.active) continue;
@@ -382,9 +385,14 @@
       particle.y += particle.vy * dt;
       var lifeRatio = clamp(particle.life / particle.maxLife, 0, 1);
       var alpha = particle.alpha * Math.min(1, lifeRatio * 2.4) * lifeRatio;
+      var nextCompositeMode = particle.kind === 'delete' ? 'source-over' : 'lighter';
+      if (compositeMode !== nextCompositeMode) {
+        compositeMode = nextCompositeMode;
+        context.globalCompositeOperation = compositeMode;
+      }
       context.fillStyle = 'rgba(' + Math.round(particle.r) + ',' + Math.round(particle.g) + ',' + Math.round(particle.b) + ',' + alpha.toFixed(3) + ')';
       context.shadowColor = 'rgba(' + Math.round(particle.r) + ',' + Math.round(particle.g) + ',' + Math.round(particle.b) + ',' + (alpha * 0.72).toFixed(3) + ')';
-      context.shadowBlur = particle.kind === 'delete' ? 5.5 : 3.5;
+      context.shadowBlur = particle.kind === 'delete' ? 0 : 3.5;
       context.beginPath();
       context.arc(particle.x, particle.y, particle.size * (0.72 + lifeRatio * 0.36), 0, Math.PI * 2);
       context.fill();
@@ -400,36 +408,19 @@
     return alive;
   }
 
-  function drawDeleteGhost(time) {
+  function updateDeleteOriginal(time) {
     var effect = state.deleteEffect;
-    if (!effect || !effect.source || !state.context) return;
+    if (!effect || typeof effect.applyOriginalProgress !== 'function') return;
     var elapsed = time - effect.startAt;
     var duration = effect.duration;
     var progress = clamp(elapsed / duration, 0, 1);
-    var slideProgress = 1 - Math.pow(1 - clamp(progress / 0.58, 0, 1), 3);
     var dissolve = clamp((progress - 0.14) / 0.72, 0, 1);
-    var sourceWidth = Math.max(1, Number(effect.source.width) || 1);
-    var sourceHeight = Math.max(1, Number(effect.source.height) || 1);
-    var bounds = effect.bounds;
-    var cutSource = Math.floor(sourceWidth * dissolve);
-    var cutScreen = bounds.width * dissolve;
-    var slide = bounds.width * 0.22 * slideProgress;
-    if (cutSource >= sourceWidth - 1 || progress >= 0.98) return;
-    state.context.save();
-    state.context.globalAlpha = Math.pow(1 - dissolve, 0.62) * 0.98;
-    state.context.shadowColor = 'rgba(174,139,255,.30)';
-    state.context.shadowBlur = 16;
     try {
-      state.context.drawImage(
-        effect.source,
-        0, 0, sourceWidth - cutSource, sourceHeight,
-        bounds.left + slide, bounds.top,
-        Math.max(1, bounds.width - cutScreen), bounds.height
-      );
-    } catch (drawError) {
-      effect.drawError = String(drawError && drawError.message || drawError);
+      effect.applyOriginalProgress(dissolve, effect.sourceImageData);
+      effect.progress = dissolve;
+    } catch (applyError) {
+      effect.applyError = String(applyError && applyError.message || applyError);
     }
-    state.context.restore();
   }
 
   function frame(time) {
@@ -439,7 +430,7 @@
     var dt = clamp((time - state.lastFrameAt) / 1000, 0.001, 0.04);
     state.lastFrameAt = time;
     clearCanvas();
-    drawDeleteGhost(time);
+    updateDeleteOriginal(time);
     var alive = updateAndDrawParticles(time, dt);
     state.frameCount += 1;
     if (state.deleteEffect && time - state.deleteEffect.startAt >= state.deleteEffect.duration) {
@@ -449,26 +440,19 @@
   }
 
   function sampleDeleteParticles(effect) {
-    var source = effect.source;
-    var context = source && typeof source.getContext === 'function' ? source.getContext('2d', { willReadFrequently:true }) : null;
-    if (!context) return 0;
-    var width = Math.max(1, source.width || 1);
-    var height = Math.max(1, source.height || 1);
-    var target = reducedMotion() ? 130 : 920;
+    var imageData = effect.sourceImageData;
+    var pixels = imageData && imageData.data;
+    var width = Math.max(1, Number(imageData && imageData.width) || 1);
+    var height = Math.max(1, Number(imageData && imageData.height) || 1);
+    if (!pixels || !pixels.length) return 0;
+    var target = reducedMotion() ? 220 : 1600;
     var step = Math.max(3, Math.floor(Math.sqrt(width * height / target)));
-    var pixels;
-    try {
-      pixels = context.getImageData(0, 0, width, height).data;
-    } catch (readError) {
-      effect.readError = String(readError && readError.message || readError);
-      return 0;
-    }
     var created = 0;
     for (var y = Math.floor(step / 2); y < height; y += step) {
       for (var x = Math.floor(step / 2); x < width; x += step) {
         var offset = (y * width + x) * 4;
         var alpha = pixels[offset + 3] / 255;
-        if (alpha < 0.11 || Math.random() > 0.88) continue;
+        if (alpha < 0.08) continue;
         var normalizedX = x / width;
         var bornAt = effect.startAt + effect.duration * (0.13 + (1 - normalizedX) * 0.47) + Math.random() * 70;
         spawnParticle({
@@ -476,15 +460,15 @@
           y:effect.bounds.top + y / height * effect.bounds.height,
           vx:56 + Math.random() * 112 + normalizedX * 42,
           vy:-38 + (Math.random() - 0.5) * 68,
-          life:0.46 + Math.random() * 0.42,
-          size:0.7 + Math.random() * 1.75,
-          alpha:clamp(alpha * 0.95, 0.34, 0.98),
+          life:0.48 + Math.random() * 0.40,
+          size:0.45 + Math.random() * 0.72,
+          alpha:clamp(alpha * 0.96, 0.42, 0.98),
           drag:0.965 + Math.random() * 0.022,
           gravity:-5 - Math.random() * 7,
           wind:28 + Math.random() * 42,
-          r:pixels[offset],
-          g:pixels[offset + 1],
-          b:pixels[offset + 2],
+          r:248,
+          g:250,
+          b:255,
           bornAt:bornAt,
           kind:'delete'
         });
@@ -498,6 +482,14 @@
     var effect = state.deleteEffect;
     if (!effect) return;
     state.deleteEffect = null;
+    if (typeof effect.finishOriginal === 'function') {
+      try {
+        effect.finishOriginal(!!ok, effect.sourceImageData);
+        if (!ok) state.deleteRestores += 1;
+      } catch (finishError) {
+        effect.finishError = String(finishError && finishError.message || finishError);
+      }
+    }
     if (ok) {
       state.deleteCompletions += 1;
       state.completedDeleteKeys[effect.key] = true;
@@ -530,15 +522,27 @@
       state.deleteDuplicates += 1;
       return Promise.resolve({ ok:false, key:key, reason:'already-completed', duplicate:true });
     }
-    if (!snapshot.sourceCanvas || !snapshot.bounds) {
+    if (!snapshot.sourceCanvas || !snapshot.bounds || snapshot.originalTarget !== true ||
+        typeof snapshot.applyOriginalProgress !== 'function' || typeof snapshot.finishOriginal !== 'function') {
       return Promise.resolve({ ok:false, key:key, reason:'snapshot-unavailable' });
     }
     if (!state.installed) install();
     ensureCanvas();
     resizeCanvas(true);
+    var sourceContext = snapshot.sourceCanvas && typeof snapshot.sourceCanvas.getContext === 'function'
+      ? snapshot.sourceCanvas.getContext('2d', { willReadFrequently:true })
+      : null;
+    var sourceImageData = null;
+    try {
+      sourceImageData = sourceContext && sourceContext.getImageData(0, 0, snapshot.sourceCanvas.width, snapshot.sourceCanvas.height);
+    } catch (readError) {
+      return Promise.resolve({ ok:false, key:key, reason:'snapshot-read-failed', error:String(readError && readError.message || readError) });
+    }
+    if (!sourceImageData) return Promise.resolve({ ok:false, key:key, reason:'snapshot-read-failed' });
     var effect = {
       key:key,
       source:snapshot.sourceCanvas,
+      sourceImageData:sourceImageData,
       bounds:normalizeBounds(snapshot.bounds),
       startAt:nowMs(),
       duration:reducedMotion() ? 260 : 1580,
@@ -546,14 +550,21 @@
       promise:null,
       particleCount:0,
       drawError:'',
-      readError:''
+      readError:'',
+      applyError:'',
+      progress:0,
+      applyOriginalProgress:snapshot.applyOriginalProgress,
+      finishOriginal:snapshot.finishOriginal
     };
     effect.promise = new Promise(function (resolve) { effect.resolve = resolve; });
     state.deleteEffect = effect;
     state.deleteStarts += 1;
     state.lastDeleteKey = key;
-    if (typeof snapshot.hideOriginal === 'function') {
-      try { snapshot.hideOriginal(); } catch (hideError) { effect.hideError = String(hideError && hideError.message || hideError); }
+    if (typeof snapshot.beginOriginal === 'function') {
+      try { snapshot.beginOriginal(sourceImageData); } catch (beginError) {
+        state.deleteEffect = null;
+        return Promise.resolve({ ok:false, key:key, reason:'original-begin-failed', error:String(beginError && beginError.message || beginError) });
+      }
     }
     effect.particleCount = sampleDeleteParticles(effect);
     ensureFrame();
@@ -639,8 +650,14 @@
       deleteStarts:state.deleteStarts,
       deleteCompletions:state.deleteCompletions,
       deleteDuplicates:state.deleteDuplicates,
+      deleteRestores:state.deleteRestores,
       lastDeleteKey:state.lastDeleteKey,
       deleteParticleCount:state.deleteEffect ? state.deleteEffect.particleCount : 0,
+      deleteTargetMode:state.deleteEffect ? 'original-card' : 'idle',
+      deleteCloneCount:0,
+      deleteParticleColor:'rgb-white',
+      deleteParticleShadowBlur:0,
+      deleteOriginalProgress:state.deleteEffect ? state.deleteEffect.progress : 0,
       viewport:{ width:state.width, height:state.height, dpr:state.dpr }
     };
   }
