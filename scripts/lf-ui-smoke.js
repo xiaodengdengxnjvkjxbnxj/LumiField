@@ -2146,12 +2146,14 @@ async function run() {
   const echoShape2 = await echoShape('shape2');
   const echoCoverage = await cdp.call(function () {
     const expected = [
-      'enabled','shape','audioMonitor','particleStrength','mode1LeftLyricsEnabled',
-      'theme','flip','showColorOptions','autoCycle','cycleInterval',
-      'accentEnabled','accentColor','accentStrength','responseStrength','responseRange','rippleEnabled','rippleSensitivity','rippleCooldown',
+      'enabled','shape','quality','audioMonitor','mode1LeftLyricsEnabled','theme',
+      'responseStrength','responseRange','rippleEnabled','rippleSensitivity','rippleCooldown',
       'idleWave','idleDebounce','idleFade','cameraDistance','cameraHorizontal','cameraElevation','autoRotate','rotateSpeed',
-      'playerVisible','playerCover','playerSize','playerX','playerY',
       'exposureStrength','flashEnabled','reducedFlash',
+    ];
+    const deprecated = [
+      'particleStrength','flip','showColorOptions','autoCycle','cycleInterval',
+      'accentEnabled','accentColor','accentStrength','playerVisible','playerCover','playerSize','playerX','playerY',
     ];
     const actual = Array.from(document.querySelectorAll('[data-lf-scope="echo"][data-lf-key]')).map(node => node.dataset.lfKey);
     const player = document.getElementById('lf-t13-echo-player');
@@ -2170,6 +2172,7 @@ async function run() {
     const restored = LumiFieldTask13.getState().echo;
     return {
       missing: expected.filter(key => !actual.includes(key)),
+      deprecatedPresent: deprecated.filter(key => actual.includes(key)),
       visualEqCount: document.querySelectorAll('[data-lf-echo-eq]').length,
       duplicatePlayer: !!player,
       saved: saved.length,
@@ -2196,7 +2199,7 @@ async function run() {
     new Set([echoShape1, echoShape2].map(entry => entry.debug.activeAdapter.sceneId)).size === 2 &&
     new Set([echoShape1, echoShape2].map(entry => entry.debug.activeAdapter.shaderId)).size === 2 &&
     new Set([echoShape1, echoShape2].map(entry => entry.debug.activeAdapter.stateId)).size === 2 &&
-    echoCoverage.missing.length === 0 && echoCoverage.visualEqCount === 8 &&
+    echoCoverage.missing.length === 0 && echoCoverage.deprecatedPresent.length === 0 && echoCoverage.visualEqCount === 0 &&
     !echoCoverage.duplicatePlayer && echoCoverage.saved === 1 && !echoCoverage.resetEnabled &&
     echoCoverage.restoredShape === 'shape2' && echoCoverage.restoredEnabled, {
     shape1: echoShape1.debug,
