@@ -2504,8 +2504,12 @@ async function run() {
     const target = document.getElementById('lf-wallpaper-target');
     target.value = 'stage';
     target.dispatchEvent(new Event('change', { bubbles: true }));
-    document.getElementById('lf-wallpaper-apply').click();
   });
+  await pageWait(async function () {
+    const debug = await window.LumiFieldWallpaperVideoOptimization.debug();
+    return debug.phase === 'complete' && debug.lastResult && debug.lastResult.ok !== false;
+  }, [], 45000);
+  await cdp.call(function () { document.getElementById('lf-wallpaper-apply').click(); });
   await pageWait(function () {
     const video = document.getElementById('custom-bg-video');
     return document.body.classList.contains('lf-stage-wallpaper-active') && video && !video.hidden && video.readyState >= 2;
