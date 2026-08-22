@@ -1177,8 +1177,8 @@ async function configureRealShelf(provider, id) {
     };
   }, [provider, id, `${LABELS[provider]}交互回归`]);
 }
-async function clickableShelfRowPoint(index) {
-  return cdp.call(function (wanted) {
+async function clickableShelfRowPoint(index, action) {
+  return cdp.call(function (wanted, wantedAction) {
     var content = shelfManager && shelfManager.getContentList && shelfManager.getContentList();
     if (!content || !content.getRows || !content.pickRowAtScreen) return null;
     var row = content.getRows().find(function (entry) {
@@ -1195,6 +1195,7 @@ async function clickableShelfRowPoint(index) {
       new THREE.Vector3(-hw,hh,0),
     ];
     var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    var best=null,bestScore=Infinity;
     row.mesh.updateMatrixWorld(true);
     points.forEach(function (point) {
       point.applyMatrix4(row.mesh.matrixWorld).project(camera);
@@ -1203,16 +1204,28 @@ async function clickableShelfRowPoint(index) {
       minY=Math.min(minY,y);maxY=Math.max(maxY,y);
     });
     for (var y=minY+8; y<=maxY-8; y+=6) {
-      for (var x=minX+24; x<=maxX*.80+minX*.20; x+=8) {
+      for (var x=minX+24; x<=maxX-8; x+=8) {
         var hit=content.pickRowAtScreen(x,y);
-        if (hit&&hit.row&&hit.row.index===wanted&&(!hit.uv||hit.uv.x<.55)&&
-            document.elementFromPoint(x,y)===renderer.domElement) {
-          return { x:x, y:y, index:wanted, id:row.song&&row.song.id };
+        var screenAction=hit&&!hit.uv&&content.rowActionAtScreen
+          ? content.rowActionAtScreen(hit.row,x,y) : null;
+        var correctZone=wantedAction==='play'
+          ? !!(hit&&((hit.uv&&hit.uv.x>=.84&&hit.uv.y>.20&&hit.uv.y<.82)||screenAction==='play'))
+          : !!(hit&&(!hit.uv||hit.uv.x<.55));
+        if (hit&&hit.row&&hit.row.index===wanted&&correctZone&&document.elementFromPoint(x,y)===renderer.domElement) {
+          var targetU=wantedAction==='play'?.91:.32;
+          var targetV=.5;
+          var hitU=hit.uv?hit.uv.x:targetU;
+          var hitV=hit.uv?hit.uv.y:targetV;
+          var score=Math.abs(hitU-targetU)+Math.abs(hitV-targetV);
+          if (score<bestScore) {
+            bestScore=score;
+            best={ x:x, y:y, index:wanted, id:row.song&&row.song.id, action:wantedAction||'body', uv:{x:hitU,y:hitV} };
+          }
         }
       }
     }
-    return null;
-  }, [index]);
+    return best;
+  }, [index, action || 'body']);
 }
 async function clickAt(x, y) {
   await cdp.send('Input.dispatchMouseEvent', { type:'mouseMoved', x, y });
@@ -1261,21 +1274,43 @@ async function verifyTwoAndThreeDimensionalConsistencyAndActions() {
     ), { twoD, threeD });
 
   const center = Number(threeD.center) || 0;
-  const point = await waitFor(() => clickableShelfRowPoint(center), 5000, 80);
-  pass('loaded 3D detail exposes a real clickable song-row point', !!point, { point, threeD });
+  const point = await waitFor(() => clickableShelfRowPoint(center, 'play'), 5000, 80);
+  pass('loaded 3D detail exposes a real clickable play hotspot', !!point, { point, threeD });
   await cdp.call(function () {
     window.__lfP15Harness.playCalls.length = 0;
     if (typeof mouseDownAt !== 'undefined') mouseDownAt.hadDrag = false;
+    window.__lfP15ClickProbe = [];
+    renderer.domElement.addEventListener('click', function probe(e) {
+      var content = shelfManager && shelfManager.getContentList && shelfManager.getContentList();
+      var hit = content && content.pickRowAtScreen ? content.pickRowAtScreen(e.clientX, e.clientY) : null;
+      window.__lfP15ClickProbe.push({
+        x:e.clientX,
+        y:e.clientY,
+        detail:e.detail,
+        target:e.target && (e.target.id || e.target.tagName),
+        topElement:(document.elementFromPoint(e.clientX, e.clientY) || {}).id || '',
+        stageActive:typeof isVisualStageInteractionActive === 'function' && isVisualStageInteractionActive(),
+        pointerOverUi:typeof isPointerOverUi === 'function' && isPointerOverUi(e),
+        hadDrag:typeof mouseDownAt !== 'undefined' && mouseDownAt.hadDrag,
+        mode:shelfManager && shelfManager.getMode && shelfManager.getMode(),
+        hasOpenContent:!!(shelfManager && shelfManager.hasOpenContent && shelfManager.hasOpenContent()),
+        row:hit && hit.row && hit.row.index,
+        uv:hit && hit.uv && { x:hit.uv.x, y:hit.uv.y },
+        action:hit && !hit.uv && content.rowActionAtScreen
+          ? content.rowActionAtScreen(hit.row, e.clientX, e.clientY) : null
+      });
+    }, { capture:true, once:true });
     return true;
   });
   await clickAt(point.x, point.y);
   await delay(300);
   const played = await harnessSnapshot();
-  pass('real 3D row click preserves provider/id into queue and reaches playback',
+  const clickProbe = await cdp.call(function () { return window.__lfP15ClickProbe || []; });
+  pass('real 3D play-hotspot click preserves provider/id into queue and reaches playback',
     played.playCalls.length === 1 &&
     played.playCalls[0].provider === provider &&
     played.playCalls[0].id === point.id,
-    played.playCalls);
+    { playCalls:played.playCalls, clickProbe, point });
 
   await configureRealShelf(provider, id);
   const reopened = await waitContentState('ready', true);
