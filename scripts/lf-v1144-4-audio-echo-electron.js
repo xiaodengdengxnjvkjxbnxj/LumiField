@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
-const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.resolve(repo, '..', '..', 'release', 'verify-v1.1.43-tag', 'node_modules');
+const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.join(repo, 'node_modules');
 const electronExe = path.join(dependencyRoot, 'electron', 'dist', 'electron.exe');
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const evidenceDir = path.join(repo, 'test-results', 'lf-v1144-4-audio-echo', runId);
@@ -140,6 +140,8 @@ function staticChecks() {
   pass('auto rotation off has an exact zero angular velocity', /angularVelocity=state\.autoRotate===true/.test(shape1) && /angularVelocity:runtimeState\.autoRotateEnabled \? runtimeState\.autoRotateSpeed : 0/.test(shape2), true);
   pass('all four quality modes use renderer backing scale without camera or model offsets', /ratio \* echoScale/.test(index) && /scheduleMainRendererViewportRefresh = scheduleMainRendererViewportRefresh/.test(index), true);
   pass('ordinary preset selection atomically releases Echo while playback changes preserve it', /stopAudioEchoBeforeNormalPreset/.test(index) && /pointer\.listeners \|\| 0\) === 0/.test(index) && (index.match(/preserveAudioEcho:true/g) || []).length >= 4, true);
+  const surfaceGate = manager.slice(manager.indexOf('function surfaceAvailable()'), manager.indexOf('function isActive()'));
+  pass('Audio Echo remains available behind the main-interface panels', !surfaceGate.includes("classList.contains('empty-home-active')"), surfaceGate);
   pass('release documentation marks the implemented pair as distributable', /AUDIO_ECHO_V2_GPL_PASS/.test(releaseGate) && /hgbhh258-spec\/Sonic-Topography-Wallpaper/.test(releaseGate), true);
 }
 
@@ -278,6 +280,37 @@ async function exercise() {
   }
   const cycled = await debug();
   pass('six source switches leave exactly one scene and one pointer handler set', cycled.activeSceneCount === 1 && cycled.pointer.listeners === 6 && cycled.buildCount === cycleStart.buildCount + 6 && cycled.disposeCount === cycleStart.disposeCount + 6 && cycled.activeAdapter.resources.geometries === 3 && cycled.activeAdapter.resources.materials === 3, cycled);
+
+  const mainBefore = await cdp.evaluate(`(()=>{
+    window.LumiFieldTask13.setEchoState({enabled:false});
+    window.homeSuppressed=false;window.homeForcedOpen=true;
+    window.updateEmptyHomeVisibility({forceLoad:false});
+    const ok=window.LumiFieldTask13.setEchoState({enabled:true,shape:'shape1',quality:'high',theme:'nocturnal',autoRotate:false});
+    const d=window.LumiFieldAudioEchoManager.getDebug();
+    return {ok,renderPasses:d.render.renderPasses};
+  })()`);
+  await waitFor(() => cdp.evaluate(`(()=>{const d=window.LumiFieldAudioEchoManager.getDebug();return document.body.classList.contains('empty-home-active')&&d.active&&d.activeShape==='shape1'&&d.activeSceneCount===1;})()`));
+  await drive(18, 8.4);
+  const mainEcho = await cdp.evaluate(`(()=>{
+    const d=window.LumiFieldAudioEchoManager.getDebug();
+    const canvas=document.getElementById('canvas-container');
+    const home=document.getElementById('empty-home');
+    const canvasStyle=getComputedStyle(canvas),homeStyle=getComputedStyle(home);
+    return {
+      active:d.active,activeShape:d.activeShape,activeSceneCount:d.activeSceneCount,
+      renderPasses:d.render.renderPasses,bodyActive:document.body.classList.contains('lf-audio-echo-active'),
+      homeActive:document.body.classList.contains('empty-home-active'),particlesVisible:!!(window.particles&&window.particles.visible),
+      canvasOpacity:Number(canvasStyle.opacity),canvasVisibility:canvasStyle.visibility,
+      canvasZ:Number(canvasStyle.zIndex),homeOpacity:Number(homeStyle.opacity),homeZ:Number(homeStyle.zIndex)
+    };
+  })()`);
+  pass('selecting Audio Echo on the main interface renders it beneath the panels without entering the secondary interface',
+    mainBefore.ok === true && mainEcho.active && mainEcho.activeShape === 'shape1' && mainEcho.activeSceneCount === 1 &&
+    mainEcho.renderPasses > mainBefore.renderPasses && mainEcho.bodyActive && mainEcho.homeActive &&
+    mainEcho.particlesVisible === false && mainEcho.canvasOpacity > 0 && mainEcho.canvasVisibility !== 'hidden' &&
+    mainEcho.homeOpacity > 0 && mainEcho.canvasZ < mainEcho.homeZ,
+    { before:mainBefore, after:mainEcho });
+  await cdp.screenshot('shape1-main-interface-gaps.png');
 
   const normalPreset = await cdp.evaluate(`(()=>{const before=window.fx.preset;const target=(before+1)%window.presetMeta.length;const ok=window.setPreset(target);const d=window.LumiFieldAudioEchoManager.getDebug();return {ok,before,target,actual:window.fx.preset,debug:d,bodyActive:document.body.classList.contains('lf-audio-echo-active'),particles:window.particles&&window.particles.visible,toast:document.getElementById('toast')&&document.getElementById('toast').textContent};})()`);
   pass('ordinary preset selection disposes Echo before activating the preset', normalPreset.ok === true && normalPreset.actual === normalPreset.target && normalPreset.debug.enabled === false && normalPreset.debug.active === false && normalPreset.debug.activeSceneCount === 0 && normalPreset.debug.pointer.listeners === 0 && normalPreset.bodyActive === false, normalPreset);

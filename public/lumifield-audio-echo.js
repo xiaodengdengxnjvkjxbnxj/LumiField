@@ -88,7 +88,7 @@
 
   function surfaceAvailable() {
     if (!state.enabled || manuallyPaused || document.hidden || !document.body) return false;
-    if (document.body.classList.contains('lf-auth-locked') || document.body.classList.contains('splash-active') || document.body.classList.contains('empty-home-active')) return false;
+    if (document.body.classList.contains('lf-auth-locked') || document.body.classList.contains('splash-active')) return false;
     return !document.body.classList.contains('render-deep-sleep');
   }
 
