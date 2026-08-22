@@ -16,6 +16,7 @@
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
     "build:home-pet": "npm run build:home-pet:shader && npm run build:home-pet:avatar",
     "build:home-pet:shader": "esbuild public/lf-home-pet-source.jsx --bundle --format=iife --global-name=LumiFieldHomePetSource --platform=browser --target=chrome134 --outfile=public/lf-home-pet-source.bundle.js --minify --legal-comments=linked",
     "build:home-pet:avatar": "node scripts/lf-build-electronic-pet2.mjs && node scripts/lf-v1144-24-source-hashes.mjs",
