@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
-const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.resolve(repo, '..', '..', 'release', 'verify-v1.1.43-tag', 'node_modules');
+const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.join(repo, 'node_modules');
 const electronExe = path.join(dependencyRoot, 'electron', 'dist', 'electron.exe');
 const materialRoot = 'D:\\HuaweiMoveData\\Users\\35992\\Desktop\\文件13\\LF需新增的内容\\虚空文本效应';
 const sourceFile = path.join(materialRoot, '虚空文本效应.完整源码以及原组件页面链接.txt');

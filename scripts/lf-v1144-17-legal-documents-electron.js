@@ -10,7 +10,7 @@ const vm=require('vm');
 const {spawn}=require('child_process');
 
 const repo=path.resolve(__dirname,'..');
-const dependencyRoot=process.env.LF_DEPENDENCY_ROOT||path.resolve(repo,'..','..','release','verify-v1.1.43-tag','node_modules');
+const dependencyRoot=process.env.LF_DEPENDENCY_ROOT||path.join(repo,'node_modules');
 const electronExe=path.join(dependencyRoot,'electron','dist','electron.exe');
 const evidenceDir=path.join(repo,'test-results','lf-v1144-17-legal-documents',new Date().toISOString().replace(/[:.]/g,'-'));
 const userData=fs.mkdtempSync(path.join(os.tmpdir(),'lf-v1144-17-'));

@@ -59,6 +59,7 @@ const privatePathPatterns = [
   /\.codex[\\/]attachments/i,
   /Desktop[\\/]文件13/i,
 ];
+const activeLicenseBlockPattern = /LICENSE_BLOCKED_PENDING_AUTHOR_AUTHORIZATION/;
 
 const findings = [];
 for (const file of required) {
@@ -76,13 +77,17 @@ for (const file of tracked) {
   for (const pattern of privatePathPatterns) {
     if (pattern.test(body)) findings.push({ type: "private-path", file, pattern: String(pattern) });
   }
+  if ((file.startsWith("docs/licenses/") || ["NOTICE.md", "THIRD_PARTY_NOTICES.md"].includes(file)) &&
+      activeLicenseBlockPattern.test(body)) {
+    findings.push({ type: "active-component-license-block", file });
+  }
 }
 
 const pkg = JSON.parse(read("package.json"));
 const lock = JSON.parse(read("package-lock.json"));
 const versionManifest = JSON.parse(read("public/version-manifest.json"));
 const licenseAudit = JSON.parse(read("docs/licenses/dependencies/production-dependency-license-audit.json"));
-if (pkg.version !== "1.1.43") findings.push({ type: "version", source: "package.json", actual: pkg.version });
+if (pkg.version !== "1.1.44") findings.push({ type: "version", source: "package.json", actual: pkg.version });
 if (lock.version !== pkg.version || lock.packages?.[""]?.version !== pkg.version) {
   findings.push({ type: "version", source: "package-lock.json", actual: [lock.version, lock.packages?.[""]?.version] });
 }
@@ -96,7 +101,21 @@ if (licenseAudit.summary?.unknownLicenses !== 0 || licenseAudit.summary?.release
 if (licenseAudit.distributionBundle?.complete !== true) {
   findings.push({ type: "distribution-license-bundle", detail: licenseAudit.distributionBundle });
 }
-if (!read("RELEASE_GATE.md").includes("PASS_FULL_GPL_RELEASE_READY")) {
+for (const [key, file] of [["packageJson", "package.json"], ["packageLock", "package-lock.json"], ["notice", "NOTICE.md"]]) {
+  const record = licenseAudit.inputs?.[key];
+  const actual = sha256(file);
+  if (!record || record.sha256 !== actual) {
+    findings.push({ type: "stale-dependency-license-audit-input", file, recorded: record?.sha256 || null, actual });
+  }
+}
+const avatarGate = licenseAudit.focusChecks?.bibleStrongAvatarLab;
+if (avatarGate && (String(avatarGate.status || "").startsWith("BLOCK_") || avatarGate.failedChecks?.length)) {
+  findings.push({ type: "agpl-component-gate", detail: avatarGate });
+}
+const v1144ReleaseGate = read("RELEASE_GATE.md").match(
+  /(?:^|\r?\n)## v1\.1\.44 release gate[^\r\n]*\r?\n([\s\S]*?)(?=\r?\n## |\s*$)/
+);
+if (!v1144ReleaseGate || !v1144ReleaseGate[1].includes("`PASS_FULL_GPL_RELEASE_READY`")) {
   findings.push({ type: "release-gate", file: "RELEASE_GATE.md" });
 }
 if (tracked.includes("public/vendor/gsap.min.js") || Object.hasOwn(lock.packages || {}, "node_modules/gsap")) {

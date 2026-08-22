@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
-const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.resolve(repo, '..', '..', 'release', 'verify-v1.1.43-tag', 'node_modules');
+const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.join(repo, 'node_modules');
 const electronExe = path.join(dependencyRoot, 'electron', 'dist', 'electron.exe');
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const evidenceDir = path.join(repo, 'test-results', 'lf-v1144-5-playlist-dissolve', runId);
@@ -324,7 +324,8 @@ async function cleanup() {
       index:fileSha256(path.join(repo, 'public', 'index.html'))
     },
     referenceVideo:{
-      path:'D:/HuaweiMoveData/Users/35992/Desktop/文件13/消散.mp4',
+      provenance:'user-provided reference video; not redistributed',
+      originalFilename:'消散.mp4',
       bytes:116756159,
       sha256:'3FDD9569045F97D60F64B8667A6E91A14B357CC261DF7D079C0B72DD85C79675'
     },

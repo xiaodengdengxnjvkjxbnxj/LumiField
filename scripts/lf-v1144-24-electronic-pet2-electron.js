@@ -9,7 +9,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
-const fallbackDependencies = path.resolve(repo, '..', '..', 'release', 'verify-v1.1.43-tag', 'node_modules');
+const fallbackDependencies = path.join(repo, 'node_modules');
 const dependencyRoot = process.env.LF_DEPENDENCY_ROOT ||
   (fs.existsSync(path.join(repo, 'node_modules', 'electron', 'dist', 'electron.exe'))
     ? path.join(repo, 'node_modules')

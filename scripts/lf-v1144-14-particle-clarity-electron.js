@@ -9,7 +9,7 @@ const path=require('path');
 const {spawn,spawnSync}=require('child_process');
 
 const repo=path.resolve(__dirname,'..');
-const dependencyRoot=process.env.LF_DEPENDENCY_ROOT||path.resolve(repo,'..','..','release','verify-v1.1.43-tag','node_modules');
+const dependencyRoot=process.env.LF_DEPENDENCY_ROOT||path.join(repo,'node_modules');
 const electronExe=path.join(dependencyRoot,'electron','dist','electron.exe');
 const referenceVideo='D:\\HuaweiMoveData\\Users\\35992\\Desktop\\文件13\\粒子预设.星轨.mp4';
 const ffmpegExe=[process.env.LF_FFMPEG_PATH,'D:\\LumiField\\resources\\app.asar.unpacked\\node_modules\\ffmpeg-static\\ffmpeg.exe','C:\\Program Files\\eIsland\\resources\\ffmpeg\\ffmpeg.exe'].find(file=>file&&fs.existsSync(file));
