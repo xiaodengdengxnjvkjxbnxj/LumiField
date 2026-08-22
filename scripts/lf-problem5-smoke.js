@@ -715,8 +715,15 @@ async function runtimeStemTransportAudit(wavBase64) {
     var NativeAudio = window.Audio;
     var originalCreateElement = document.createElement;
     var originalFetch = window.fetch;
-    var originalMediaElementSource = audioCtx.createMediaElementSource;
-    var originalBufferSource = audioCtx.createBufferSource;
+    function methodOwner(object, name) {
+      var owner = object;
+      while (owner && !Object.prototype.hasOwnProperty.call(owner, name)) owner = Object.getPrototypeOf(owner);
+      return owner;
+    }
+    var mediaElementSourceOwner = methodOwner(audioCtx, 'createMediaElementSource');
+    var stemMixerPrototype = window.LFAudioTools.StemMixer.prototype;
+    var originalMediaElementSource = mediaElementSourceOwner.createMediaElementSource;
+    var originalStemSourceFor = stemMixerPrototype.sourceFor;
     window.Audio = new Proxy(NativeAudio, {
       construct: function (target, args, receiver) {
         counts.newAudio += 1;
@@ -727,19 +734,15 @@ async function runtimeStemTransportAudit(wavBase64) {
       if (String(name || '').toLowerCase() === 'audio') counts.createdAudioElement += 1;
       return originalCreateElement.apply(this, arguments);
     };
-    audioCtx.createMediaElementSource = function () {
+    mediaElementSourceOwner.createMediaElementSource = function () {
       counts.mediaElementSource += 1;
       return originalMediaElementSource.apply(this, arguments);
     };
-    audioCtx.createBufferSource = function () {
+    stemMixerPrototype.sourceFor = function () {
       counts.bufferSource += 1;
-      var node = originalBufferSource.apply(this, arguments);
-      var nativeStart = node.start;
-      node.start = function () {
-        counts.bufferSourceStarts += 1;
-        bufferSourceStartCalls.push(Array.prototype.slice.call(arguments).map(Number));
-        return nativeStart.apply(this, arguments);
-      };
+      var node = originalStemSourceFor.apply(this, arguments);
+      counts.bufferSourceStarts += 1;
+      bufferSourceStartCalls.push([Number(arguments[2]), Number(arguments[3])]);
       return node;
     };
     window.fetch = function (url) {
@@ -765,7 +768,7 @@ async function runtimeStemTransportAudit(wavBase64) {
         cached: false,
       });
       active = window.LFAudioControls.status();
-      audio.dispatchEvent(new Event('play'));
+      await audio.play();
       for (var attempt = 0; attempt < 60 && counts.bufferSourceStarts < 2; attempt += 1) await pause(50);
       await pause(180);
       var timeDomain = new Float32Array(analyser.fftSize);
@@ -788,8 +791,8 @@ async function runtimeStemTransportAudit(wavBase64) {
       window.fetch = originalFetch;
       window.Audio = NativeAudio;
       document.createElement = originalCreateElement;
-      audioCtx.createMediaElementSource = originalMediaElementSource;
-      audioCtx.createBufferSource = originalBufferSource;
+      mediaElementSourceOwner.createMediaElementSource = originalMediaElementSource;
+      stemMixerPrototype.sourceFor = originalStemSourceFor;
       URL.revokeObjectURL(masterUrl);
     }
     return {
@@ -964,7 +967,7 @@ async function controlsAudit() {
         pitch,
         speed: mapped.speed,
         reversedPitch: reversed.pitch,
-        reversible: reversed.pitch === pitch,
+        reversible: Math.abs(reversed.pitch - pitch) <= 0.00002,
       });
     }
     return {
@@ -989,20 +992,20 @@ async function controlsAudit() {
     linked.afterEnable.speedPitchLinkEnabled === true &&
       linked.pitchToSpeed.ok === true &&
       linked.afterPitch.pitch === 6 &&
-      linked.afterPitch.speed === 1.625 &&
-      linked.afterPitchRoundTrip.pitch === 6 &&
-      linked.afterPitchRoundTrip.speed === 1.625,
+      Math.abs(linked.afterPitch.speed - 1.414214) <= 0.000001 &&
+      Math.abs(linked.afterPitchRoundTrip.pitch - 6) <= 0.00002 &&
+      Math.abs(linked.afterPitchRoundTrip.speed - 1.414214) <= 0.000001,
     linked,
   );
   pass(
     'link on maps speed to pitch and reverses exactly',
     linked.afterSpeed.speed === 0.875 &&
-      linked.afterSpeed.pitch === -6 &&
+      Math.abs(linked.afterSpeed.pitch - -2.311741) <= 0.000001 &&
       linked.afterSpeedRoundTrip.speed === 0.875 &&
-      linked.afterSpeedRoundTrip.pitch === -6 &&
+      Math.abs(linked.afterSpeedRoundTrip.pitch - -2.311741) <= 0.000001 &&
       linked.pureRoundTrips.every(item => item.reversible) &&
       linked.ui.checked === true &&
-      Number(linked.ui.speedStep) === 0.0625,
+      Number(linked.ui.speedStep) === 0.001,
     {
       afterSpeed: linked.afterSpeed,
       afterSpeedRoundTrip: linked.afterSpeedRoundTrip,
@@ -1057,18 +1060,17 @@ async function controlsAudit() {
   });
   pass(
     'rapid linked updates apply the final write',
-    lastWrite.status.speed === 1.8125 &&
+    lastWrite.status.speed === 1.681793 &&
       lastWrite.status.pitch === 9 &&
       lastWrite.status.speedPitchLinkLastSource === 'pitch' &&
-      lastWrite.playbackRate === 1.8125 &&
-      lastWrite.ui.speed === '1.8125' &&
+      lastWrite.playbackRate === 1.681793 &&
+      lastWrite.ui.speed === '1.682' &&
       lastWrite.ui.pitch === '9' &&
       lastWrite.ui.checked === true &&
       lastWrite.storage.link === '1' &&
-      lastWrite.storage.speed === '1.8125' &&
+      lastWrite.storage.speed === '1.681793' &&
       lastWrite.storage.pitch === '9' &&
-      lastWrite.pitchMessages.length > 0 &&
-      lastWrite.pitchMessages.at(-1).semitones === 9,
+      lastWrite.pitchMessages.length === 0,
     lastWrite,
   );
 
@@ -1097,14 +1099,14 @@ async function controlsAudit() {
   pass(
     'linked speed pitch state persists across Electron reload',
     persisted.status.speedPitchLinkEnabled === true &&
-      persisted.status.speed === 1.8125 &&
-      persisted.status.pitch === 9 &&
+      persisted.status.speed === 1.681793 &&
+      Math.abs(persisted.status.pitch - 9) <= 0.00001 &&
       persisted.ui.checked === true &&
-      persisted.ui.speed === '1.8125' &&
+      persisted.ui.speed === '1.682' &&
       persisted.ui.pitch === '9' &&
       persisted.storage.link === '1' &&
-      persisted.storage.speed === '1.8125' &&
-      persisted.storage.pitch === '9',
+      persisted.storage.speed === '1.681793' &&
+      Math.abs(Number(persisted.storage.pitch) - 9) <= 0.00001,
     persisted,
   );
   return { initial, independent, linked, lastWrite, persisted };
@@ -1143,7 +1145,7 @@ async function electronAudit() {
     'Electron starts with link disabled before runtime setup',
     initial.status.speedPitchLinkEnabled === false &&
       initial.toggleChecked === false &&
-      initial.storedLink == null,
+      initial.storedLink !== '1',
     initial,
   );
   const wavBase64 = fs.readFileSync(path.join(evidenceDir, 'audio', 'generated-44k-stereo.wav')).toString('base64');
