@@ -118,10 +118,11 @@ async function rendererChecks() {
     playing=true;
     fx.particleLyrics=true;
     if(typeof createLyricsParticles==='function')createLyricsParticles();
+    if(typeof tickLyricsParticles==='function')tickLyricsParticles();
     stageLyrics.currentIdx=0;
     showStageLine('Hello world',true,'');
     var before=window.lumiFieldProblem1Debug();
-    window.LumiFieldTask13.setLyricState({mode:'normal',translate:true});
+    window.LumiFieldTask13.setLyricState({translate:true});
     return {before:before,cache:window.LumiFieldTask13.getTranslationDebug().cacheKey};
   });
   let translated;
