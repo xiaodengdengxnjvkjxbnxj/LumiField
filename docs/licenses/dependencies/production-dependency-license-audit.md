@@ -1,10 +1,11 @@
 # LumiField V4 production dependency license audit
 
-- Generated: 2026-08-13T17:08:39.532Z
-- Package lock: `F0EAC35FA516963054B4FD2D457FBFC744572BE997586A8943DD06D64FF07848`
+- Generated: 2026-08-22T14:12:53.279Z
+- Package lock: `768DF9A269CFDE26C8671404D06264DDDF29E88143D6801F5A212FA75A79687C`
 - Production lock entries: **212**
 - Installed here: **198**
 - Optional platform entries not installed on this Windows host: **14**
+- Electronic Pet 2 AGPL source/notice gate: **AGPL_SOURCE_AND_NOTICE_IMPLEMENTATION_PASS_INSTALLER_AUDIT_PENDING**
 - Unknown license: **0**
 - Release-blocking entries: **0**
 - Required distribution license bundle: **complete**
@@ -23,6 +24,7 @@ A package declaration is evidence of its stated license, but the final release m
 - `gsap` is absent from the production lock graph. LumiField uses its independently authored `public/lf-motion.js` compatibility runtime.
 - `parse-cache-control@1.0.1`: its exact installed BSD-3-Clause license is identified by SHA-256 `111F42B37DAECC6C387D037EF25955BD269E7F9A46A736D5257A23560534763F`.
 - `ffmpeg-static@5.3.0`: GPL-3.0-or-later is compatible with the LumiField GPLv3 release, subject to corresponding-source and notice obligations.
+- Bible Strong Avatar Lab Electronic Pet 2: `AGPL_SOURCE_AND_NOTICE_IMPLEMENTATION_PASS_INSTALLER_AUDIT_PENDING`; fixed source `175691ab32cefe5faec7828af62f3d50210a8eb2`, complete AGPL/copyright/modification evidence and vendored-runtime build provenance are checked separately from the npm lock graph.
 - 10 installed packages have no root license/NOTICE file; their manifest declaration is recorded in JSON, but the release license bundle must source and preserve the applicable authoritative text.
 
 ## License totals

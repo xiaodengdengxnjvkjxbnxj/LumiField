@@ -12,6 +12,7 @@ This file is the public release summary. The canonical detailed notice is [NOTIC
 | Neural vortex | `public/lf-profile-vortex.js` | `minhxthanh/interactive-neural-vortex-background` | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Splash ATC | `public/lf-splash.js` | `xordev/atc-shader` | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Splash kinetic grid | `public/lf-splash.js` | `satoriui/kinetic-grid` | MIT (item and Marketplace) | `MIT_OR_PERMISSIVE_PASS` |
+| Weather spotlight core | `public/lf-weather-tilt-spotlight.*` | Jhey Tompkins, public CodePen `WNmQXyE`; EaseMize/21st wrapper is reference-only and not packaged | MIT, retained as `resources/licenses/Jhey-CodePen-MIT.txt` | `MIT_PASS_WITH_NOTICE` |
 | Lyric vapour | stage-lyric integration in `public/index.html` | `jatin-yadav05/vapour-text-effect`, catalog 2189 | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Voice assistant | `public/lf-voice-assistant.*`, `desktop/lf-voice-assistant-main.js` | eIsland behavior review only | No eIsland code/assets packaged; LF independent implementation | `LUMIFIELD_ORIGINAL_PASS` |
 | Golden star trail (removed from product in v1.1.44) | Historical provenance record only; no v1.1.44 runtime file or renderer entry | Project-owner ChatGPT-generated LF preset | Owner-originated configuration, no third-party payload; evidence retained without packaging the removed preset | `LUMIFIELD_ORIGINAL_PASS` |

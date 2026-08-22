@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-13T17:08:39.532Z",
+  "generatedAt": "2026-08-22T14:12:53.279Z",
   "generator": "scripts/lf-v4-license-audit.mjs",
   "scope": {
     "definition": "Every non-root package-lock.json packages entry whose dev flag is not true.",
@@ -9,18 +9,18 @@
   "inputs": {
     "packageJson": {
       "path": "package.json",
-      "bytes": 6953,
-      "sha256": "3F3C8E19F334BACB552A58F509B546D5F0D698FB5C92B8B694D3A173D96C2586"
+      "bytes": 7900,
+      "sha256": "12833945C6A460F2D7003266A8516F33A18A8CCE86EFD2BA79040850D0ECFD91"
     },
     "packageLock": {
       "path": "package-lock.json",
-      "bytes": 206383,
-      "sha256": "F0EAC35FA516963054B4FD2D457FBFC744572BE997586A8943DD06D64FF07848"
+      "bytes": 207045,
+      "sha256": "768DF9A269CFDE26C8671404D06264DDDF29E88143D6801F5A212FA75A79687C"
     },
     "notice": {
       "path": "NOTICE.md",
-      "bytes": 16854,
-      "sha256": "365A2C0C23025A821CED467F6F4A45D463E1C11792548BC518DD7F563EB92588"
+      "bytes": 18980,
+      "sha256": "CB00BCE095E6384305725F1F607AB71E5B5AE78C7E5F07120BADE7850FABC6EA"
     },
     "packageLicenseField": "GPL-3.0-only"
   },
@@ -66,7 +66,15 @@
       "THIRD_PARTY_NOTICES.md",
       "resources/licenses/21st-Marketplace-Components-MIT.txt",
       "resources/licenses/Paper-Shaders-Apache-2.0.txt",
-      "resources/licenses/React-Framer-Motion-MIT.txt"
+      "resources/licenses/React-Framer-Motion-MIT.txt",
+      "resources/licenses/Bible-Strong-Avatar-Lab-AGPL-3.0-only.txt",
+      "resources/licenses/Bible-Strong-Avatar-Web-COPYRIGHT.txt",
+      "third_party/bible-strong-avatar-lab/LICENSE",
+      "third_party/bible-strong-avatar-lab/UPSTREAM_SNAPSHOT.json",
+      "docs/licenses/bible-strong-avatar-lab/SOURCE_AND_LICENSE.md",
+      "docs/licenses/bible-strong-avatar-lab/MODIFICATIONS.md",
+      "docs/licenses/bible-strong-avatar-lab/SOURCE_SHA256SUMS.txt",
+      "docs/licenses/bible-strong-avatar-lab/RELEASE_GATE.md"
     ],
     "missingFiles": [],
     "complete": true
@@ -138,7 +146,30 @@
         "Preserve the applicable copyright, license, warranty, and NOTICE text in distributions."
       ]
     },
-    "gsapAbsent": true
+    "gsapAbsent": true,
+    "bibleStrongAvatarLab": {
+      "component": "Bible Strong Avatar Lab Electronic Pet 2",
+      "license": "AGPL-3.0-only",
+      "sourceCommit": "175691ab32cefe5faec7828af62f3d50210a8eb2",
+      "decision": "ALLOW_WITH_AGPL_SOURCE_NOTICE_MODIFICATION_OBLIGATIONS",
+      "status": "AGPL_SOURCE_AND_NOTICE_IMPLEMENTATION_PASS_INSTALLER_AUDIT_PENDING",
+      "checks": {
+        "fixedCommit": true,
+        "sourceSnapshotPresent": true,
+        "schemaAllowsOfficialRoundness": true,
+        "completeAgpl": true,
+        "copyrightRetained": true,
+        "modificationsDated": true,
+        "sourceOfferPresent": true,
+        "wrapperUsesVendoredRuntime": true,
+        "bundleCarriesLegalBanner": true,
+        "buildUsesVendoredRuntime": true,
+        "sourceHashesComplete": true,
+        "runtimeIsLocal": true
+      },
+      "failedChecks": [],
+      "hashMismatches": []
+    }
   },
   "packages": [
     {

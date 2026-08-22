@@ -97,14 +97,17 @@ LumiField 是基于 Mineradio 修改的发行版本，并使用了以下第三�
   six-card Home interaction remains an LF-native implementation; exact source
   and modification boundaries are under `docs/licenses/21st/tilt-card/`.
 
-- `21st.dev/@easemize/components/spotlight-card`, catalog id `2487`, is directly
-  adapted for the same Problem 20 weather surface. Its traceable Jhey Tompkins
-  CodePen core is MIT and retained in `resources/licenses/Jhey-CodePen-MIT.txt`;
-  the EaseMize wrapper additions have no retained compatible grant, so this
-  specific adaptation remains `LICENSE_BLOCKED_PENDING_AUTHOR_AUTHORIZATION`.
-  The older five-tile `接着听` spotlight remains LF-native. Exact source,
-  modification, and release gates are under `docs/licenses/21st/spotlight-card/`;
-  supplied TXT/video and Marketplace preview media are not packaged.
+- Jhey Tompkins' public CodePen “React Glow Cards – Minimal”,
+  `codepen.io/jh3y/pen/WNmQXyE`, supplies the MIT-licensed fixed-background
+  pointer glow and masked-border core used by the Problem 20 weather surface.
+  The MIT text is retained in `resources/licenses/Jhey-CodePen-MIT.txt`.
+  The user-supplied `21st.dev/@easemize/components/spotlight-card` source and
+  page identify the requested appearance, but LumiField distributes none of
+  the EaseMize React wrapper, props/maps/sizing helpers, demo, Marketplace
+  media, or supplied TXT/video. Status: `MIT_PASS_WITH_NOTICE` for the Jhey
+  core and `LUMIFIELD_ORIGINAL_PASS` for the LF shared-pointer/weather adapter.
+  The exact distribution boundary is recorded under
+  `docs/licenses/21st/spotlight-card/`.
 
 - `21st.dev/@minhxthanh/components/interactive-neural-vortex-background` is
   directly adapted from the user-supplied complete source. LumiField retains

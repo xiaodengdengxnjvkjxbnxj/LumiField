@@ -9,9 +9,6 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..');
-const materialRoot = 'D:\\HuaweiMoveData\\Users\\35992\\Desktop\\文件13\\LF需新增的内容';
-const tiltSource = path.join(materialRoot, '倾斜卡', '倾斜卡.完整源码以及原组件页面链接.txt');
-const spotlightSource = path.join(materialRoot, '卡片聚光灯', '卡片聚光灯.原组件页面链接以及完整源码.txt');
 const dependencyRoot = process.env.LF_DEPENDENCY_ROOT || path.join(repo, 'node_modules');
 const electronExe = path.join(dependencyRoot, 'electron', 'dist', 'electron.exe');
 const evidenceDir = path.join(repo, 'test-results', 'lf-v1144-20-weather-tilt-spotlight', new Date().toISOString().replace(/[:.]/g, '-'));
@@ -46,14 +43,20 @@ function sourceChecks() {
   const index = fs.readFileSync(path.join(repo, 'public', 'index.html'), 'utf8');
   const tiltRecord = fs.readFileSync(path.join(repo, 'docs', 'licenses', '21st', 'tilt-card', 'SOURCE_AND_LICENSE.md'), 'utf8');
   const spotlightRecord = fs.readFileSync(path.join(repo, 'docs', 'licenses', '21st', 'spotlight-card', 'SOURCE_AND_LICENSE.md'), 'utf8');
-  pass('fixed complete-source hashes match the supplied Tilt and Spotlight files', sha256File(tiltSource) === 'B25404B04AFD4348C464D24A2F68C8CA1BF88E2BD94150BEDFCEE61AE00616BB' && sha256File(spotlightSource) === '6389B777EB96E0EB2BE49632B452BAFD5BA53FCD5B6B0CBAC8CFE89836F38E6E', true);
+  const spotlightGate = fs.readFileSync(path.join(repo, 'docs', 'licenses', '21st', 'spotlight-card', 'RELEASE_GATE.md'), 'utf8');
+  const notice = fs.readFileSync(path.join(repo, 'NOTICE.md'), 'utf8');
+  const jheyLicense = fs.readFileSync(path.join(repo, 'resources', 'licenses', 'Jhey-CodePen-MIT.txt'), 'utf8');
+  const distributedSpotlight = [source, css, index].join('\n');
+  const wrapperTokens = ['GlowCardProps', 'glowColorMap', 'sizeMap', 'customSize', 'getSizeClasses', 'getInlineStyles'];
+  pass('fixed supplied-source identities remain recorded without requiring private evidence paths', /B25404B04AFD4348C464D24A2F68C8CA1BF88E2BD94150BEDFCEE61AE00616BB/.test(tiltRecord) && /6389B777EB96E0EB2BE49632B452BAFD5BA53FCD5B6B0CBAC8CFE89836F38E6E/.test(spotlightRecord), true);
   pass('the product loads exactly one weather effect script and stylesheet', (index.match(/\/lf-weather-tilt-spotlight\.js/g) || []).length === 1 && (index.match(/\/lf-weather-tilt-spotlight\.css/g) || []).length === 1, true);
   pass('Tilt source defaults and evade pointer formula are retained', /TILT_LIMIT = 15/.test(source) && /HOVER_SCALE = 1\.05/.test(source) && /PERSPECTIVE = 1200/.test(source) && /EFFECT = 'evade'/.test(source) && /\(py - 0\.5\) \* \(TILT_LIMIT \* 2\)/.test(source) && /\(px - 0\.5\) \* -\(TILT_LIMIT \* 2\)/.test(source), true);
   pass('Tilt spotlight retains source size gradient and transition', /width: 200%/.test(css) && /height: 200%/.test(css) && /rgba\(255,255,255,\.15\) 0%,transparent 40%/.test(css) && /transition: opacity \.3s/.test(css) && /transition: transform \.2s ease-out/.test(css), true);
   pass('Card Spotlight retains source blue hue spread size border and fixed-background layers', /GLOW_BASE = 220/.test(source) && /GLOW_SPREAD = 200/.test(source) && /GLOW_SIZE = 200/.test(source) && /GLOW_BORDER = 3/.test(source) && (css.match(/background-attachment: fixed/g) || []).length >= 2 && /filter: brightness\(2\)/.test(css) && /\* \.75/.test(css) && /\* \.5/.test(css), true);
   pass('weather integration owns no pointer listener RAF or interval', !/addEventListener\(['"]pointer/.test(source) && !/requestAnimationFrame|setInterval/.test(source) && /addPointerConsumer\(updateFromSharedPointer\)/.test(source), true);
   pass('only the whole weather shell is targeted and the auto-rotating song region has no nested layer', /#empty-home \.lf-weather-shell/.test(source) && /:scope > \.lf-hot-comment-card/.test(source) && !/lf-hot-comment-card[^\n]+appendChild/.test(source), true);
-  pass('source and rights records preserve the precise component-specific license boundaries', /MIT_PASS_WITH_NOTICE/.test(tiltRecord) && /Spell UI/.test(tiltRecord) && /LICENSE_BLOCKED_PENDING_AUTHOR_AUTHORIZATION/.test(spotlightRecord) && /Jhey Tompkins/.test(spotlightRecord), true);
+  pass('distributed Spotlight runtime excludes every EaseMize wrapper-specific token', wrapperTokens.every(token => !distributedSpotlight.includes(token)) && !/React\.FC|from\s+['"]react['"]|sizeMap\s*=/.test(distributedSpotlight), wrapperTokens);
+  pass('Jhey core notice and reference-only wrapper boundary are release complete', /MIT License/.test(jheyLicense) && /Copyright \(c\) Jhey Tompkins/.test(jheyLicense) && /MIT_PASS_WITH_NOTICE/.test(spotlightRecord) && /REFERENCE_ONLY_NOT_PACKAGED/.test(spotlightGate) && /PASS_NO_COMPONENT_LICENSE_BLOCK/.test(spotlightGate) && /Jhey Tompkins/.test(notice), true);
 }
 
 class CDP {
