@@ -34,7 +34,7 @@ node --check visual-effects.js
 
 图片缺失时页面会显示明确的本地占位状态，不会产生破图或请求外部服务。赞助二维码必须直接复制作者提供的原始文件，禁止重新编码或加工。
 
-安装包下载地址位于 `index.html` 的 `data-download-link` 链接，固定指向正式 `v1.1.43` GitHub Release 的 LumiField 主安装包。更新版本时必须同时核对链接、版本、文件大小、SHA-256、Tag 与 Commit。
+安装包下载地址位于 `index.html` 的 `data-download-link` 链接，固定指向正式 `v1.1.44` GitHub Release 的 LumiField 主安装包。更新版本时必须同时核对链接、版本、文件大小、SHA-256、Tag 与 Commit。
 
 ## GitHub Pages
 

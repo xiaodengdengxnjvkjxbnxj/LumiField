@@ -3,7 +3,7 @@
 ## Scope and source lock
 
 - Website branch: `gh-pages`
-- Release facts kept frozen: `v1.1.43`, commit `f20b09f2ab27`, installer SHA-256 `695E54F6473F7CCBAE811BE9BE4DEAEACF0E7A9CA7461FFDB38261D6614375CB`
+- Published release facts: `v1.1.44`, commit `72143cbc4f4b`, installer SHA-256 `8D68E554742F21A01B130CA76480E1F12070D45C1EEC71F794D9AFAFA00B63CA`
 - React Bits repository: <https://github.com/DavidHDev/react-bits>
 - Pinned upstream commit: `4e0e030193b563be6be33d928f77d0d01cefe237`
 - Integrated source mapping: Galaxy → 星云, Aurora → 极光, Particles → 余烬 preset, Iridescence → 冰 preset, ColorBends → 色彩弯曲, DotField → 点场
@@ -13,7 +13,7 @@
 
 | Gate | Result |
 | --- | --- |
-| `node scripts/validate-site.mjs` | PASS — 8 sections, 6 lazy effects, all local assets, frozen release facts, provenance |
+| `node scripts/validate-site.mjs` | PASS — 8 sections, 6 lazy effects, all local assets, published release facts, provenance |
 | `node --check app.js` | PASS |
 | `node --check visual-effects.js` | PASS |
 | `git diff --check` | PASS |

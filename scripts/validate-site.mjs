@@ -37,10 +37,10 @@ for (const match of html.matchAll(/\ssrcset="([^"]+)"/g)) {
 }
 for (const relativePath of localPaths) expect(existsSync(resolve(root, relativePath)), `missing local asset: ${relativePath}`);
 
-expect(html.includes("LumiField-1.1.43-Setup.exe"), "frozen installer filename changed");
-expect(html.includes("695E54F6473F7CCBAE811BE9BE4DEAEACF0E7A9CA7461FFDB38261D6614375CB"), "frozen installer hash changed");
-expect(html.includes("f20b09f2ab27"), "frozen release commit changed");
-expect(!/download\/v1\.1\.44|VERSION 1\.1\.44|下载 v1\.1\.44/.test(html), "website claims an unpublished v1.1.44 release");
+expect(html.includes("LumiField-1.1.44-Setup.exe"), "published installer filename changed");
+expect(html.includes("8D68E554742F21A01B130CA76480E1F12070D45C1EEC71F794D9AFAFA00B63CA"), "published installer hash changed");
+expect(html.includes("72143cbc4f4b"), "published release commit changed");
+expect(html.includes("releases/download/v1.1.44/LumiField-1.1.44-Setup.exe"), "published installer URL changed");
 
 const upstreamCommit = "4e0e030193b563be6be33d928f77d0d01cefe237";
 expect(notice.includes(upstreamCommit), "React Bits pinned commit missing from notice");
@@ -54,5 +54,5 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`PASS: ${requiredIds.length} sections, ${expectedEffects.length} lazy effects, ${localPaths.size} local assets, frozen v1.1.43 release facts, and React Bits provenance.`);
+  console.log(`PASS: ${requiredIds.length} sections, ${expectedEffects.length} lazy effects, ${localPaths.size} local assets, published v1.1.44 release facts, and React Bits provenance.`);
 }
