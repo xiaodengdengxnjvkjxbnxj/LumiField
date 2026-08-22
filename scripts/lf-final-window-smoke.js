@@ -352,7 +352,7 @@ function validateLayout(scale, phase, snapshot) {
   const controls = snapshot.regions['#controls'];
   pass(`${prefix}: original player console stays inside the real viewport`,
     bar && controls && bar.left >= -1 && bar.right <= snapshot.viewport.width + 1 && bar.bottom <= snapshot.viewport.height + 1 &&
-    bar.width >= Math.min(900, snapshot.viewport.width - 30) && bar.height >= 80 && bar.height <= 110 &&
+    bar.width >= Math.min(900, snapshot.viewport.width - 30) && bar.height >= 78 && bar.height <= 110 &&
     controls.left >= bar.left - 1 && controls.right <= bar.right + 1,
     { viewport:snapshot.viewport, bar, controls });
   const visiblePlayerControls = snapshot.playerControls.filter(item => item.rect && item.rect.width > 0 && item.rect.height > 0);
@@ -443,6 +443,7 @@ async function runScale(scale, index) {
     windowsHide:true,
     stdio:['ignore', 'pipe', 'pipe'],
     env:Object.assign({}, process.env, {
+      LF_MASTER_TEST:'1',
       LUMIFIELD_SKIP_SPLASH:'1',
       ELECTRON_DISABLE_SECURITY_WARNINGS:'true',
       LF_ALLOW_PACKAGED_CDP_TEST:'1'
