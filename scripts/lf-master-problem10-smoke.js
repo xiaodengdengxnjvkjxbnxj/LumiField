@@ -107,7 +107,7 @@ function staticAudit() {
   const preload = fs.readFileSync(path.join(repo, 'desktop', 'preload.js'), 'utf8');
   pass('resume module uses versioned user-scoped schema', /lumifield\.playback-resume/.test(moduleText) && /profiles/.test(moduleText) && /currentUser/.test(moduleText), true);
   pass('resume module has strict song whitelist and no URL persistence field', /function sanitizeSong/.test(moduleText) && !/\b(?:url|playUrl|audioUrl|cookie|token|signature)\s*:/.test(moduleText), true);
-  pass('playback hooks cover switch pause seek periodic and unload', /track-switch-before/.test(index) && /'timeupdate', 'seeked', 'play', 'pause'/.test(index) && /markDirty\('audio-' \+ name/.test(index) && /periodic/.test(moduleText) && /beforeunload/.test(moduleText), true);
+  pass('playback hooks cover switch pause seek periodic and unload', /track-switch-(?:before|after)/.test(index) && /'timeupdate', 'seeked', 'play', 'pause'/.test(index) && /markDirty\('audio-' \+ name/.test(index) && /periodic/.test(moduleText) && /beforeunload/.test(moduleText), true);
   pass('main process close handshake flushes renderer storage', /requestPlaybackStateSave/.test(main) && /flushStorageData/.test(main) && /playback-save-complete/.test(main) && /onPlaybackStateSaveRequest/.test(preload), true);
   pass('restart path saves before relaunch', /requestPlaybackStateSave\(mainWindow, 'app-restart'\)/.test(main) && /app\.relaunch\(\)/.test(main) && /app\.quit\(\)/.test(main), true);
 }
@@ -118,7 +118,11 @@ async function launch(label) {
     cwd:repo,
     windowsHide:true,
     stdio:['ignore', 'pipe', 'pipe'],
-    env:Object.assign({}, process.env, { LUMIFIELD_SKIP_SPLASH:'1', ELECTRON_DISABLE_SECURITY_WARNINGS:'true' })
+    env:Object.assign({}, process.env, {
+      LF_MASTER_TEST:'1',
+      LUMIFIELD_SKIP_SPLASH:'1',
+      ELECTRON_DISABLE_SECURITY_WARNINGS:'true'
+    })
   });
   activeApp = child;
   const collect = data => appLog.push(`[${label}] ${String(data)}`);
@@ -151,9 +155,10 @@ async function prepare(session, userId, dataUrl) {
     const authRoot = document.getElementById('lf-auth-root');
     if (authRoot) { authRoot.hidden = true; authRoot.style.pointerEvents = 'none'; }
     document.body.classList.remove('modal-open', 'lf-auth-locked');
-    window.__lfP10 = { resolutionCalls:0, playCalls:0, playOptions:[], sourceUrl:args.dataUrl };
+    window.__lfP10 = { resolutionCalls:0, resolutionStacks:[], playCalls:0, playOptions:[], sourceUrl:args.dataUrl };
     window.resolvePlaybackSource = async function (song) {
       window.__lfP10.resolutionCalls += 1;
+      window.__lfP10.resolutionStacks.push(String(new Error('resolution-' + window.__lfP10.resolutionCalls).stack || '').split('\n').slice(0, 8));
       return { url:window.__lfP10.sourceUrl, provider:song.provider, level:'standard', resolvedSong:Object.assign({}, song) };
     };
     window.playQueueAt = async function (index, options) {
@@ -187,7 +192,10 @@ async function prepare(session, userId, dataUrl) {
     return true;
   }, [{ userId, dataUrl }]);
   await waitFor(() => session.cdp.call(function (expected) {
-    return window.LFPlaybackResume.inspect().identity === expected && window.LFPlaybackResume.inspect().identityReady;
+    var info = window.LFPlaybackResume.inspect();
+    if (info.identity === expected && info.identityReady) return true;
+    document.dispatchEvent(new CustomEvent('lumifield-auth-user-change', { detail:{ loggedIn:true, userId:expected } }));
+    return false;
   }, [userId]), 5000, 80);
 }
 
@@ -246,7 +254,12 @@ async function secondRun(session, expectedPosition) {
     await Promise.all([window.togglePlay(), window.togglePlay()]);
     await new Promise(resolve => setTimeout(resolve, 320));
     return {
-      calls:window.__lfP10,
+      calls:{
+        resolutionCalls:window.__lfP10.resolutionCalls,
+        resolutionStacks:window.__lfP10.resolutionStacks,
+        playCalls:window.__lfP10.playCalls,
+        playOptions:window.__lfP10.playOptions
+      },
       currentTime:window.audio && window.audio.currentTime,
       paused:window.audio && window.audio.paused,
       currentIdx:window.currentIdx,

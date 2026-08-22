@@ -1026,6 +1026,8 @@
       return 120;
     }
     function frameIntervalMs() {
+      if (document.hidden) return 1000;
+      if (!state.playing) return 125;
       var fps = normalizeFrameRate(state.frameRate);
       return fps > 0 ? 1000 / fps : 0;
     }

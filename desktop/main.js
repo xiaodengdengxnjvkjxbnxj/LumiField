@@ -1298,6 +1298,31 @@ function verifyLFUpdateSignature(release, digest) {
   if (!valid) throw new Error('UPDATE_SIGNATURE_INVALID');
 }
 
+function sha256LFUpdateFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const input = fs.createReadStream(filePath);
+    let settled = false;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    input.once('error', fail);
+    input.on('data', chunk => hash.update(chunk));
+    input.once('end', () => {
+      if (settled) return;
+      try {
+        const digest = hash.digest('hex');
+        settled = true;
+        resolve(digest);
+      } catch (error) {
+        fail(error);
+      }
+    });
+  });
+}
+
 async function downloadAndOpenLFUpdate(owner, token, currentVersion) {
   const available = await callLFService('POST', '/v1/updates/available', token, { currentVersion }, () => ensureLFBackend().availableUpdate(token, currentVersion));
   if (!available.ok || !available.update) return available.ok ? { ok: false, error: 'NO_UPDATE', message: '没有已发布更新。' } : available;
@@ -1343,7 +1368,7 @@ async function downloadAndOpenLFUpdate(owner, token, currentVersion) {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       fs.renameSync(tempPath, filePath);
     }
-    const digest = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+    const digest = await sha256LFUpdateFile(filePath);
     if (digest !== String(release.package_sha256 || '').toLowerCase()) throw new Error('UPDATE_SHA256_MISMATCH');
     verifyLFUpdateSignature(release, digest);
     const currentIntegrity = await runLFIntegrityCheck();
@@ -4034,6 +4059,9 @@ async function createWindow() {
     process.env.LUMIFIELD_MUSIC_SESSION_SECRET = crypto.randomBytes(32).toString('hex');
   }
   const initialBounds = getWindowedBounds();
+  const splashMainPrewarm = !!(splashController && !splashController.isRevealed() && !(
+    process.env.LF_MASTER_TEST === '1' && process.env.LUMIFIELD_SKIP_SPLASH === '1'
+  ));
 
   mainWindow = new BrowserWindow({
     ...initialBounds,
@@ -4055,6 +4083,7 @@ async function createWindow() {
       sandbox: true,
       backgroundThrottling: true,
       devTools: true,
+      additionalArguments: splashMainPrewarm ? ['--lf-splash-main-prewarm=1'] : [],
     },
   });
   ensureWindowStateCoordinator(mainWindow);

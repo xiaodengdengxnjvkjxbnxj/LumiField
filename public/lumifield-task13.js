@@ -793,10 +793,12 @@
     if (syncChanged) setNativeLyricsVisible(stageActive);
     syncNativeTranslation(lyricState.translate && index >= 0, translated, index);
     var controlStatusText = byId('lf-t13-translate-control-status-text');
-    if (controlStatusText) controlStatusText.textContent = lyricState.translate && hasRealLyrics ? (translated ? '已显示翻译' : translationStatus) : '';
+    var nextControlStatus = lyricState.translate && hasRealLyrics ? (translated ? '已显示翻译' : translationStatus) : '';
+    if (controlStatusText && controlStatusText.textContent !== nextControlStatus) controlStatusText.textContent = nextControlStatus;
     var retryButton = byId('lf-t13-translate-retry');
-    if (retryButton) retryButton.hidden = !lyricState.translate || !hasRealLyrics || !translationStatus ||
+    var retryHidden = !lyricState.translate || !hasRealLyrics || !translationStatus ||
       /正在|已就绪|平台翻译|翻译服务|离线翻译/.test(translationStatus);
+    if (retryButton && retryButton.hidden !== retryHidden) retryButton.hidden = retryHidden;
 
     lyricDebug.mode = 'normal';
     lyricDebug.lineIndex = index;
@@ -1046,19 +1048,46 @@
     a = hexRgb(a); b = hexRgb(b); ratio = clamp(ratio, 0, 1);
     return 'rgba(' + Math.round(a.r + (b.r - a.r) * ratio) + ',' + Math.round(a.g + (b.g - a.g) * ratio) + ',' + Math.round(a.b + (b.b - a.b) * ratio) + ',' + clamp(alpha, 0, 1).toFixed(3) + ')';
   }
-  function spectrumColor(index, count, alpha) {
-    var ratio = count <= 1 ? 0 : index / (count - 1);
-    var c1 = visibleSpectrumHex(spectrumState.colorA), c2 = visibleSpectrumHex(spectrumState.colorB);
-    if (spectrumState.colorMode === 'single') c2 = c1;
-    if (spectrumState.colorMode === 'cover') {
+  var spectrumCssPaletteCache = new Map();
+  function spectrumColorPalette(count, alpha) {
+    count = Math.max(0, Number(count) || 0);
+    alpha = clamp(alpha, 0, 1);
+    var mode = spectrumState.colorMode;
+    var c1 = visibleSpectrumHex(spectrumState.colorA);
+    var c2 = visibleSpectrumHex(spectrumState.colorB);
+    if (mode === 'single') c2 = c1;
+    if (mode === 'cover') {
       c1 = visibleSpectrumHex(currentVisualTint(c1));
       c2 = visibleSpectrumHex(spectrumState.colorB);
     }
-    if (spectrumState.colorMode === 'multi') {
-      var hue = (ratio * 300 + performance.now() * 0.018) % 360;
-      return 'hsla(' + hue.toFixed(1) + ',88%,67%,' + clamp(alpha, 0, 1).toFixed(3) + ')';
+    var timeBucket = mode === 'multi' ? Math.floor(performance.now() / 33) : 0;
+    var alphaText = alpha.toFixed(3);
+    var key = count + '|' + alphaText + '|' + mode + '|' + c1 + '|' + c2 + '|' + timeBucket;
+    var cached = spectrumCssPaletteCache.get(key);
+    if (cached) return cached;
+    if (spectrumCssPaletteCache.size > 48) spectrumCssPaletteCache.clear();
+    var colors = new Array(count);
+    if (mode === 'multi') {
+      var hueOffset = performance.now() * 0.018;
+      for (var multiIndex = 0; multiIndex < count; multiIndex++) {
+        var multiRatio = count <= 1 ? 0 : multiIndex / (count - 1);
+        colors[multiIndex] = 'hsla(' + ((multiRatio * 300 + hueOffset) % 360).toFixed(1) + ',88%,67%,' + alphaText + ')';
+      }
+    } else {
+      var rgbA = hexRgb(c1);
+      var rgbB = hexRgb(c2);
+      for (var index = 0; index < count; index++) {
+        var ratio = count <= 1 ? 0 : index / (count - 1);
+        colors[index] = 'rgba(' + Math.round(rgbA.r + (rgbB.r - rgbA.r) * ratio) + ',' +
+          Math.round(rgbA.g + (rgbB.g - rgbA.g) * ratio) + ',' +
+          Math.round(rgbA.b + (rgbB.b - rgbA.b) * ratio) + ',' + alphaText + ')';
+      }
     }
-    return mixColor(c1, c2, ratio, alpha);
+    spectrumCssPaletteCache.set(key, colors);
+    return colors;
+  }
+  function spectrumColor(index, count, alpha) {
+    return spectrumColorPalette(count, alpha)[index] || 'rgba(81,220,255,0)';
   }
 
   function referenceSpectrumColor(index, count, alpha) {
@@ -1508,10 +1537,13 @@
     var maximumHeight = clamp(height * 0.13 * clamp(spectrumState.heightScale, 0.25, 3), 18, height * 0.34);
     var offsetPx = clamp(spectrumState.offset, -1.5, 1.5) * height * 0.04;
     var baseline = fromTop ? offsetPx : height + offsetPx;
+    var glass = spectrumState.liquidGlassEnabled;
+    var fillColors = spectrumColorPalette(count, glass ? (refractedSet ? alpha * 0.28 : alpha * 0.48) : alpha);
+    var strokeColors = glass ? spectrumColorPalette(count, Math.min(1, alpha * 0.72 + 0.16)) : null;
     ctx.save();
-    ctx.filter = spectrumState.liquidGlassEnabled ? 'none' : 'brightness(' + brightness.toFixed(3) + ')';
-    ctx.globalCompositeOperation = spectrumState.liquidGlassEnabled ? 'screen' : 'source-over';
-    if (glow > 0.02 && (!spectrumState.liquidGlassEnabled || !refractedSet)) {
+    ctx.filter = glass ? 'none' : 'brightness(' + brightness.toFixed(3) + ')';
+    ctx.globalCompositeOperation = glass ? 'screen' : 'source-over';
+    if (glow > 0.02 && (!glass || !refractedSet)) {
       ctx.shadowColor = mixColor(spectrumState.colorA, spectrumState.colorB, 0.5, Math.min(0.9, alpha));
       ctx.shadowBlur = 2 + glow * 7;
     }
@@ -1519,15 +1551,14 @@
       var energy = values[reverse ? count - 1 - i : i];
       var barHeight = energy * maximumHeight;
       if (barHeight <= 0.08) continue;
-      var color = spectrumColor(i, count, alpha);
       var x = layout.xPositions[i];
       var y = fromTop ? baseline : baseline - barHeight;
       var radius = Math.min(barWidth / 2, 7);
-      ctx.fillStyle = spectrumState.liquidGlassEnabled ? spectrumColor(i, count, refractedSet ? alpha * 0.28 : alpha * 0.48) : color;
+      ctx.fillStyle = fillColors[i];
       roundedRect(ctx, x, y, barWidth, barHeight, radius);
       ctx.fill();
-      if (spectrumState.liquidGlassEnabled) {
-        ctx.strokeStyle = spectrumColor(i, count, Math.min(1, alpha * 0.72 + 0.16));
+      if (glass) {
+        ctx.strokeStyle = strokeColors[i];
         ctx.lineWidth = Math.max(0.55, Math.min(1.8, barWidth * 0.14));
         ctx.stroke();
       }
@@ -3665,7 +3696,6 @@
     }
     window.addEventListener('pointermove', wake, { passive:true, capture:true });
     window.addEventListener('pointerdown', wake, { passive:true, capture:true });
-    setInterval(enforcePlayerVisibility, 1200);
   }
 
   // ---------- Compositor-only background opacity ----------

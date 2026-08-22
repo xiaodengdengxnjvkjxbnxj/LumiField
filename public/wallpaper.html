@@ -21,7 +21,10 @@
       colors:{primary:'#d6f8ff',secondary:'#9cffdf',highlight:'#fff0b8',glow:'#9cffdf'}
     };
     var coverImg = null, coverSrc = '';
+    var coverBlurCanvas = null;
+    var backgroundGradient = null, backgroundGradientKey = '';
     var particles = [];
+    var perf = { drawFrames:0, skippedFrames:0, targetFps:0, lastDrawAt:0 };
     function hexToRgb(hex, fallback){
       hex = String(hex || fallback || '#9cffdf').trim();
       if (/^#[0-9a-f]{3}$/i.test(hex)) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
@@ -37,7 +40,19 @@
       var target = Math.min(760, Math.max(420, Math.round((innerWidth * innerHeight) / 4200)));
       while (particles.length < target) {
         var i = particles.length + 1;
-        particles.push({ seed:i * 11.37, x:rand(i), y:rand(i * 2.7), lane:rand(i * 5.9), z:rand(i * 8.1), size:.6 + rand(i * 4.2) * 2.4 });
+        var seed = i * 11.37;
+        particles.push({
+          seed:seed,
+          x:rand(i),
+          y:rand(i * 2.7),
+          lane:rand(i * 5.9),
+          z:rand(i * 8.1),
+          size:.6 + rand(i * 4.2) * 2.4,
+          speed:.009 + rand(seed) * .021,
+          orbitWarp:rand(seed * 2) * .16,
+          wobbleRate:.22 + rand(seed) * .18,
+          twinkleRate:.50 + rand(seed) * .42
+        });
       }
       if (particles.length > target + 80) particles.length = target;
     }
@@ -49,23 +64,42 @@
       canvas.style.width = innerWidth + 'px';
       canvas.style.height = innerHeight + 'px';
       ctx.setTransform(dpr,0,0,dpr,0,0);
+      backgroundGradient = null;
+      backgroundGradientKey = '';
       ensureParticles();
+    }
+    function rebuildCoverBlur(){
+      coverBlurCanvas = null;
+      if (!coverImg) return;
+      var size = 768, pad = 72;
+      var buffer = document.createElement('canvas');
+      buffer.width = size + pad * 2;
+      buffer.height = size + pad * 2;
+      var bufferCtx = buffer.getContext('2d', { alpha:true });
+      bufferCtx.filter = 'blur(28px) saturate(1.25)';
+      bufferCtx.drawImage(coverImg, pad, pad, size, size);
+      bufferCtx.filter = 'none';
+      coverBlurCanvas = buffer;
     }
     function setCover(src){
       src = String(src || '');
       if (src === coverSrc) return;
       coverSrc = src;
       coverImg = null;
+      coverBlurCanvas = null;
       if (!src) return;
       var img = new Image();
-      img.onload = function(){ if (coverSrc === src) coverImg = img; };
-      img.onerror = function(){ if (coverSrc === src) coverImg = null; };
+      img.onload = function(){ if (coverSrc === src) { coverImg = img; rebuildCoverBlur(); perf.lastDrawAt = 0; } };
+      img.onerror = function(){ if (coverSrc === src) { coverImg = null; coverBlurCanvas = null; } };
       img.src = src;
     }
     function applyState(next){
       state = Object.assign({}, state, next || {});
       state.colors = Object.assign({}, state.colors, next && next.colors || {});
       setCover(state.cover || '');
+      backgroundGradient = null;
+      backgroundGradientKey = '';
+      perf.lastDrawAt = 0;
     }
     function drawCover(now){
       if (!coverImg) return;
@@ -74,28 +108,34 @@
       var y = innerHeight * .50 - side * .5 + Math.sin(now * .37) * 8;
       ctx.save();
       ctx.globalAlpha = .16 * (state.opacity || 1);
-      ctx.filter = 'blur(28px) saturate(1.25)';
-      ctx.drawImage(coverImg, x - side * .12, y - side * .12, side * 1.24, side * 1.24);
-      ctx.filter = 'none';
+      if (coverBlurCanvas) ctx.drawImage(coverBlurCanvas, x - side * .12, y - side * .12, side * 1.24, side * 1.24);
+      else {
+        ctx.filter = 'blur(28px) saturate(1.25)';
+        ctx.drawImage(coverImg, x - side * .12, y - side * .12, side * 1.24, side * 1.24);
+        ctx.filter = 'none';
+      }
       ctx.globalAlpha = .20 * (state.opacity || 1);
       ctx.drawImage(coverImg, x, y, side, side);
       ctx.restore();
     }
-    function draw(nowMs){
+    function renderFrame(nowMs){
       var now = nowMs * .001;
-      ensureParticles();
       var opacity = Math.max(.35, Math.min(1, state.opacity || 1));
       var primary = state.colors.primary || '#d6f8ff';
       var secondary = state.colors.secondary || '#9cffdf';
       var highlight = state.colors.highlight || '#fff0b8';
       var glow = state.colors.glow || secondary;
-      var bg = ctx.createLinearGradient(0,0,innerWidth,innerHeight);
-      bg.addColorStop(0, '#050608');
-      bg.addColorStop(.52, rgba(primary, .12 * opacity));
-      bg.addColorStop(1, rgba(secondary, .10 * opacity));
+      var nextGradientKey = [innerWidth,innerHeight,primary,secondary,opacity.toFixed(3)].join('|');
+      if (!backgroundGradient || backgroundGradientKey !== nextGradientKey) {
+        backgroundGradientKey = nextGradientKey;
+        backgroundGradient = ctx.createLinearGradient(0,0,innerWidth,innerHeight);
+        backgroundGradient.addColorStop(0, '#050608');
+        backgroundGradient.addColorStop(.52, rgba(primary, .12 * opacity));
+        backgroundGradient.addColorStop(1, rgba(secondary, .10 * opacity));
+      }
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
-      ctx.fillStyle = bg;
+      ctx.fillStyle = backgroundGradient;
       ctx.fillRect(0,0,innerWidth,innerHeight);
       drawCover(now);
       ctx.save();
@@ -106,13 +146,13 @@
       var ry = innerHeight * .30;
       for (var i=0;i<particles.length;i++) {
         var p = particles[i];
-        var speed = .009 + rand(p.seed) * .021 + (state.playing ? .010 : 0);
+        var speed = p.speed + (state.playing ? .010 : 0);
         var a = (p.x * Math.PI * 2 + now * speed + Math.sin(now * .07 + p.seed) * .14) % (Math.PI * 2);
         var ring = .18 + p.z * .82;
-        var wobble = Math.sin(now * (.22 + rand(p.seed) * .18) + p.seed) * 12;
+        var wobble = Math.sin(now * p.wobbleRate + p.seed) * 12;
         var x = cx + Math.cos(a) * rx * ring + Math.sin(now * .11 + p.seed) * 24;
-        var y = cy + Math.sin(a * (1.0 + rand(p.seed * 2) * .16)) * ry * ring + wobble;
-        var tw = Math.pow(.5 + .5 * Math.sin(now * (.50 + rand(p.seed)*.42) + p.seed), 4);
+        var y = cy + Math.sin(a * (1.0 + p.orbitWarp)) * ry * ring + wobble;
+        var tw = Math.pow(.5 + .5 * Math.sin(now * p.twinkleRate + p.seed), 4);
         var r = Math.max(.7, p.size * (.8 + tw * 1.2));
         var col = tw > .74 ? highlight : (p.lane > .55 ? secondary : glow);
         ctx.globalAlpha = (0.045 + tw * .18 + (state.playing ? .035 : 0)) * opacity;
@@ -129,14 +169,39 @@
       ctx.fillStyle = aura;
       ctx.fillRect(0,0,innerWidth,innerHeight);
       ctx.restore();
-      requestAnimationFrame(draw);
+      perf.drawFrames += 1;
+    }
+    function frame(nowMs){
+      requestAnimationFrame(frame);
+      var targetFps = document.hidden ? 1 : (state.playing ? 30 : 5);
+      perf.targetFps = targetFps;
+      var gap = 1000 / targetFps;
+      if (perf.lastDrawAt && nowMs - perf.lastDrawAt + .75 < gap) {
+        perf.skippedFrames += 1;
+        return;
+      }
+      var elapsed = perf.lastDrawAt ? nowMs - perf.lastDrawAt : gap;
+      perf.lastDrawAt = nowMs - (Math.max(0, elapsed - gap) % gap);
+      renderFrame(nowMs);
     }
     window.addEventListener('resize', resize);
+    document.addEventListener('visibilitychange', function(){ perf.lastDrawAt = 0; });
     resize();
     if (window.desktopOverlay && window.desktopOverlay.onWallpaperState) {
       window.desktopOverlay.onWallpaperState(applyState);
     }
-    requestAnimationFrame(draw);
+    window.__lfWallpaperPerfDebug = function(){
+      return {
+        drawFrames:perf.drawFrames,
+        skippedFrames:perf.skippedFrames,
+        targetFps:perf.targetFps,
+        particleCount:particles.length,
+        coverBlurCached:!!coverBlurCanvas,
+        backgroundGradientCached:!!backgroundGradient,
+        backingPixels:canvas.width * canvas.height
+      };
+    };
+    requestAnimationFrame(frame);
   </script>
 </body>
 </html>

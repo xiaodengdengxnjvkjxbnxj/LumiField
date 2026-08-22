@@ -32,6 +32,12 @@
     { selector: '.home-mosaic-cell', kind: 'media-card' },
     { selector: '.lf-hot-comment-card, .pl-inline-detail, .local-beat-track, .custom-lyric-track, .cover-crop-stage', kind: 'nested' }
   ];
+  var dynamicTargetSelector = targetRules.map(function (rule) { return rule.selector; }).concat([
+    '.top-account-pill',
+    '#user-btn',
+    '#lf-account-button',
+    '[data-lf-liquid-glass]'
+  ]).join(',');
 
   function list(selector, scope) {
     try {
@@ -57,12 +63,10 @@
   }
 
   function tagTargets() {
-    var expected = [];
+    var expected = new Map();
     function expect(element, kind) {
       if (!element) return;
-      var entry = expected.find(function (item) { return item.element === element; });
-      if (entry) entry.kind = kind;
-      else expected.push({ element: element, kind: kind });
+      expected.set(element, kind);
     }
     targetRules.forEach(function (rule) {
       list(rule.selector).forEach(function (element) { expect(element, rule.kind); });
@@ -76,14 +80,23 @@
     expect(document.getElementById('lf-account-button'), 'account');
 
     list('[data-lf-liquid-glass]').forEach(function (element) {
-      if (expected.some(function (item) { return item.element === element; })) return;
+      if (expected.has(element)) return;
       element.removeAttribute('data-lf-liquid-glass');
       element.classList.remove('lf-liquid-glass-active');
       if (state.activeTarget === element) state.activeTarget = null;
     });
-    expected.forEach(function (item) {
-      if (item.element.getAttribute('data-lf-liquid-glass') !== item.kind) mark(item.element, item.kind);
+    expected.forEach(function (kind, element) {
+      if (element.getAttribute('data-lf-liquid-glass') !== kind) mark(element, kind);
     });
+  }
+
+  function nodeAffectsTargets(node) {
+    if (!node || node.nodeType !== 1) return false;
+    try {
+      return node.matches(dynamicTargetSelector) || !!node.querySelector(dynamicTargetSelector);
+    } catch (_) {
+      return true;
+    }
   }
 
   function supportsBackdrop() {
@@ -523,7 +536,10 @@
     if (!global.MutationObserver || !document.body) return;
     state.observer = new global.MutationObserver(function (records) {
       var relevant = records.some(function (record) {
-        if (record.type === 'childList') return record.addedNodes.length > 0 || record.removedNodes.length > 0;
+        if (record.type === 'childList') {
+          return Array.prototype.some.call(record.addedNodes, nodeAffectsTargets) ||
+            Array.prototype.some.call(record.removedNodes, nodeAffectsTargets);
+        }
         return record.type === 'attributes' && (
           record.target === document.body ||
           (record.target === root && record.attributeName === 'style')

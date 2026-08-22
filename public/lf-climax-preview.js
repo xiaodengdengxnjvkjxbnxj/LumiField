@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.1.1';
   var CACHE_KEY = 'lumifield-climax-analysis-v2';
   var DEFAULT_HOLD_MS = 620;
   var DEFAULT_SEGMENT_SECONDS = 60;
@@ -522,6 +522,17 @@
   async function resolveSource(song) {
     if (song && song.localUrl) return { audioUrl: song.localUrl, duration: songDuration(song), data: null };
     if (song && song.type === 'local' && song.url) return { audioUrl: song.url, duration: songDuration(song), data: null };
+    var media = typeof audio !== 'undefined' ? audio : null;
+    var mediaUrl = media ? String(media.currentSrc || media.src || '') : '';
+    var mediaSongKey = typeof progressClimaxMediaSongKey !== 'undefined' ? String(progressClimaxMediaSongKey || '') : '';
+    if (mediaUrl && mediaSongKey && mediaSongKey === stableSongKey(song)) {
+      return {
+        audioUrl: mediaUrl,
+        duration: durationSeconds(media.duration) || songDuration(song),
+        data: global.lumiFieldLastPlaybackResolution || null,
+        reusedPlaybackSource: true,
+      };
+    }
     if (typeof resolvePlaybackSource !== 'function') throw new Error('CLIMAX_RESOLVER_UNAVAILABLE');
     var quality = typeof playbackQuality !== 'undefined' ? playbackQuality : 'standard';
     var data = await resolvePlaybackSource(song, quality, false);

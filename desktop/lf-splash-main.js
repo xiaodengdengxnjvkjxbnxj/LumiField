@@ -8,6 +8,7 @@ const CHANNELS = Object.freeze({
   debug: 'lf-splash-debug',
   mainDebug: 'lf-splash-main-debug',
   mainReady: 'lf-splash-main-ready',
+  mainReveal: 'lf-splash-main-reveal',
   windowAction: 'lf-splash-window-action',
   windowState: 'lf-splash-window-state',
 });
@@ -106,6 +107,9 @@ function createSplashController(options) {
     const closing = splashWindow;
     try {
       if (!mainWindow || mainWindow.isDestroyed()) throw new Error('MAIN_WINDOW_LOST');
+      try {
+        if (!mainWindow.webContents.isDestroyed()) mainWindow.webContents.send(CHANNELS.mainReveal, { requestedAt: Date.now() });
+      } catch (_) {}
       splashWindow = null;
       if (closing && !closing.isDestroyed()) closing.destroy();
       try { mainWindow.setIgnoreMouseEvents(false); } catch (_) {}

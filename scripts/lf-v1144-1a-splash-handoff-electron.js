@@ -122,6 +122,7 @@ function staticChecks() {
   pass('entry click performs a synchronous prewarmed window swap', /!surfacePrimed\s*\|\|\s*!enterRequested/.test(splashMain) && /closing\.destroy\(\)[\s\S]*setOpacity\(1\)[\s\S]*revealMain/.test(splashMain) && !/splashEntryGate/.test(mainSource), true);
   pass('remote fonts cannot block first Home load', /window\.addEventListener\('load'[\s\S]*lf-late-fonts/.test(index) && !/<link[^>]+fonts\.googleapis\.com[^>]+rel="stylesheet"/i.test(index), true);
   pass('main route is prepared before ready signal', /LumiFieldPrepareFirstReveal/.test(mainSource) && /window\.LumiFieldPrepareFirstReveal/.test(index), true);
+  pass('prewarmed main renders two real frames then idles until atomic reveal', /lf-splash-main-prewarm=1/.test(mainSource) && /onSplashMainReveal/.test(fs.readFileSync(path.join(repo, 'desktop', 'preload.js'), 'utf8')) && /splashMainWarmFramesRemaining\s*<=\s*0\) return 1/.test(index), true);
   pass('window controls use reference dark rounded luminous treatment', /border-radius:13px/.test(splashCss) && /drop-shadow\(0 0 3px/.test(splashCss) && /\.desktop-window-btn\{width:44px;height:34px/.test(index), true);
 }
 
@@ -186,9 +187,11 @@ async function exerciseSplash(port) {
     complete:document.readyState==='complete',
     home:document.body.classList.contains('empty-home-active'),
     homeRect:document.getElementById('empty-home')&&document.getElementById('empty-home').getBoundingClientRect().toJSON(),
-    stageMode:document.getElementById('search-area')&&document.getElementById('search-area').classList.contains('stage-mode')
+    stageMode:document.getElementById('search-area')&&document.getElementById('search-area').classList.contains('stage-mode'),
+    prewarm:{pending:splashMainPrewarmPending,warmFramesRemaining:splashMainWarmFramesRemaining,targetFps:getAdaptiveRenderFps(),totalFrames:renderPerfState.totalFrames}
   }))()`);
   pass('hidden main is already complete on the Home route before click', beforeClickMain.complete && beforeClickMain.home && !beforeClickMain.stageMode && beforeClickMain.homeRect && beforeClickMain.homeRect.width > 0, beforeClickMain);
+  pass('hidden main stops competing with Splash after its two warm frames', beforeClickMain.prewarm.pending && beforeClickMain.prewarm.warmFramesRemaining === 0 && beforeClickMain.prewarm.targetFps === 1 && beforeClickMain.prewarm.totalFrames >= 2, beforeClickMain.prewarm);
   const enterRect = await splash.evaluate(`document.getElementById('lf-splash-enter').getBoundingClientRect().toJSON()`);
   const clickedAt = Date.now();
   await splash.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: enterRect.x + enterRect.width / 2, y: enterRect.y + enterRect.height / 2, button: 'left', clickCount: 1 });
@@ -208,6 +211,7 @@ async function exerciseSplash(port) {
     homeRect:document.getElementById('empty-home')&&document.getElementById('empty-home').getBoundingClientRect().toJSON(),
     stageMode:document.getElementById('search-area')&&document.getElementById('search-area').classList.contains('stage-mode'),
     controls:document.querySelectorAll('.desktop-window-btn[data-window-action]').length,
+    prewarm:{pending:splashMainPrewarmPending,targetFps:getAdaptiveRenderFps()},
     splash:await window.desktopWindow.getSplashDebug()
   };return state.splash&&state.splash.revealed&&state.splash.mainVisible&&!state.splash.splashExists?state:null;})()`);
     return state;
@@ -217,6 +221,7 @@ async function exerciseSplash(port) {
   pass('first click performs exactly one synchronous transition', handoff.splash.enterCount === 1 && handoff.splash.transitionStartedAt >= handoff.splash.enterRequestedAt && handoff.splash.surfacePrimedAt <= handoff.splash.enterRequestedAt, handoff.splash);
   pass('first click reveals Home with no perceptible wait', handoffTrace.clickToVisibleMs <= 250 && handoff.splash.revealedAt - handoff.splash.enterRequestedAt <= 100, { clickToVisibleMs: handoffTrace.clickToVisibleMs, controllerMs: handoff.splash.revealedAt - handoff.splash.enterRequestedAt });
   pass('atomic handoff lands directly on visible main route', handoff.complete && handoff.visible && handoff.home && !handoff.stageMode && handoff.homeRect && handoff.homeRect.width > 0 && handoff.controls === 3, handoff);
+  pass('atomic handoff wakes the main renderer on the first click', !handoff.prewarm.pending && handoff.prewarm.targetFps > 1, handoff.prewarm);
   const splashGone = await waitFor(async () => !(await listTargets(port)).some(target => /lf-splash\.html/i.test(target.url)), 1200, 20);
   pass('splash BrowserWindow is fully retired immediately', splashGone === true, { elapsedMs: Date.now() - clickedAt });
   const mainDebug = await main.evaluate(`window.desktopWindow&&window.desktopWindow.getState?window.desktopWindow.getState():null`);

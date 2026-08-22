@@ -600,7 +600,11 @@ async function testVirtualQueueLifecycleAndRemoval() {
       list.scrollTop = Math.min(list.scrollHeight-list.clientHeight,list.scrollTop+1240);
       list.dispatchEvent(new Event('scroll'));
       await new Promise(function(resolve){ setTimeout(resolve,120); });
-      var expanded = { rows:list.querySelectorAll('.mini-queue-item').length, mode:list.dataset.lfVirtualization || '' };
+      var scrolled = {
+        rows:list.querySelectorAll('.mini-queue-item').length,
+        mode:list.dataset.lfVirtualization || '',
+        start:Number(list.__lfVirtualStart || 0)
+      };
       setMiniQueueOpen(false);
       await new Promise(function(resolve){ setTimeout(resolve,80); });
       var closed = {
@@ -617,7 +621,7 @@ async function testVirtualQueueLifecycleAndRemoval() {
       var beforeCurrent = { index:currentIdx, songId:playQueue[currentIdx] && playQueue[currentIdx].id };
       removeFromQueue(currentIdx);
       var current = { index:currentIdx, songId:playQueue[currentIdx] && playQueue[currentIdx].id, calls:calls.slice() };
-      return { initial:initial, expanded:expanded, closed:closed, beforeCurrent:beforeCurrent, current:current };
+      return { initial:initial, scrolled:scrolled, closed:closed, beforeCurrent:beforeCurrent, current:current };
     } finally {
       window.playQueueAt = originalPlayQueueAt;
       playQueue = originalQueue;
@@ -627,7 +631,7 @@ async function testVirtualQueueLifecycleAndRemoval() {
     }
   });
   pass('large mini queue is windowed before interaction', state.initial.rows < 180 && state.initial.mode === 'windowed', state);
-  pass('active high-speed scroll may expand once without repeated window rebuilds', state.expanded.rows === 180 && state.expanded.mode === 'expanded-scroll', state);
+  pass('active high-speed scroll remains windowed and advances its bounded range', state.scrolled.rows < 180 && state.scrolled.mode === 'windowed' && state.scrolled.start > 0, state);
   pass('closing mini queue cancels pending work and immediately compacts hidden DOM', state.closed.rows < 180 && state.closed.mode === 'windowed' && state.closed.frame === 0 && state.closed.timer === 0, state);
   pass('removing an earlier item preserves the playing song index', state.beforeCurrent.index === 2 && state.beforeCurrent.songId === 'remove-3', state);
   pass('removing the current item advances to the replacement and synchronizes index', state.current.index === 2 && state.current.songId === 'remove-4' && state.current.calls.join(',') === '2', state);

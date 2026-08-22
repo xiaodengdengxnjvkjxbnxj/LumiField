@@ -1248,7 +1248,7 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .panel-tab.active{background:rgba(0,245,212,.10);border-color:rgba(0,245,212,.34);color:#eafffb}
 .queue-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .lf-queue-virtual-spacer{display:block;flex:0 0 auto;width:1px;min-height:0;pointer-events:none;contain:strict}
-.queue-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);cursor:pointer;transition:all .2s}
+.queue-item{display:flex;align-items:center;gap:10px;height:56px;min-height:56px;flex:0 0 56px;box-sizing:border-box;padding:8px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);cursor:pointer;transition:all .2s;contain:layout paint style}
 .queue-item:hover{background:rgba(255,255,255,.05)}
 .queue-item.now{border-color:rgba(0,245,212,.34);background:rgba(0,245,212,.075)}
 .queue-item img{width:38px;height:38px;border-radius:6px;object-fit:cover;background:rgba(255,255,255,.06);flex-shrink:0}
@@ -3406,6 +3406,27 @@ var desktopRuntimeState = {
   focused: true,
   fullscreen: false
 };
+var splashMainPrewarmPending = !!(window.desktopWindow && window.desktopWindow.splashMainPrewarm === true);
+var splashMainWarmFramesRemaining = splashMainPrewarmPending ? 2 : 0;
+function armSplashMainPrewarm(frameCount) {
+  if (!splashMainPrewarmPending) return false;
+  splashMainWarmFramesRemaining = Math.max(2, Number(frameCount) || 2);
+  if (typeof renderPerfState !== 'undefined' && renderPerfState) renderPerfState.lastRenderAt = 0;
+  return true;
+}
+function finishSplashMainPrewarm(reason) {
+  if (!splashMainPrewarmPending) return false;
+  splashMainPrewarmPending = false;
+  splashMainWarmFramesRemaining = 0;
+  document.body.classList.remove('render-splash-prewarm');
+  if (typeof renderPerfState !== 'undefined' && renderPerfState) renderPerfState.lastRenderAt = 0;
+  if (typeof markRenderInteraction === 'function') markRenderInteraction(reason || 'splash-reveal', 1100);
+  return true;
+}
+document.body.classList.toggle('render-splash-prewarm', splashMainPrewarmPending);
+if (window.desktopWindow && typeof window.desktopWindow.onSplashMainReveal === 'function') {
+  window.desktopWindow.onSplashMainReveal(function () { finishSplashMainPrewarm('splash-ipc-reveal'); });
+}
 var renderPowerState = { mode: '', width: 0, height: 0, pixelRatio: 0 };
 var backgroundCacheTrimTimer = 0;
 var runtimePerfState = {
@@ -3620,6 +3641,7 @@ function updateDesktopRuntimeState(state) {
   desktopRuntimeState.minimized = !!state.isMinimized;
   desktopRuntimeState.visible = state.isVisible !== false;
   desktopRuntimeState.focused = state.isFocused !== false;
+  if (splashMainPrewarmPending && state.isFocused === true) finishSplashMainPrewarm('splash-window-focused');
   desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen);
   updateRenderPowerClasses();
   applyRendererPowerMode();
@@ -3637,6 +3659,7 @@ function installRenderPowerHooks() {
   });
   window.addEventListener('focus', function(){
     desktopRuntimeState.focused = true;
+    if (splashMainPrewarmPending) finishSplashMainPrewarm('splash-window-focus');
     updateRenderPowerClasses();
     applyRendererPowerMode();
     if (!isDeepBackgroundMode()) recoverVisualsAfterBackground('focus');
@@ -7282,6 +7305,17 @@ var stageLyrics = {
 };
 var lyricSunColor = new THREE.Color(0xffe6a4);
 var lyricSunHotColor = new THREE.Color(0xfff4cc);
+var lyricGlowBaseColor = new THREE.Color(0x9cffdf);
+var lyricRiverColorA = new THREE.Color(0x9cffdf);
+var lyricRiverColorB = new THREE.Color(0xfff7d2);
+var lyricSparkFrameColor = new THREE.Color();
+var lyricLockBoundsScratch = { w:5.4, h:0.78 };
+var lyricVapourFrameOptions = { paused:false, visible:true };
+var lyricShelfDetailProfiles = {
+  skull:{ opacity:0.30, readability:0.20, bloom:0.20, glowCap:0.050, outgoing:0.34, easeDown:0.34 },
+  normal:{ opacity:0.38, readability:0.26, bloom:0.24, glowCap:0.070, outgoing:0.42, easeDown:0.34 },
+  closed:{ opacity:0.96, readability:0.86, bloom:1, glowCap:1.0, outgoing:1, easeDown:0.16 }
+};
 var lyricCameraDir = new THREE.Vector3();
 var lyricCameraRight = new THREE.Vector3();
 var lyricCameraUp = new THREE.Vector3();
@@ -7296,6 +7330,13 @@ var lyricBaseQuat = new THREE.Quaternion();
 var lyricTiltQuat = new THREE.Quaternion();
 var lyricTargetQuat = new THREE.Quaternion();
 var LYRIC_CAMERA_LOCK_MAX_SCALE = 0.80;
+function accumulateStageLyricLockBounds(mesh) {
+  if (!mesh || !mesh.userData || !mesh.userData.lyric) return;
+  var d = mesh.userData.lyric;
+  var meshScale = Math.max(mesh.scale && isFinite(mesh.scale.x) ? mesh.scale.x : 1, mesh.scale && isFinite(mesh.scale.y) ? mesh.scale.y : 1);
+  lyricLockBoundsScratch.w = Math.max(lyricLockBoundsScratch.w, (d.groupWorldW || d.textWorldW || d.worldW || 6.1) * meshScale);
+  lyricLockBoundsScratch.h = Math.max(lyricLockBoundsScratch.h, (d.groupWorldH || d.textWorldH || d.worldH || 1.0) * meshScale);
+}
 function setStageLyricViewBasisFromCameraOrQuaternion(fallbackQuat) {
   if (fallbackQuat) {
     lyricCameraDir.set(0, 0, 1).applyQuaternion(fallbackQuat);
@@ -7326,17 +7367,13 @@ function stageLyricTargetQuaternion(baseQuat, tiltX, tiltY) {
   return lyricTargetQuat.copy(baseQuat || lyricBaseQuat).multiply(lyricTiltQuat);
 }
 function getStageLyricLockBounds() {
-  var maxW = 0, maxH = 0;
-  function take(mesh) {
-    if (!mesh || !mesh.userData || !mesh.userData.lyric) return;
-    var d = mesh.userData.lyric;
-    var meshScale = Math.max(mesh.scale && isFinite(mesh.scale.x) ? mesh.scale.x : 1, mesh.scale && isFinite(mesh.scale.y) ? mesh.scale.y : 1);
-    maxW = Math.max(maxW, (d.groupWorldW || d.textWorldW || d.worldW || 6.1) * meshScale);
-    maxH = Math.max(maxH, (d.groupWorldH || d.textWorldH || d.worldH || 1.0) * meshScale);
-  }
-  take(stageLyrics.current);
-  for (var i = 0; i < stageLyrics.outgoing.length; i++) take(stageLyrics.outgoing[i]);
-  return { w: maxW || 5.4, h: maxH || 0.78 };
+  lyricLockBoundsScratch.w = 0;
+  lyricLockBoundsScratch.h = 0;
+  accumulateStageLyricLockBounds(stageLyrics.current);
+  for (var i = 0; i < stageLyrics.outgoing.length; i++) accumulateStageLyricLockBounds(stageLyrics.outgoing[i]);
+  if (!lyricLockBoundsScratch.w) lyricLockBoundsScratch.w = 5.4;
+  if (!lyricLockBoundsScratch.h) lyricLockBoundsScratch.h = 0.78;
+  return lyricLockBoundsScratch;
 }
 function lyricCameraLockFit(layoutScale, layoutX, layoutY, distance) {
   if (!camera || !camera.isPerspectiveCamera) return 1;
@@ -7461,7 +7498,8 @@ function ensureLyricStarRiver() {
 }
 
 function updateLyricStarRiver(dt) {
-  var river = ensureLyricStarRiver();
+  var river = stageLyrics.starRiver;
+  if (!river && fx.lyricGlowParticles) river = ensureLyricStarRiver();
   if (!river || !river.material || !river.material.uniforms) return;
   if (fx && fx.preset === SKULL_PRESET_INDEX) {
     river.visible = false;
@@ -7482,9 +7520,9 @@ function updateLyricStarRiver(dt) {
     : 0;
   targetOpacity = clampRange(targetOpacity * (Number(window.lumiFieldVisualizerBrightness) || 1), 0, 1);
   u.uOpacity.value += (targetOpacity - u.uOpacity.value) * (targetOpacity > u.uOpacity.value ? 0.10 : 0.055);
-  u.uColorA.value.copy(lyricThreeColor(stageLyrics.palette.secondary || stageLyrics.palette.primary, '#9cffdf', 0.42));
-  u.uColorB.value.copy(lyricThreeColor(stageLyrics.palette.highlight || stageLyrics.palette.primary, '#fff7d2', 0.46));
-  river.visible = window.lumiFieldNativeLyricsVisible !== false && (u.uOpacity.value > 0.01 || !!stageLyrics.current);
+  u.uColorA.value.copy(lyricRiverColorA);
+  u.uColorB.value.copy(lyricRiverColorB);
+  river.visible = window.lumiFieldNativeLyricsVisible !== false && u.uOpacity.value > 0.01;
   var t = uniforms.uTime.value;
   river.position.y += ((0.18 + (Number(window.lumiFieldVisualizerOffsetY) || 0) + Math.sin(t * 0.44) * 0.035 + Math.sin(t * 0.91 + 1.7) * 0.018) - river.position.y) * 0.08;
   river.position.z += ((1.54 + Math.cos(t * 0.31) * 0.060) - river.position.z) * 0.08;
@@ -8320,6 +8358,9 @@ function setStageLyricPalette(pal) {
   stageLyrics.palette = effectiveLyricPalette(pal);
   lyricSunColor.copy(lyricThreeColor(stageLyrics.palette.glowColor || stageLyrics.palette.secondary || stageLyrics.palette.primary, '#ffe6a4', 0.44));
   lyricSunHotColor.copy(lyricThreeColor(stageLyrics.palette.highlight || stageLyrics.palette.primary, '#fff4cc', 0.54));
+  lyricGlowBaseColor.copy(lyricThreeColor(stageLyrics.palette.glowColor || stageLyrics.palette.secondary || stageLyrics.palette.primary, '#9cffdf', 0.36));
+  lyricRiverColorA.copy(lyricThreeColor(stageLyrics.palette.secondary || stageLyrics.palette.primary, '#9cffdf', 0.42));
+  lyricRiverColorB.copy(lyricThreeColor(stageLyrics.palette.highlight || stageLyrics.palette.primary, '#fff7d2', 0.46));
   applyLyricPaletteToMesh(stageLyrics.current);
   stageLyrics.outgoing.forEach(applyLyricPaletteToMesh);
   syncSkullParticleColors();
@@ -9212,21 +9253,9 @@ function updateStageLyrics3D(dt) {
   // The shelf detail no longer lowers lyrics beneath the spectrum; shelf rows
   // already render at 232+ and therefore remain the top visual layer.
   stageLyrics.group.renderOrder = 38;
-  var shelfDetailLyricProfile = shelfDetailOpen ? {
-    opacity: skullShelfDetailOpen ? 0.30 : 0.38,
-    readability: skullShelfDetailOpen ? 0.20 : 0.26,
-    bloom: skullShelfDetailOpen ? 0.20 : 0.24,
-    glowCap: skullShelfDetailOpen ? 0.050 : 0.070,
-    outgoing: skullShelfDetailOpen ? 0.34 : 0.42,
-    easeDown: 0.34
-  } : {
-    opacity: 0.96,
-    readability: 0.86,
-    bloom: 1,
-    glowCap: 1.0,
-    outgoing: 1,
-    easeDown: 0.16
-  };
+  var shelfDetailLyricProfile = shelfDetailOpen
+    ? (skullShelfDetailOpen ? lyricShelfDetailProfiles.skull : lyricShelfDetailProfiles.normal)
+    : lyricShelfDetailProfiles.closed;
   var shelfLyricAvoid = shouldAvoidStageLyricsForShelf();
   var wallpaperLyricLock = shouldUseWallpaperLyricCameraLock();
   var wallpaperShelfLyrics = wallpaperLyricLock && shouldDimWallpaperForShelf();
@@ -9375,17 +9404,22 @@ function updateStageLyrics3D(dt) {
       if (data.glowMat) {
         var glowTarget = lyricGlowStrength > 0 ? Math.min(shelfDetailLyricProfile.glowCap, (0.075 + solar * 0.34 + stageLyrics.beatGlow * 0.16 * shelfDetailLyricDim) * Math.min(3.0, glowDrive)) : 0;
         data.glowMat.opacity += (glowTarget - data.glowMat.opacity) * (glowTarget > data.glowMat.opacity ? 0.095 : (shelfDetailOpen ? 0.20 : 0.055));
-        data.glowMat.color.copy(lyricThreeColor(stageLyrics.palette.glowColor || stageLyrics.palette.secondary, '#9cffdf', 0.36)).lerp(lyricSunHotColor, warmth);
+        data.glowMat.color.copy(lyricGlowBaseColor).lerp(lyricSunHotColor, warmth);
       }
       if (data.sparkMat) {
         var sparkTarget = lyricGlowStrength > 0 && fx.lyricGlowParticles && !shelfDetailOpen ? Math.min(0.42, (0.10 + solar * 0.14 + stageLyrics.beatGlow * 0.10) * Math.min(1.6, glowDrive)) : 0;
         var sparkOpacity = getLyricSparkOpacity(data);
         sparkOpacity += (sparkTarget - sparkOpacity) * (sparkTarget > sparkOpacity ? 0.13 : (shelfDetailOpen ? 0.22 : 0.075));
         setLyricSparkOpacity(data, sparkOpacity);
-        var sparkSizeTarget = fx.lyricGlowParticles && !shelfDetailOpen ? (0.050 + solar * 0.016 + stageLyrics.beatGlow * 0.026 + bass * 0.008) : 0.035;
-        setLyricSparkSize(data, getLyricSparkSize(data) + (sparkSizeTarget - getLyricSparkSize(data)) * 0.12);
-        var sparkColor = lyricSunHotColor.clone().lerp(lyricSunColor, 0.22 + solar * 0.18);
-        setLyricSparkColor(data, sparkColor);
+        var sparkActive = !!fx.lyricGlowParticles || sparkOpacity > 0.015;
+        if (data.sparks) data.sparks.visible = sparkActive;
+        if (sparkActive) {
+          var sparkSizeTarget = fx.lyricGlowParticles && !shelfDetailOpen ? (0.050 + solar * 0.016 + stageLyrics.beatGlow * 0.026 + bass * 0.008) : 0.035;
+          var sparkSize = getLyricSparkSize(data);
+          setLyricSparkSize(data, sparkSize + (sparkSizeTarget - sparkSize) * 0.12);
+          lyricSparkFrameColor.copy(lyricSunHotColor).lerp(lyricSunColor, 0.22 + solar * 0.18);
+          setLyricSparkColor(data, lyricSparkFrameColor);
+        }
       }
       var seed = mesh.userData.floatSeed || 0;
       if (data.sunMat) {
@@ -9421,8 +9455,7 @@ function updateStageLyrics3D(dt) {
         mesh.position.z += ((1.48 + Math.cos(t * 0.48 + seed) * 0.080) - mesh.position.z) * 0.080;
         mesh.rotation.z = Math.sin(t * 0.34 + seed) * 0.018;
       }
-      if (data.sparks && data.sparkMat) data.sparks.visible = fx.lyricGlowParticles || getLyricSparkOpacity(data) > 0.015;
-      if (data.sparks && data.basePositions) {
+      if (data.sparks && data.basePositions && data.sparks.visible) {
         var pos = data.sparks.geometry.attributes.position;
         var arr = pos.array, base = data.basePositions;
         data.sparks.rotation.z += ((fx.lyricGlowParticles ? 0.0009 : 0.00025) + stageLyrics.beatGlow * 0.0007) * (dt * 60);
@@ -9467,7 +9500,9 @@ function updateStageLyrics3D(dt) {
   var nativeLyricsVisible = window.lumiFieldNativeLyricsVisible !== false;
   if (stageLyrics.vapour) {
     stageLyrics.vapour.setVisible(nativeLyricsVisible);
-    stageLyrics.vapour.update(dt, { paused:!playing || !audio || !!audio.paused, visible:nativeLyricsVisible });
+    lyricVapourFrameOptions.paused = !playing || !audio || !!audio.paused;
+    lyricVapourFrameOptions.visible = nativeLyricsVisible;
+    stageLyrics.vapour.update(dt, lyricVapourFrameOptions);
   }
   if (stageLyrics.current) stageLyrics.current.visible = nativeLyricsVisible;
   for (var j = 0; j < stageLyrics.outgoing.length; j++) {
@@ -13620,6 +13655,7 @@ function makeShelfManager() {
     if (floorMirror) {
       if (floorMirror.parent) floorMirror.parent.remove(floorMirror);
       if (floorMirror.geometry) floorMirror.geometry.dispose();
+      if (floorMirror.material && floorMirror.material.map) floorMirror.material.map.dispose();
       if (floorMirror.material) floorMirror.material.dispose();
       floorMirror = null;
     }
@@ -13991,7 +14027,13 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (m === 'off') {
         if (group) { scene.remove(group); cards.forEach(function(c){ c.texture.dispose(); c.mesh.material.dispose(); c.mesh.geometry.dispose(); }); }
         if (connectorParticles) { scene.remove(connectorParticles); connectorParticles.geometry.dispose(); connectorParticles.material.dispose(); connectorParticles = null; }
-        if (floorMirror) { scene.remove(floorMirror); floorMirror.geometry.dispose(); floorMirror.material.dispose(); floorMirror = null; }
+        if (floorMirror) {
+          scene.remove(floorMirror);
+          floorMirror.geometry.dispose();
+          if (floorMirror.material && floorMirror.material.map) floorMirror.material.map.dispose();
+          floorMirror.material.dispose();
+          floorMirror = null;
+        }
         group = null; cards = [];
         if (contentList) contentList.close();
         return;
@@ -14013,12 +14055,12 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       var px = pointerParallax.x, py = pointerParallax.y;
       var appRevealed = !document.body.classList.contains('splash-active');
       var cueVis = tickShelfHoverCue(dt);
+      var contentOpen = !!(contentList && contentList.isOpen());
       // v8: shelf 自动可见度 — 启动页期间不显示；侧栏只在右侧停留时淡入。
       var targetVis;
       if (!appRevealed) {
         targetVis = 0;
       } else if (mode === 'side') {
-        var contentOpen = contentList && contentList.isOpen();
         if (!allItems.length && !contentOpen) targetVis = 0;
         else targetVis = (contentOpen || shelfPinnedOpen || shelfAlwaysVisible()) ? 1.0 : (cueVis > 0.01 ? Math.max(0.16, cueVis * 0.88) : 0);
       } else {
@@ -14029,6 +14071,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       group.visible = appRevealed && (mode !== 'side' || shelfVisibility > 0) && (allItems.length > 0 || (contentList && contentList.isOpen()));
       if (connectorParticles) connectorParticles.visible = group.visible && mode === 'stage';
       if (floorMirror) floorMirror.visible = group.visible && mode === 'stage';
+      if (!group.visible && targetVis === 0 && shelfVisibility === 0 && !contentOpen) return;
       if (mode === 'side') {
         var passiveAlwaysGroup = shelfAlwaysVisible() && !shelfPinnedOpen && !(contentList && contentList.isOpen());
         var liftedCardActive = passiveAlwaysGroup && cards.some(function(c){ return c.selected || (c.floatMix || 0) > 0.025; });
@@ -17439,6 +17482,7 @@ function updateEmptyHomeVisibility(opts) {
   return show;
 }
 window.LumiFieldPrepareFirstReveal = function() {
+  armSplashMainPrewarm(2);
   homeSuppressed = false;
   homeForcedOpen = true;
   if (immersiveMode && typeof setImmersiveMode === 'function') {
@@ -21424,12 +21468,6 @@ function setMiniQueueOpen(open) {
       list.__lfVirtualFrame = 0;
       list.__lfVirtualIdleTimer = 0;
       list.__lfVirtualProgrammaticScroll = false;
-      if (playQueue.length > QUEUE_VIRTUAL_THRESHOLD && list.dataset.lfVirtualization === 'expanded-scroll') {
-        var preservedTop = list.scrollTop;
-        list.__lfVirtualCompacting = true;
-        renderMiniQueuePanel({ compactAfterScroll:true });
-        list.scrollTop = preservedTop;
-      }
       list.__lfVirtualCompacting = false;
     }
   }
@@ -21457,7 +21495,9 @@ function queueVirtualRange(total, scrollTop, viewportHeight, focusIndex) {
     scrollTop = targetScroll;
   }
   var firstVisible = Math.floor(Math.max(0,Number(scrollTop) || 0)/QUEUE_VIRTUAL_ROW_HEIGHT);
-  var chunkRows = Math.max(20,visibleRows*3);
+  // Keep a wider retained window so fast scrollbar drags cross multiple rows
+  // without rebuilding the queue DOM on nearly every animation frame.
+  var chunkRows = Math.max(64,visibleRows*8);
   var start = Math.max(0,Math.floor(firstVisible/chunkRows)*chunkRows-QUEUE_VIRTUAL_OVERSCAN);
   var windowRows = visibleRows+QUEUE_VIRTUAL_OVERSCAN*2+chunkRows;
   var end = Math.min(total,start+windowRows);
@@ -21492,21 +21532,12 @@ function bindQueueVirtualScrollers() {
     miniList.__lfVirtualScrollBound = true;
     miniList.addEventListener('scroll',function(){
       if (!miniQueueOpen || playQueue.length <= QUEUE_VIRTUAL_THRESHOLD || miniList.__lfVirtualProgrammaticScroll || miniList.__lfVirtualCompacting) return;
-      clearTimeout(miniList.__lfVirtualIdleTimer);
-      miniList.__lfVirtualIdleTimer = setTimeout(function(){
-        if (!miniQueueOpen || playQueue.length <= QUEUE_VIRTUAL_THRESHOLD) return;
-        var preservedTop = miniList.scrollTop;
-        miniList.__lfVirtualCompacting = true;
-        renderMiniQueuePanel({ compactAfterScroll:true });
-        miniList.scrollTop = preservedTop;
-        requestAnimationFrame(function(){ miniList.__lfVirtualCompacting = false; });
-      },650);
-      if (miniList.dataset.lfVirtualization === 'expanded-scroll' || miniList.__lfVirtualFrame) return;
+      if (miniList.__lfVirtualFrame) return;
       miniList.__lfVirtualFrame = requestAnimationFrame(function(){
         miniList.__lfVirtualFrame = 0;
         var preservedTop = miniList.scrollTop;
-        renderMiniQueuePanel({ expandForScroll:true });
-        miniList.scrollTop = preservedTop;
+        renderMiniQueuePanel({ virtualScroll:true });
+        if (Math.abs(miniList.scrollTop - preservedTop) > 0.5) miniList.scrollTop = preservedTop;
       });
     },{ passive:true });
   }
@@ -21534,10 +21565,8 @@ function renderMiniQueuePanel(opts) {
     $list.innerHTML = '<div class="mini-queue-empty">队列为空，先搜索或打开歌单</div>';
     return;
   }
-  var range = opts.expandForScroll
-    ? { virtual:false, start:0, end:total, top:0, bottom:0, targetScroll:null }
-    : queueVirtualRange(total,$list.scrollTop,$list.clientHeight,opts.scrollCurrent ? currentIdx : -1);
-  $list.dataset.lfVirtualization = range.virtual ? 'windowed' : (total > QUEUE_VIRTUAL_THRESHOLD ? 'expanded-scroll' : 'none');
+  var range = queueVirtualRange(total,$list.scrollTop,$list.clientHeight,opts.scrollCurrent ? currentIdx : -1);
+  $list.dataset.lfVirtualization = range.virtual ? 'windowed' : 'none';
   if (opts.virtualScroll && range.start === $list.__lfVirtualStart && range.end === $list.__lfVirtualEnd) return;
   $list.__lfVirtualStart = range.start;
   $list.__lfVirtualEnd = range.end;
@@ -23089,8 +23118,11 @@ function getPlaybackDurationSeconds() {
 function getPlaybackCurrentSeconds() {
   return audio && isFinite(audio.currentTime) && audio.currentTime > 0 ? audio.currentTime : 0;
 }
+var lastProgressVisualPercent = null;
 function setProgressVisual(percent) {
   percent = clampRange(percent || 0, 0, 100);
+  if (lastProgressVisualPercent != null && Math.abs(lastProgressVisualPercent - percent) < 0.0001) return;
+  lastProgressVisualPercent = percent;
   var fill = document.getElementById('progress-fill');
   var thumb = document.getElementById('progress-thumb');
   if (fill) fill.style.width = percent + '%';
@@ -23122,7 +23154,8 @@ function updateProgressClimaxMarker() {
   var durationSec = normalizePlaybackDurationSeconds(owner && owner.duration) || playbackDurationFromSong(song);
   if (!durationSec && progressClimaxMediaSongKey === songKey) durationSec = getPlaybackDurationSeconds();
   var known = api && typeof api.getKnownStart === 'function' ? api.getKnownStart(song, durationSec) : null;
-  if (!known && api && typeof api.ensureStart === 'function' && progressClimaxMarkerState.requestKey !== songKey) {
+  var currentMediaOwnsSong = !!progressClimaxMediaSongKey && progressClimaxMediaSongKey === songKey;
+  if (!known && currentMediaOwnsSong && api && typeof api.ensureStart === 'function' && progressClimaxMarkerState.requestKey !== songKey) {
     progressClimaxMarkerState.requestKey = songKey;
     var requestSerial = ++progressClimaxMarkerRequestSerial;
     Promise.resolve(api.ensureStart(song, durationSec)).then(function (resolved) {
@@ -23132,17 +23165,22 @@ function updateProgressClimaxMarker() {
   }
   var startSec = Number(known && known.startSec);
   if (!isFinite(startSec) || startSec <= 0 || !isFinite(durationSec) || durationSec <= 0 || startSec >= durationSec) {
-    marker.classList.remove('visible');
+    if (marker.classList.contains('visible')) marker.classList.remove('visible');
     return;
   }
   var percent = clampRange(startSec / durationSec * 100, 0, 100);
-  progressClimaxMarkerState.startSec = startSec;
-  progressClimaxMarkerState.source = String(known.source || '');
-  marker.style.setProperty('--lf-climax-position', percent.toFixed(4) + '%');
-  marker.setAttribute('data-source', progressClimaxMarkerState.source);
-  marker.setAttribute('data-start-sec', startSec.toFixed(3));
-  marker.title = '高潮位置 ' + formatProgramTime(startSec);
-  marker.classList.add('visible');
+  var nextSource = String(known.source || '');
+  var nextPosition = percent.toFixed(4) + '%';
+  var nextStart = startSec.toFixed(3);
+  if (progressClimaxMarkerState.startSec !== startSec || progressClimaxMarkerState.source !== nextSource || marker.style.getPropertyValue('--lf-climax-position') !== nextPosition) {
+    progressClimaxMarkerState.startSec = startSec;
+    progressClimaxMarkerState.source = nextSource;
+    marker.style.setProperty('--lf-climax-position', nextPosition);
+    marker.setAttribute('data-source', nextSource);
+    marker.setAttribute('data-start-sec', nextStart);
+    marker.title = '高潮位置 ' + formatProgramTime(startSec);
+  }
+  if (!marker.classList.contains('visible')) marker.classList.add('visible');
 }
 function updatePlaybackProgressUi() {
   var durationSec = getPlaybackDurationSeconds();
@@ -23150,7 +23188,8 @@ function updatePlaybackProgressUi() {
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
   setProgressVisual(durationSec > 0 ? (currentSec / durationSec * 100) : 0);
   var timeDisplay = document.getElementById('time-display');
-  if (timeDisplay) timeDisplay.textContent = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  var nextTimeDisplay = formatProgramTime(currentSec) + ' / ' + (durationSec > 0 ? formatProgramTime(durationSec) : '0:00');
+  if (timeDisplay && timeDisplay.textContent !== nextTimeDisplay) timeDisplay.textContent = nextTimeDisplay;
   updateProgressClimaxMarker();
 }
 function bindPlaybackProgressEvents(audioEl) {
@@ -23246,12 +23285,10 @@ progressBar.addEventListener('lostpointercapture', function(){
   setTimeout(function(){ if (!progressDragState.active) setProgressSeekingVisual(false); }, 220);
 });
 setInterval(function(){
-  if (!audio) { updatePlaybackProgressUi(); return; }
+  if (document.hidden || !audio || audio.paused || audio.ended) return;
   var climaxPreviewActive = !!(window.LumiFieldClimaxPreview && window.LumiFieldClimaxPreview.isTransientActive());
   if (!climaxPreviewActive) updateListenStatsTick(false);
-  updatePlaybackProgressUi();
-  if (!climaxPreviewActive && audio.currentTime) updateLyricsHighlight();
-}, 200);
+}, 1000);
 
 // ============================================================
 //  文件拖放
@@ -30092,6 +30129,7 @@ var renderPerfState = {
 window.__lumifieldPerf = renderPerfState;
 function getAdaptiveRenderFps() {
   if (isDeepBackgroundMode()) return 1;
+  if (splashMainPrewarmPending && splashMainWarmFramesRemaining <= 0) return 1;
   if (RENDER_VISIBLE_VSYNC) return 0;
   var tier = (typeof getRenderLoadTier === 'function') ? getRenderLoadTier() : 0;
   if (typeof isRenderInteractionActive === 'function' && isRenderInteractionActive()) {
@@ -30132,6 +30170,7 @@ function shouldSkipAdaptiveRenderFrame(now) {
 function sampleRenderPerf(now, dt) {
   renderPerfState.frames += 1;
   renderPerfState.totalFrames += 1;
+  if (splashMainPrewarmPending && splashMainWarmFramesRemaining > 0) splashMainWarmFramesRemaining -= 1;
   if (dt > 0.034) renderPerfState.longFrames += 1;
   if (now - renderPerfState.lastSampleAt >= 1000) {
     renderPerfState.fps = Math.round(renderPerfState.frames * 1000 / Math.max(1, now - renderPerfState.lastSampleAt));

@@ -92,6 +92,7 @@ function staticChecks(){
   pass('disabled, hidden, and offscreen sliders are rejected before emission',/control\.disabled/.test(source)&&/rect\.right <= 0 \|\| rect\.bottom <= 0/.test(source)&&/style\.display !== 'none'/.test(source),true);
   pass('the particle object pool and only one RAF scheduler remain',/MAX_PARTICLES = 2200/.test(source)&&/function acquireParticle/.test(source)&&/if \(state\.raf/.test(source)&&/state\.raf = global\.requestAnimationFrame\(frame\)/.test(source),true);
   pass('hidden documents cancel work and clear pending input',/pendingTrails\.clear\(\)/.test(body(source,'onVisibilityChange','clearCanvas')),true);
+  pass('idle overlay releases its backing store and active DPR is pixel-budgeted',/function releaseCanvasBacking/.test(source)&&/MAX_CANVAS_PIXELS = 8300000/.test(source)&&/deviceDpr = clamp\([^\n]+1, 1\.5\)/.test(source),true);
 }
 
 async function listTargets(port){const response=await fetch(`http://127.0.0.1:${port}/json/list`);return response.json();}
@@ -127,6 +128,7 @@ async function exercise(){
   const actualCount=await cdp.evaluate(`document.querySelectorAll('input[type="range"],[role="slider"],#progress-bar').length`);
   pass('every current native and custom slider is discovered and tagged',prepared.controlCount===actualCount&&prepared.taggedCount===actualCount&&prepared.canvasCount===1,{prepared,actualCount});
   pass('dynamically inserted sliders join the same shared controller',prepared.controlKeys.includes('lf-v1144-visible-range')&&prepared.controlKeys.includes('lf-v1144-disabled-range')&&prepared.controlKeys.includes('lf-v1144-offscreen-range'),prepared.controlKeys.slice(-5));
+  pass('idle shared overlay keeps only a 1x1 backing store',prepared.viewport.backingReleased&&prepared.viewport.backingWidth===1&&prepared.viewport.backingHeight===1,prepared.viewport);
 
   const burst=await cdp.evaluate(`(async()=>{
     const el=document.getElementById('lf-v1144-visible-range'),r=el.getBoundingClientRect(),api=window.LumiFieldParticleRangeControl,before=api.getDebug();
@@ -175,16 +177,17 @@ async function exercise(){
   const dpis=[];
   for(const scale of [1,1.5,2]){
     await cdp.send('Emulation.setDeviceMetricsOverride',{width:1080,height:608,deviceScaleFactor:scale,mobile:false});
-    await cdp.evaluate(`window.dispatchEvent(new Event('resize'));window.LumiFieldParticleRangeControl.refresh();true`);
-    await delay(100);
+    await cdp.evaluate(`(async()=>{window.dispatchEvent(new Event('resize'));window.LumiFieldParticleRangeControl.refresh();const el=document.getElementById('lf-v1144-visible-range');el.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));return true;})()`);
     dpis.push(await cdp.evaluate(`(()=>{const d=window.LumiFieldParticleRangeControl.getDebug(),c=document.getElementById('lf-particle-range-overlay');return {dpr:d.viewport.dpr,width:d.viewport.width,height:d.viewport.height,canvasWidth:c.width,canvasHeight:c.height,canvasCount:d.canvasCount,schedulerCount:d.schedulerCount};})()`));
   }
   await cdp.send('Emulation.clearDeviceMetricsOverride');
-  pass('100 150 and 200 percent DPI reuse one correctly sized overlay',dpis.every((item,index)=>Math.abs(item.dpr-[1,1.5,2][index])<.01&&item.canvasWidth===Math.round(item.width*item.dpr)&&item.canvasHeight===Math.round(item.height*item.dpr)&&item.canvasCount===1&&item.schedulerCount<=1),dpis);
+  pass('100 150 and 200 percent DPI reuse one pixel-budgeted overlay',dpis.every((item,index)=>Math.abs(item.dpr-[1,1.5,1.5][index])<.01&&item.canvasWidth===Math.round(item.width*item.dpr)&&item.canvasHeight===Math.round(item.height*item.dpr)&&item.canvasCount===1&&item.schedulerCount<=1),dpis);
 
   await waitFor(()=>cdp.evaluate(`(()=>{const d=window.LumiFieldParticleRangeControl.getDebug();return !d.rafPending&&d.activeParticles===0;})()`),10000);
+  const idleBacking=await cdp.evaluate(`window.LumiFieldParticleRangeControl.getDebug().viewport`);
+  pass('overlay releases full-screen pixels again when particles settle',idleBacking.backingReleased&&idleBacking.backingWidth===1&&idleBacking.backingHeight===1,idleBacking);
   const lifecycle=await cdp.evaluate(`(()=>{const api=window.LumiFieldParticleRangeControl,before=api.getDebug();api.dispose();const disposed=api.getDebug();api.refresh();const restored=api.getDebug();return {before,disposed,restored};})()`);
-  pass('dispose and refresh restore exactly one canvas observer and listener set',!lifecycle.disposed.initialized&&lifecycle.disposed.canvasCount===0&&lifecycle.restored.initialized&&lifecycle.restored.canvasCount===1&&lifecycle.restored.observerCount===1&&lifecycle.restored.listenerCount===lifecycle.before.listenerCount,lifecycle);
+  pass('dispose and refresh restore one idle canvas observer and listener set',!lifecycle.disposed.initialized&&lifecycle.disposed.canvasCount===0&&lifecycle.restored.initialized&&lifecycle.restored.canvasCount===1&&lifecycle.restored.observerCount===1&&lifecycle.restored.listenerCount===lifecycle.before.listenerCount&&lifecycle.restored.viewport.backingReleased,lifecycle);
 }
 
 async function cleanup(){if(cdp){try{await cdp.evaluate(`const n=document.getElementById('lf-v1144-slider-fixture');if(n)n.remove();true`);}catch(_){}cdp.close();}if(app&&!app.killed){try{app.kill();}catch(_){}await delay(700);}}

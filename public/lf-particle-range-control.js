@@ -14,6 +14,7 @@
   });
   var CONTROL_SELECTOR = 'input[type="range"],[role="slider"],#progress-bar';
   var MAX_PARTICLES = 2200;
+  var MAX_CANVAS_PIXELS = 8300000;
   var state = {
     installed:false,
     disposed:false,
@@ -27,6 +28,8 @@
     width:0,
     height:0,
     dpr:1,
+    backingReleased:false,
+    backingReleaseCount:0,
     particles:[],
     recycleCursor:0,
     activeControl:null,
@@ -173,22 +176,60 @@
     return canvas;
   }
 
-  function resizeCanvas(force) {
-    if (!state.canvas || !state.context) return false;
+  function canvasMetrics() {
     var width = Math.max(1, Math.round(global.innerWidth || document.documentElement.clientWidth || 1));
     var height = Math.max(1, Math.round(global.innerHeight || document.documentElement.clientHeight || 1));
-    var dpr = clamp(Number(global.devicePixelRatio) || 1, 1, 2.5);
-    if (!force && width === state.width && height === state.height && Math.abs(dpr - state.dpr) < 0.001) return false;
+    var deviceDpr = clamp(Number(global.devicePixelRatio) || 1, 1, 1.5);
+    var budgetDpr = Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, width * height));
+    return { width:width, height:height, dpr:clamp(Math.min(deviceDpr, budgetDpr), 1, 1.5) };
+  }
+
+  function resizeCanvas(force) {
+    if (!state.canvas || !state.context) return false;
+    var metrics = canvasMetrics();
+    var width = metrics.width;
+    var height = metrics.height;
+    var dpr = metrics.dpr;
+    var backingWidth = Math.max(1, Math.round(width * dpr));
+    var backingHeight = Math.max(1, Math.round(height * dpr));
+    if (!force && !state.backingReleased && width === state.width && height === state.height && Math.abs(dpr - state.dpr) < 0.001 && state.canvas.width === backingWidth && state.canvas.height === backingHeight) return false;
     state.width = width;
     state.height = height;
     state.dpr = dpr;
-    state.canvas.width = Math.max(1, Math.round(width * dpr));
-    state.canvas.height = Math.max(1, Math.round(height * dpr));
+    state.canvas.width = backingWidth;
+    state.canvas.height = backingHeight;
     state.canvas.style.width = width + 'px';
     state.canvas.style.height = height + 'px';
     state.context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.backingReleased = false;
     state.resizeCount += 1;
     return true;
+  }
+
+  function hasVisualWork() {
+    return !!(pendingTrails.size || state.deleteEffect || state.particles.some(function (particle) { return particle.active; }));
+  }
+
+  function releaseCanvasBacking() {
+    if (!state.canvas || !state.context) return false;
+    var metrics = canvasMetrics();
+    state.width = metrics.width;
+    state.height = metrics.height;
+    state.dpr = metrics.dpr;
+    state.canvas.style.width = metrics.width + 'px';
+    state.canvas.style.height = metrics.height + 'px';
+    if (state.backingReleased && state.canvas.width === 1 && state.canvas.height === 1) return false;
+    state.canvas.width = 1;
+    state.canvas.height = 1;
+    state.context.setTransform(1, 0, 0, 1, 0, 0);
+    state.backingReleased = true;
+    state.backingReleaseCount += 1;
+    return true;
+  }
+
+  function onResize() {
+    if (hasVisualWork()) resizeCanvas(true);
+    else releaseCanvasBacking();
   }
 
   function accentTriplet() {
@@ -398,8 +439,12 @@
 
   function onVisibilityChange() {
     if (!document.hidden) {
-      resizeCanvas(true);
-      if (state.particles.some(function (particle) { return particle.active; }) || state.deleteEffect) ensureFrame();
+      if (hasVisualWork()) {
+        resizeCanvas(true);
+        ensureFrame();
+      } else {
+        releaseCanvasBacking();
+      }
       return;
     }
     if (state.raf) global.cancelAnimationFrame(state.raf);
@@ -408,10 +453,11 @@
     pendingTrails.clear();
     if (state.deleteEffect) finishDeleteEffect(false, 'document-hidden');
     clearCanvas();
+    releaseCanvasBacking();
   }
 
   function clearCanvas() {
-    if (!state.context) return;
+    if (!state.context || state.backingReleased) return;
     state.context.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
     state.context.clearRect(0, 0, state.width, state.height);
   }
@@ -495,6 +541,7 @@
       finishDeleteEffect(true, 'complete');
     }
     if (alive || state.deleteEffect) ensureFrame();
+    else releaseCanvasBacking();
   }
 
   function sampleDeleteParticles(effect) {
@@ -651,7 +698,7 @@
     addListener(document, 'input', onInput, true);
     addListener(document, 'change', onInput, true);
     addListener(document, 'visibilitychange', onVisibilityChange, false);
-    addListener(global, 'resize', resizeCanvas, { passive:true });
+    addListener(global, 'resize', onResize, { passive:true });
     addListener(global, 'pagehide', dispose, { once:true });
     state.mediaQuery = global.matchMedia ? global.matchMedia('(prefers-reduced-motion: reduce)') : null;
     if (state.mediaQuery) {
@@ -665,13 +712,15 @@
     }
     state.observer = new MutationObserver(scheduleRefresh);
     state.observer.observe(document.body, { childList:true, subtree:true });
+    if (!hasVisualWork()) releaseCanvasBacking();
     return true;
   }
 
   function refresh() {
     if (!state.installed || state.disposed) install();
     ensureCanvas();
-    resizeCanvas(false);
+    if (hasVisualWork()) resizeCanvas(false);
+    else releaseCanvasBacking();
     return scanControls();
   }
 
@@ -724,7 +773,16 @@
       rangeParticleMaxSize:1.1,
       rangeParticleShadowBlur:0,
       deleteOriginalProgress:state.deleteEffect ? state.deleteEffect.progress : 0,
-      viewport:{ width:state.width, height:state.height, dpr:state.dpr }
+      viewport:{
+        width:state.width,
+        height:state.height,
+        dpr:state.dpr,
+        backingWidth:state.canvas ? state.canvas.width : 0,
+        backingHeight:state.canvas ? state.canvas.height : 0,
+        backingReleased:state.backingReleased,
+        backingReleaseCount:state.backingReleaseCount,
+        maxCanvasPixels:MAX_CANVAS_PIXELS
+      }
     };
   }
 
@@ -741,7 +799,7 @@
     removeListener(document, 'input', onInput, true);
     removeListener(document, 'change', onInput, true);
     removeListener(document, 'visibilitychange', onVisibilityChange, false);
-    removeListener(global, 'resize', resizeCanvas, { passive:true });
+    removeListener(global, 'resize', onResize, { passive:true });
     removeListener(global, 'pagehide', dispose, { once:true });
     if (state.observer) state.observer.disconnect();
     state.observer = null;

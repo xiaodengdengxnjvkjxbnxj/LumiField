@@ -141,6 +141,7 @@ async function requestVoiceAssistantMicrophone() {
 
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
+  splashMainPrewarm: process.argv.includes('--lf-splash-main-prewarm=1'),
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),
   toggleFullscreen: () => ipcRenderer.invoke('desktop-window-toggle-fullscreen'),
@@ -151,6 +152,12 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   exitWindowModes: (source) => ipcRenderer.invoke('desktop-window-exit-modes', String(source || 'renderer')),
   getState: () => ipcRenderer.invoke('desktop-window-get-state'),
   getSplashDebug: () => process.env.LF_MASTER_TEST === '1' ? ipcRenderer.invoke('lf-splash-main-debug') : Promise.resolve(null),
+  onSplashMainReveal: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('lf-splash-main-reveal', listener);
+    return () => ipcRenderer.removeListener('lf-splash-main-reveal', listener);
+  },
   setBackgroundKeep: (enabled) => ipcRenderer.invoke('desktop-window-set-background-keep', !!enabled),
   close: () => ipcRenderer.invoke('desktop-window-close'),
   onPlaybackStateSaveRequest: (callback) => {

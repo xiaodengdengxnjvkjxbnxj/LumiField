@@ -7,6 +7,7 @@
   var AUDIO_CONTROL_SCHEMA = 2;
   var MAX_QUEUE = 500;
   var MAX_PROFILES = 8;
+  var POSITION_SAVE_INTERVAL_MS = 12000;
   var identity = '';
   var identityReady = false;
   var pending = null;
@@ -16,6 +17,10 @@
   var lastSaveAt = 0;
   var lastSaveReason = '';
   var restoreAttempts = 0;
+  var successfulWrites = 0;
+  var queueRevision = 0;
+  var queueCacheBuilds = 0;
+  var queueCache = { source:null, length:-1, start:-1, revision:-1, queue:[], indexByOffset:[] };
   var originalTogglePlay = global.togglePlay;
 
   function text(value, limit) { return String(value == null ? '' : value).trim().slice(0, limit || 256); }
@@ -94,9 +99,9 @@
     }
   }
 
-  function validateSnapshot(value, scope) {
+  function validateSnapshot(value, scope, queuePreSanitized) {
     if (!value || value.schema !== SCHEMA || value.version !== VERSION || currentIdentity(value.currentUser) !== scope || !Array.isArray(value.queue)) return null;
-    var queue = value.queue.slice(0, MAX_QUEUE).map(sanitizeSong).filter(Boolean);
+    var queue = queuePreSanitized ? value.queue.slice(0, MAX_QUEUE) : value.queue.slice(0, MAX_QUEUE).map(sanitizeSong).filter(Boolean);
     var index = Math.floor(number(value.currentIndex, -1));
     if (!queue.length || index < 0 || index >= queue.length) return null;
     var duration = Math.max(0, number(value.duration, queue[index].duration || 0));
@@ -141,21 +146,44 @@
     return {};
   }
 
+  function invalidateQueueCache() {
+    queueRevision += 1;
+    queueCache.source = null;
+  }
+
+  function sanitizedQueueWindow(queue, start) {
+    if (queueCache.source === queue && queueCache.length === queue.length && queueCache.start === start && queueCache.revision === queueRevision) {
+      return queueCache;
+    }
+    var sanitized = [];
+    var indexByOffset = [];
+    queue.slice(start, start + MAX_QUEUE).forEach(function (song, offset) {
+      var safe = sanitizeSong(song);
+      indexByOffset[offset] = safe ? sanitized.length : -1;
+      if (safe) sanitized.push(safe);
+    });
+    queueCacheBuilds += 1;
+    queueCache = {
+      source:queue,
+      length:queue.length,
+      start:start,
+      revision:queueRevision,
+      queue:sanitized,
+      indexByOffset:indexByOffset
+    };
+    return queueCache;
+  }
+
   function captureSnapshot() {
     if (!identityReady) return null;
     var queue = Array.isArray(global.playQueue) ? global.playQueue : [];
     var index = Math.floor(number(global.currentIdx, -1));
     if (!queue.length || index < 0 || index >= queue.length) return null;
     var start = Math.max(0, Math.min(index - 100, Math.max(0, queue.length - MAX_QUEUE)));
-    var source = queue.slice(start, start + MAX_QUEUE);
-    var sanitized = [];
-    var restoredIndex = -1;
-    source.forEach(function (song, offset) {
-      var safe = sanitizeSong(song);
-      if (!safe) return;
-      if (start + offset === index) restoredIndex = sanitized.length;
-      sanitized.push(safe);
-    });
+    var cached = sanitizedQueueWindow(queue, start);
+    var sanitized = cached.queue;
+    var restoredIndex = Number(cached.indexByOffset[index - start]);
+    if (!isFinite(restoredIndex)) restoredIndex = -1;
     if (!sanitized.length || restoredIndex < 0) return null;
     var song = sanitized[restoredIndex];
     var media = global.audio;
@@ -183,7 +211,7 @@
       speedPitchLinkEnabled:controls.speedPitchLinkEnabled === true,
       accompaniment:{ requested:controls.requested === true, balance:number(controls.balance, preservePending && pending.accompaniment.balance || 0) },
       context:context
-    }, identity);
+    }, identity, true);
   }
 
   function writeProfile(snapshot, reason) {
@@ -202,6 +230,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(root));
       lastSaveAt = Date.now();
       lastSaveReason = text(reason, 64) || 'unspecified';
+      successfulWrites += 1;
       return true;
     } catch (_) { return false; }
   }
@@ -214,6 +243,7 @@
   function markDirty(reason, immediate) {
     if (!identityReady) return;
     if (immediate) { saveNow(reason); return; }
+    if (reason === 'audio-timeupdate' && Date.now() - lastSaveAt < POSITION_SAVE_INTERVAL_MS) return;
     if (saveTimer) return;
     var wait = Math.max(120, 2500 - Math.max(0, Date.now() - lastSaveAt));
     saveTimer = setTimeout(function () { saveNow(reason); }, wait);
@@ -229,6 +259,7 @@
     } catch (_) {}
     global.playing = false;
     global.playQueue = [];
+    invalidateQueueCache();
     global.currentIdx = -1;
     global.activeRadioContext = null;
     global.currentLocalSong = null;
@@ -288,6 +319,7 @@
     pendingConsumed = false;
     if (pending) {
       global.playQueue = pending.queue.map(function (song) { return Object.assign({}, song); });
+      invalidateQueueCache();
       global.currentIdx = pending.currentIndex;
       global.activeRadioContext = pending.context;
       renderRestoredQueue(pending);
@@ -345,6 +377,11 @@
   document.addEventListener('lumifield-auth-user-change', function (event) {
     loadIdentity(event && event.detail && event.detail.userId);
   });
+  document.addEventListener('lumifield-playback-state-dirty', function (event) {
+    var detail = event && event.detail || {};
+    if (detail.includeQueue !== false) invalidateQueueCache();
+    markDirty(detail.reason || 'queue-change', false);
+  });
   global.addEventListener('beforeunload', function () { saveNow('beforeunload'); });
   global.addEventListener('pagehide', function () { saveNow('pagehide'); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) saveNow('visibility-hidden'); });
@@ -355,7 +392,11 @@
       if (typeof bridge.completePlaybackStateSave === 'function') bridge.completePlaybackStateSave(request && request.requestId, ok);
     });
   }
-  setInterval(function () { if (identityReady) markDirty('periodic', false); }, 2500);
+  setInterval(function () {
+    var media = global.audio;
+    if (!identityReady || document.hidden || !media || media.paused || media.ended || !media.src) return;
+    if (Date.now() - lastSaveAt >= POSITION_SAVE_INTERVAL_MS) markDirty('periodic-position', false);
+  }, 5000);
 
   global.LFPlaybackResume = Object.freeze({
     schema:SCHEMA,
@@ -379,6 +420,9 @@
         restoreAttempts:restoreAttempts,
         lastSaveAt:lastSaveAt,
         lastSaveReason:lastSaveReason,
+        successfulWrites:successfulWrites,
+        queueCacheBuilds:queueCacheBuilds,
+        positionSaveIntervalMs:POSITION_SAVE_INTERVAL_MS,
         storageKey:STORAGE_KEY
       };
     }
