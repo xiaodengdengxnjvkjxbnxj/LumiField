@@ -4,6 +4,16 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const siteDebug = window.__lfSiteDebug ||= {};
+  Object.assign(siteDebug, {
+    bootStartedAt: performance.now(),
+    interactiveAt: null,
+    visualLabRequested: false,
+    effectModuleLoaded: false,
+    pageErrors: []
+  });
+  addEventListener("error", (event) => siteDebug.pageErrors.push({ type: "error", message: event.message, source: event.filename, line: event.lineno }));
+  addEventListener("unhandledrejection", (event) => siteDebug.pageErrors.push({ type: "unhandledrejection", message: String(event.reason?.message || event.reason) }));
   document.documentElement.classList.add("motion-ready");
 
   const header = $("[data-header]");
@@ -122,6 +132,49 @@
     });
   }
 
+  const visualLab = $("[data-visual-lab]");
+  let visualController = null;
+  let visualModulePromise = null;
+  const loadVisualLab = () => {
+    if (!visualLab) return Promise.resolve(null);
+    if (visualModulePromise) return visualModulePromise;
+    siteDebug.visualLabRequested = true;
+    visualModulePromise = import("./visual-effects.js?v=1144-visual-lab")
+      .then(({ mountVisualLab }) => {
+        visualController = mountVisualLab(visualLab);
+        return visualController;
+      })
+      .catch((error) => {
+        siteDebug.pageErrors.push({ type: "visual-lab", message: String(error?.message || error) });
+        const status = $("[data-effect-status]", visualLab);
+        const host = $("[data-effect-host]", visualLab);
+        if (status) status.textContent = `视觉实验加载失败：${error?.message || error}`;
+        if (host) host.innerHTML = '<p class="effect-fallback">视觉模块未能加载。请刷新页面，或确认浏览器允许 JavaScript 模块。</p>';
+        return null;
+      });
+    return visualModulePromise;
+  };
+  if (visualLab) {
+    if ("IntersectionObserver" in window) {
+      const loaderObserver = new IntersectionObserver((entries, observer) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        loadVisualLab();
+      }, { rootMargin: "360px 0px", threshold: 0.01 });
+      loaderObserver.observe(visualLab);
+    } else {
+      loadVisualLab();
+    }
+    visualLab.addEventListener("pointerenter", loadVisualLab, { once: true, passive: true });
+    visualLab.addEventListener("focusin", loadVisualLab, { once: true });
+    visualLab.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-effect]");
+      if (!button || visualController) return;
+      const controller = await loadVisualLab();
+      controller?.activate(button.dataset.effect);
+    });
+  }
+
   const toast = $("[data-toast]");
   let toastTimer;
   const showToast = (message) => {
@@ -149,9 +202,9 @@
   });
 
   const sponsorDialog = $("[data-sponsor-dialog]");
-  $("[data-open-sponsor]")?.addEventListener("click", () => {
+  $$("[data-open-sponsor]").forEach((button) => button.addEventListener("click", () => {
     if (typeof sponsorDialog?.showModal === "function") sponsorDialog.showModal();
-  });
+  }));
   sponsorDialog?.addEventListener("click", (event) => {
     const rect = sponsorDialog.getBoundingClientRect();
     const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
@@ -222,4 +275,9 @@
     document.addEventListener("visibilitychange", startField);
     reducedMotion.addEventListener?.("change", () => { if (reducedMotion.matches && animationFrame) cancelAnimationFrame(animationFrame); animationFrame = 0; startField(); });
   }
+
+  requestAnimationFrame(() => {
+    siteDebug.interactiveAt = performance.now();
+    document.documentElement.dataset.siteReady = "true";
+  });
 })();

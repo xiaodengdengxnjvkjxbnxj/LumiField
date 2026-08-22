@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "project": {
+    "name": "LumiField website",
+    "productType": "immersive open-source music player landing page",
+    "stack": ["HTML", "CSS", "JavaScript", "WebGL", "Canvas 2D"]
+  },
+  "sources": {
+    "tokens": ["styles.css :root"],
+    "components": ["index.html", "app.js", "visual-effects.js"],
+    "assets": ["assets/screenshots", "assets/sponsor"],
+    "instructions": ["AGENTS.md", "THIRD_PARTY_NOTICES.md"]
+  },
+  "design": {
+    "colorMode": "dark",
+    "colors": {
+      "background": "#05070b",
+      "surface": "#0a0e15",
+      "text": "#f5f8fb",
+      "accent": "#00f5d4",
+      "secondary": "#8b6cff"
+    },
+    "typography": {
+      "ui": "Inter, Segoe UI, Microsoft YaHei UI, system-ui",
+      "technical": "Cascadia Code, Consolas, monospace"
+    },
+    "spacing": { "contentMax": "1240px" },
+    "radius": { "small": "12px", "medium": "20px", "large": "30px" },
+    "shadows": { "immersive": "deep black ambient shadows with restrained cyan glow" },
+    "motion": { "easing": "cubic-bezier(.16, 1, .3, 1)", "reducedMotion": true },
+    "density": "spacious"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": ["native button", "native dialog", "semantic section", "local canvas"],
+    "patterns": ["one-effect-at-a-time visual lab", "glass HUD", "source provenance panel", "visible sponsor codes"]
+  },
+  "constraints": {
+    "must": [
+      "Preserve the LumiField dark cyan-violet identity",
+      "Keep the first screen interactive within 2 seconds",
+      "Lazy-load non-first-screen shaders",
+      "Run only one visual effect at a time and dispose the previous instance",
+      "Support keyboard, mobile, reduced motion, and visible focus",
+      "Keep v1.1.43 release metadata frozen until v1.1.44 is actually published",
+      "Display both sponsor QR codes directly in the page",
+      "Use source-locked visual algorithms and publish provenance"
+    ],
+    "avoid": [
+      "External CDN or runtime network dependencies",
+      "Remote iframes",
+      "All visual effects running simultaneously",
+      "Static buttons without feedback",
+      "White minimal landing-page styling",
+      "Unverified release claims"
+    ]
+  },
+  "decisions": [
+    "Used the existing site primitives and identity instead of introducing a framework.",
+    "Mapped user labels to the official React Bits Galaxy, Aurora, Particles, Iridescence, ColorBends, and DotField sources.",
+    "Replaced framework render wrappers only; preserved upstream effect math and recorded exact commit hashes.",
+    "Made the visual module a dynamic import initialized near the viewport."
+  ],
+  "evidence": [
+    "21st search query: immersive interactive music app visual effect switcher aurora particle shader",
+    "React Bits pinned source commit: 4e0e030193b563be6be33d928f77d0d01cefe237"
+  ],
+  "generatedAt": "2026-08-22T10:57:02.463Z",
+  "updatedAt": "2026-08-22T00:00:00+08:00"
+}

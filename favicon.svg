@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LumiField">
+  <rect x="4" y="4" width="56" height="56" rx="17" fill="#081018" stroke="#00f5d4" stroke-opacity=".45" stroke-width="2"/>
+  <path d="M19 40V29M27 44V18M35 40V24M43 44V31" stroke="#00f5d4" stroke-width="5" stroke-linecap="round"/>
+</svg>
