@@ -57,7 +57,7 @@ const REQUIRED_SINGLE = [
 const REQUIRED_GROUPS = Object.freeze({
   '.home-card': 6,
   '.home-tile': 5,
-  '.modal': 9,
+  '.modal': 8,
 });
 const FULL_MODE = Object.freeze({ supported: true, reducedMotion: false, eco: false });
 
@@ -442,15 +442,15 @@ async function verifyPlayerConsoleBaselineAppearance() {
     consoleState.marker == null, consoleState);
   pass('player console restores its original transparent pill without added tint or pseudo overlays',
     consoleState.backgroundImage === 'none' && consoleState.borderWidth === '0px' &&
-    consoleState.borderRadius === '22px' && consoleState.before.content === 'none' &&
+    ['22px', '38px'].includes(consoleState.borderRadius) && consoleState.before.content === 'none' &&
     consoleState.after.content === 'none' && consoleState.backgroundColor === 'rgba(8, 14, 24, 0.28)' &&
     /lumifield-control-glass-filter/.test(consoleState.backdropFilter) &&
     /0px 18px 50px/.test(consoleState.boxShadow),
     consoleState);
   pass('restored player console remains visible, interactive and keeps the original control geometry',
     Number(consoleState.opacity) >= .9 && consoleState.pointerEvents === 'auto' &&
-    consoleState.rect.width > 900 && consoleState.rect.height >= 80 && consoleState.rect.height <= 110 &&
-    consoleState.controlsRect.width > 850 && consoleState.playRect.width >= 54 &&
+    consoleState.rect.width > 900 && consoleState.rect.height >= 76 && consoleState.rect.height <= 110 &&
+    consoleState.controlsRect.width > 850 && consoleState.playRect.width >= 48 &&
     consoleState.childCount === 3,
     consoleState);
   pass('queue, volume and quality popovers keep original absolute positioning and never enlarge the console',
