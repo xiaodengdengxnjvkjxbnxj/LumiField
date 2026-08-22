@@ -4,9 +4,9 @@
 
 LumiField 是面向 Windows 的沉浸式开源音乐播放器，把本地播放、天气电台、动态歌词、音频频谱、粒子舞台和 3D 歌单组合成一个连续的空间化体验。
 
-当前稳定版本：**v1.1.43** · Windows 10/11 x64 · GPL-3.0-only
+当前稳定版本：**v1.1.44** · Windows 10/11 x64 · GPL-3.0-only
 
-[下载 Windows 安装包](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/download/v1.1.43/LumiField-1.1.43-Setup.exe) · [查看 Release](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/tag/v1.1.43) · [官方网页](https://xiaodengdengxnjvkjxbnxj.github.io/LumiField/)
+[下载 Windows 安装包](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/download/v1.1.44/LumiField-1.1.44-Setup.exe) · [查看 Release](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/tag/v1.1.44) · [官方网页](https://xiaodengdengxnjvkjxbnxj.github.io/LumiField/)
 
 ## 主要能力
 
@@ -19,14 +19,14 @@ LumiField 是面向 Windows 的沉浸式开源音乐播放器，把本地播放�
 
 ## 安装
 
-只使用正式 Release 中的 `LumiField-1.1.43-Setup.exe`。安装包会创建 LumiField 桌面和开始菜单快捷方式。`v1.0.10` 及更早历史安装包不再建议安装或传播。
+只使用正式 Release 中的 `LumiField-1.1.44-Setup.exe`。安装包会创建 LumiField 桌面和开始菜单快捷方式。v1.1.43 已冻结保留；`v1.0.10` 及更早历史安装包不再建议安装或传播。
 
 发布资产的文件大小、SHA-256、源码提交和内部版本见 [RELEASE_MANIFEST.json](./RELEASE_MANIFEST.json) 与 [SHA256SUMS](./SHA256SUMS)。
 
 ## 从源码运行与构建
 
 ```powershell
-git clone --branch v1.1.43 https://github.com/xiaodengdengxnjvkjxbnxj/LumiField.git
+git clone --branch v1.1.44 https://github.com/xiaodengdengxnjvkjxbnxj/LumiField.git
 cd LumiField
 npm ci
 npm start

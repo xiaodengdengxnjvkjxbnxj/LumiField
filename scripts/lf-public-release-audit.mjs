@@ -115,8 +115,10 @@ if (avatarGate && (String(avatarGate.status || "").startsWith("BLOCK_") || avata
 const v1144ReleaseGate = read("RELEASE_GATE.md").match(
   /(?:^|\r?\n)## v1\.1\.44 release gate[^\r\n]*\r?\n([\s\S]*?)(?=\r?\n## |\s*$)/
 );
-if (!v1144ReleaseGate || !v1144ReleaseGate[1].includes("`PASS_FULL_GPL_RELEASE_READY`")) {
-  findings.push({ type: "release-gate", file: "RELEASE_GATE.md" });
+const v1144ReleaseStatus = v1144ReleaseGate?.[1]
+  .match(/^\s*`([A-Z0-9_]+)`\s*$/m)?.[1] || "MISSING";
+if (v1144ReleaseStatus !== "PASS_FULL_GPL_RELEASE_READY") {
+  findings.push({ type: "release-gate", file: "RELEASE_GATE.md", actual: v1144ReleaseStatus });
 }
 if (tracked.includes("public/vendor/gsap.min.js") || Object.hasOwn(lock.packages || {}, "node_modules/gsap")) {
   findings.push({ type: "gsap-present" });
@@ -132,6 +134,7 @@ const report = {
     unknown: licenseAudit.summary?.unknownLicenses,
     blockers: licenseAudit.summary?.releaseBlockingEntries,
   },
+  releaseGateStatus: v1144ReleaseStatus,
   sourceFingerprint: versionManifest.sourceSha256,
   noticeSha256: sha256("NOTICE.md"),
   findings,

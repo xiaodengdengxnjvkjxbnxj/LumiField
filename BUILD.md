@@ -1,4 +1,4 @@
-# Build LumiField v1.1.43
+# Build LumiField v1.1.44
 
 ## Requirements
 
@@ -8,17 +8,19 @@
 - PowerShell 5.1 or newer
 - Network access for the first `npm ci`
 
-The lockfile resolves Electron `42.9.0`, `@electron/rebuild` `4.2.0` and electron-builder `26.15.3`.
+The lockfile resolves Electron `42.9.0`, `@electron/rebuild` `4.2.0` and
+electron-builder `26.15.3`.
 
 ## Clean checkout
 
 ```powershell
-git clone --branch v1.1.43 https://github.com/xiaodengdengxnjvkjxbnxj/LumiField.git
+git clone --branch v1.1.44 https://github.com/xiaodengdengxnjvkjxbnxj/LumiField.git
 cd LumiField
 npm ci
 npm audit --omit=dev
 npm audit
 npm run test:lf
+npm run audit:public-release
 ```
 
 Run locally:
@@ -27,19 +29,28 @@ Run locally:
 npm start
 ```
 
-Build the NSIS installer from scratch:
+Build the NSIS installers from scratch:
 
 ```powershell
 npm run build:win
 ```
 
-The main artifact is `dist/LumiField-1.1.43-Setup.exe`. The build also produces the separately scoped monitor installer; it is not the LumiField website's primary download.
+The primary artifact is `dist/LumiField-1.1.44-Setup.exe`. The same command
+also builds the separately scoped monitor installer; it is not the primary
+LumiField website download.
 
 ## Build identity
 
-`build/version-release.js` fingerprints tracked product source and writes `public/version-manifest.json`. `build/lf-integrity-after-pack.js` signs the packaged core-file manifest. The Release Manifest records the Tag, Commit, source fingerprint, `app.asar`, executable and installer SHA-256 values.
+`build/version-release.js` fingerprints tracked product source and writes
+`public/version-manifest.json`. `build/lf-integrity-after-pack.js` signs the
+packaged core-file manifest. The Release Manifest binds the Tag, Commit, source
+fingerprint, `app.asar`, executable, installer and source archive SHA-256
+values.
 
-Release signing requires the project's private signing key through the documented environment/configuration path. The private key is deliberately absent from this repository. Public source builds remain possible without possessing the official release key, but they will not reproduce the official signature bytes.
+Release signing requires the project's private signing key through the
+documented environment/configuration path. The private key is deliberately
+absent from the repository. Public source builds remain possible without it,
+but do not reproduce official signature bytes.
 
 ## Verification
 
@@ -53,10 +64,10 @@ node scripts/lf-v4-license-audit.mjs . docs/licenses/dependencies
 node scripts/lf-public-release-audit.mjs
 ```
 
-Historical V4 visual-acceptance harnesses depended on external, privately held
-reference media and are intentionally not part of the public source tree. Their
-fixed source identities and outcomes remain represented by the public
-provenance, implementation and golden-master records under `docs/licenses/`
-and `docs/evidence/audio-echo/`.
+For the official release, install the generated setup into the test target,
+launch `LumiField.exe`, verify ProductVersion `1.1.44`, run the packaged
+integrity and installed-runtime smokes, uninstall it, and compare every final
+hash with `RELEASE_MANIFEST.json` and `SHA256SUMS`.
 
-For an official release, also install the generated setup into a temporary test environment, launch `LumiField.exe`, verify ProductVersion `1.1.43`, run the packaged integrity smoke, uninstall it, and compare all hashes with `RELEASE_MANIFEST.json` and `SHA256SUMS`.
+LumiField v1.1.43 remains a frozen historical release. These commands and
+artifacts apply only to v1.1.44 and must not replace or rewrite v1.1.43 assets.
