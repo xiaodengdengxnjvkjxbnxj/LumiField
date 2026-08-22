@@ -11,9 +11,9 @@
 - Tag, installer, source archive and public Release assets are frozen and must
   not be amended, moved, rebuilt or replaced.
 
-## v1.1.44 release gate (pre-publication)
+## v1.1.44 release gate (publication pending)
 
-`PENDING_FINAL_INSTALLER_SOURCE_ARCHIVE_AND_ONLINE_VERIFICATION`
+`PENDING_GITHUB_RELEASE_AND_ONLINE_VERIFICATION`
 
 Completed source gates:
 
@@ -29,16 +29,22 @@ Completed source gates:
   `LUMIFIELD_ORIGINAL_PASS`;
 - reference-only media, private paths, secrets and Marketplace previews are not
   packaged.
+- exact clean-checkout `npm ci` and Windows x64 NSIS builds pass with Electron
+  42.9.0;
+- final installer SHA-256:
+  `8d68e554742f21a01b130ca76480e1f12070d45c1eec71f794d9afafa00b63ca`;
+- unpacked package, signed integrity manifest, actual install/start/exit,
+  installed runtime and uninstall/reinstall gates pass with zero renderer
+  errors;
+- installed main `app.asar` SHA-256:
+  `a49ba90a7df46c3c1c9946f4ae9dcbe3df5ca229d68ba588009e493c41360965`.
 
 Remaining publication gates:
 
-1. build the exact v1.1.44 installer and source archive from the frozen commit;
-2. pass unpacked-package, actual install/start/exit/uninstall and installed
-   runtime checks;
-3. generate and verify final signatures, hashes, Release Manifest and
-   `SHA256SUMS`;
-4. publish the v1.1.44 Tag/Release/assets and update GitHub Pages;
-5. verify the remote Release assets, checksums and live website download link.
+1. create the source archive, Release Manifest and `SHA256SUMS` from the final
+   immutable Tag commit;
+2. publish the v1.1.44 Tag/Release/assets and update GitHub Pages;
+3. verify the remote Release assets, checksums and live website download link.
 
-Only after all five items pass may this section be changed to
+Only after all three items pass may this section be changed to
 `PASS_FULL_GPL_RELEASE_READY`.
