@@ -105,7 +105,7 @@ async function backendGroupingTest() {
     { id: 'song-b', provider: 'netease', name: '歌曲乙', artist: '歌手乙', cover: '' },
   ];
   const service = createMusicPlatformService({
-    statusNetease: async () => ({ loggedIn: true, userId: 'qa' }),
+    statusNetease: async () => ({ ok: true, loggedIn: true, sessionValid: true, userId: 'qa' }),
     statusQQ: async () => ({ loggedIn: false }),
     hotCandidates: { netease: async () => songs },
     commentsNetease: async song => ({ comments: [
