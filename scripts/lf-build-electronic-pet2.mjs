@@ -43,5 +43,20 @@ const result = await build({
   },
 });
 
-fs.writeFileSync(metaFile, `${JSON.stringify(result.metafile, null, 2)}\n`, 'utf8');
+function canonicalMetadataPath(value) {
+  const normalized = value.replaceAll('\\', '/');
+  const marker = '/node_modules/';
+  const index = normalized.lastIndexOf(marker);
+  return index >= 0 ? `node_modules/${normalized.slice(index + marker.length)}` : normalized;
+}
+
+function canonicalMetadata(value) {
+  if (Array.isArray(value)) return value.map(canonicalMetadata);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [canonicalMetadataPath(key), canonicalMetadata(item)]));
+  }
+  return typeof value === 'string' ? canonicalMetadataPath(value) : value;
+}
+
+fs.writeFileSync(metaFile, `${JSON.stringify(canonicalMetadata(result.metafile), null, 2)}\n`, 'utf8');
 process.stdout.write(`${JSON.stringify({ outfile, bytes: fs.statSync(outfile).size, metaFile }, null, 2)}\n`);

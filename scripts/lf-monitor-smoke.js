@@ -134,16 +134,18 @@ class CDPClient {
 
 async function waitForTarget(port, timeout = 15000) {
   const started = Date.now();
+  let lastTargets = [];
+  let lastError = '';
   while (Date.now() - started < timeout) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(1000) });
-      const targets = await response.json();
-      const target = targets.find(item => item.type === 'page' && /lf-monitor\.html/i.test(item.url));
+      lastTargets = await response.json();
+      const target = lastTargets.find(item => item.type === 'page' && /lf-monitor\.html/i.test(item.url));
       if (target && target.webSocketDebuggerUrl) return target;
-    } catch (_) {}
+    } catch (error) { lastError = String(error && error.message || error); }
     await delay(150);
   }
-  throw new Error('Monitor renderer target did not appear');
+  throw new Error(`Monitor renderer target did not appear; targets=${JSON.stringify(lastTargets)}; probe=${lastError}`);
 }
 
 async function waitFor(client, expression, label, timeout = 12000) {
@@ -172,9 +174,11 @@ function maskedChildEnvironment(bootstrap) {
 async function launchMonitor(options) {
   const port = await freePort();
   const chromiumLog = path.join(artifactRoot, `${options.label}-chromium.log`);
-  const child = childProcess.spawn(executablePath, [
+  const child = childProcess.spawn(electronPath, [
+    asarPath,
     `--user-data-dir=${options.userData}`,
     `--remote-debugging-port=${port}`,
+    '--remote-debugging-address=127.0.0.1',
     '--enable-logging',
     `--log-file=${chromiumLog}`,
   ], {
@@ -194,6 +198,34 @@ async function launchMonitor(options) {
     return { child, client, target, logs: () => ({ stdout, stderr, chromiumLog }) };
   } catch (error) {
     killTree(child.pid);
+    throw new Error(`${error.message}; stdout=${stdout.slice(-1200)}; stderr=${stderr.slice(-1200)}`);
+  }
+}
+
+async function verifyPackagedWindow(options) {
+  const child = childProcess.spawn(executablePath, [`--user-data-dir=${options.userData}`], {
+    cwd: options.tempRoot,
+    env: options.env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: false,
+  });
+  let stdout = '', stderr = '', last = null;
+  child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+  child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+  try {
+    const started = Date.now();
+    while (Date.now() - started < 20000) {
+      if (child.exitCode != null) throw new Error(`Packaged monitor exited before opening: ${child.exitCode}`);
+      try {
+        last = JSON.parse(runPowerShell(`$p=Get-Process -Id ${child.pid} -ErrorAction Stop;$p.Refresh();[pscustomobject]@{handle=[int64]$p.MainWindowHandle;title=$p.MainWindowTitle;responding=$p.Responding}|ConvertTo-Json -Compress`));
+        if (Number(last.handle) > 0 && last.responding) return { child, window: last };
+      } catch (_) {}
+      await delay(200);
+    }
+    throw new Error(`Packaged monitor window did not become ready: ${JSON.stringify(last)}`);
+  } catch (error) {
+    killTree(child.pid);
+    await waitForExit(child);
     throw new Error(`${error.message}; stdout=${stdout.slice(-1200)}; stderr=${stderr.slice(-1200)}`);
   }
 }
@@ -239,6 +271,7 @@ async function main() {
       'desktop/lf-monitor-preload.js',
       'desktop/lf-secure-login-config.js',
       'desktop/lf-oauth-providers.js',
+      'public/lf-legal-content.js',
       'public/lf-monitor.html',
       'public/lf-monitor.js',
     ].forEach(entry => assert(entries.has(entry), `Packaged module missing: ${entry}`));
@@ -311,6 +344,15 @@ $version = $exe.VersionInfo
     } finally { backend.close(); }
 
     const childEnv = maskedChildEnvironment(bootstrap);
+    const direct = await verifyPackagedWindow({
+      tempRoot,
+      userData: path.join(tempRoot, 'PackagedUserData'),
+      env: childEnv,
+    });
+    checks.packagedWindow = direct.window;
+    killTree(direct.child.pid);
+    await waitForExit(direct.child);
+    await delay(500);
     running = await launchMonitor({ label: 'initial', tempRoot, userData, env: childEnv });
     await waitFor(running.client, `document.getElementById('monitor-login-status').textContent.length > 0`, 'fresh auth status');
     const fresh = await running.client.evaluate(`(() => ({

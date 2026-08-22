@@ -23,6 +23,7 @@
     "desktop/lf-secure-login-config.js",
     "desktop/lf-env.js",
     "public/lumifield-preset-schema.js",
+    "public/lf-legal-content.js",
     "public/lf-monitor.html",
     "public/lf-monitor.js",
     "public/lf-monitor.css",

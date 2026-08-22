@@ -1,7 +1,7 @@
 {
   "inputs": {
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/ambientMotion.ts": {
-      "bytes": 4432,
+      "bytes": 4317,
       "imports": [],
       "format": "esm"
     },
@@ -1615,11 +1615,11 @@
       "format": "cjs"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/avatarDefinition.schema.json": {
-      "bytes": 8484,
+      "bytes": 8236,
       "imports": []
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/avatarDefinition.ts": {
-      "bytes": 16737,
+      "bytes": 16250,
       "imports": [
         {
           "path": "node_modules/ajv/dist/2020.js",
@@ -1635,12 +1635,12 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/surfaces.ts": {
-      "bytes": 22496,
+      "bytes": 21831,
       "imports": [],
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/body.ts": {
-      "bytes": 4174,
+      "bytes": 4057,
       "imports": [
         {
           "path": "third_party/bible-strong-avatar-lab/packages/avatar-core/src/surfaces.ts",
@@ -1651,7 +1651,7 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/geometry.ts": {
-      "bytes": 46504,
+      "bytes": 45243,
       "imports": [
         {
           "path": "third_party/bible-strong-avatar-lab/packages/avatar-core/src/surfaces.ts",
@@ -1662,7 +1662,7 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/scene.ts": {
-      "bytes": 2767,
+      "bytes": 2688,
       "imports": [
         {
           "path": "third_party/bible-strong-avatar-lab/packages/avatar-core/src/geometry.ts",
@@ -1673,7 +1673,7 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/runtime.ts": {
-      "bytes": 12565,
+      "bytes": 12217,
       "imports": [
         {
           "path": "./avatarDefinition",
@@ -1699,7 +1699,7 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-core/src/index.ts": {
-      "bytes": 201,
+      "bytes": 194,
       "imports": [
         {
           "path": "third_party/bible-strong-avatar-lab/packages/avatar-core/src/ambientMotion.ts",
@@ -1740,7 +1740,7 @@
       "format": "esm"
     },
     "third_party/bible-strong-avatar-lab/packages/avatar-web/src/index.ts": {
-      "bytes": 11087,
+      "bytes": 10783,
       "imports": [
         {
           "path": "third_party/bible-strong-avatar-lab/packages/avatar-core/src/index.ts",
@@ -1751,7 +1751,7 @@
       "format": "esm"
     },
     "public/lf-electronic-pet2.avatar.json": {
-      "bytes": 41473,
+      "bytes": 39741,
       "imports": []
     },
     "public/lf-electronic-pet2-avatars.json": {

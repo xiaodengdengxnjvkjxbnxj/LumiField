@@ -156,7 +156,8 @@ ipcMain.handle('monitor-window-close', () => { if (window) window.close(); retur
 
 async function createWindow() {
   if (window && !window.isDestroyed()) { window.show(); window.focus(); return window; }
-  window = new BrowserWindow({ width: 1320, height: 840, minWidth: 980, minHeight: 640, show: false, title: 'LF后台监控', icon: path.join(__dirname, '..', 'build', 'icon.ico'), autoHideMenuBar: true, backgroundColor: '#071019', webPreferences: { preload: path.join(__dirname, 'lf-monitor-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: false } });
+  const smokeDevTools = !app.isPackaged && app.commandLine.hasSwitch('remote-debugging-port');
+  window = new BrowserWindow({ width: 1320, height: 840, minWidth: 980, minHeight: 640, show: false, title: 'LF后台监控', icon: path.join(__dirname, '..', 'build', 'icon.ico'), autoHideMenuBar: true, backgroundColor: '#071019', webPreferences: { preload: path.join(__dirname, 'lf-monitor-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: smokeDevTools } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.once('ready-to-show', () => window && window.show());
