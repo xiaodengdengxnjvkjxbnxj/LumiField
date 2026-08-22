@@ -59,7 +59,8 @@ async function waitForServer() {
 
   assert.equal(app.version, require('../package.json').version);
   assert.equal(audit.status, 200);
-  assert.equal(audit.body.audit.referenceLicense, 'GPL-3.0');
+  assert.equal(require('../package.json').license, 'GPL-3.0-only');
+  assert.equal(audit.body.audit.provenanceNotice, 'NOTICE.md');
   assert.deepEqual(audit.body.audit.rejectedReferenceFeatures, [
     'non-standard-editions',
     'hardcoded-third-party-credentials',
@@ -68,12 +69,17 @@ async function waitForServer() {
     'unknown-cookie-upload',
   ]);
   assert.equal(status.status, 200);
-  assert.deepEqual(Object.keys(status.body.platforms).sort(), ['kugou', 'netease', 'qq']);
+  assert.deepEqual(Object.keys(status.body.platforms).sort(), ['kugou', 'kugou_concept', 'netease', 'qishui', 'qq']);
   assert.equal(hot.status, 200);
   assert.equal(hot.body.empty, true);
   assert.equal(hot.body.code, 'NO_LOGGED_IN_MUSIC_PLATFORM');
-  assert.equal(translation.status, 503);
-  assert.equal(translation.body.code, 'BLOCKED_EXTERNAL_CONFIG');
+  assert.equal(translation.status, 200);
+  assert.equal(translation.body.ok, true);
+  assert.equal(translation.body.adapter, 'local-bergamot');
+  assert.equal(Array.isArray(translation.body.translations), true);
+  assert.equal(translation.body.translations.length, 1);
+  assert.equal(typeof translation.body.translations[0], 'string');
+  assert(translation.body.translations[0].trim().length > 0);
 
   const searchBody = search.body || {};
   assert.equal(search.status, 200);
@@ -102,14 +108,18 @@ async function waitForServer() {
     checkedAt: new Date().toISOString(),
     version: app.version,
     audit: {
-      license: audit.body.audit.referenceLicense,
+      license: require('../package.json').license,
+      provenanceNotice: audit.body.audit.provenanceNotice,
       networkBoundary: audit.body.audit.networkBoundary,
       rejectedUnsafeFeatures: audit.body.audit.rejectedReferenceFeatures.length,
     },
     independentPlatforms: Object.keys(status.body.platforms).sort(),
     loggedInPlatforms: Array.isArray(status.body.loggedInPlatforms) ? status.body.loggedInPlatforms.length : 0,
     hotCommentEmptyState: hot.body.message,
-    translationStatus: translation.body.code,
+    translation: {
+      adapter: translation.body.adapter,
+      translatedLines: translation.body.translations.length,
+    },
     search: {
       providersTried: searchBody.providersTried,
       resultCount: searchBody.songs.length,
