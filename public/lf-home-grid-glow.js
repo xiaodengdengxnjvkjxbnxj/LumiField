@@ -11,6 +11,10 @@
     activeJunctions:0,
     sharedPointerFrames:0,
     refreshes:0,
+    geometryDirty:true,
+    cardRects:[],
+    gridRect:null,
+    junctionPoints:[],
     registered:false,
     disposed:false,
     resizeObserver:null,
@@ -25,6 +29,9 @@
   function setActiveFlag(node, active) {
     var value = active ? 'true' : 'false';
     if (node.getAttribute('data-lf-grid-glow-active') !== value) node.setAttribute('data-lf-grid-glow-active', value);
+  }
+  function setStyleProperty(node, name, value) {
+    if (node.style.getPropertyValue(name) !== value) node.style.setProperty(name, value);
   }
   function homeIsActive() {
     return !!(document.body && document.body.classList.contains('empty-home-active')) &&
@@ -58,6 +65,11 @@
     return nodes;
   }
   function ensureNodes() {
+    if (state.grid && state.grid.isConnected && state.cards.length === 6 &&
+        state.cards.every(function (card) { return card && card.isConnected; }) &&
+        state.junctions.length === 2 && state.junctions.every(function (node) { return node && node.isConnected; })) {
+      return true;
+    }
     var grid = document.querySelector('#empty-home .home-grid');
     if (!grid) return false;
     var cards = Array.prototype.slice.call(document.querySelectorAll('#empty-home .home-grid > .home-card'));
@@ -67,17 +79,29 @@
     state.grid = grid;
     state.cards = cards;
     state.junctions = ensureJunctions(grid);
+    state.geometryDirty = true;
+    return true;
+  }
+  function refreshGeometry() {
+    if (!state.grid || state.cards.length !== 6) return false;
+    state.cardRects = state.cards.map(function (card) { return card.getBoundingClientRect(); });
+    state.gridRect = state.grid.getBoundingClientRect();
+    state.junctionPoints = [junctionPoint(state.cardRects, 0), junctionPoint(state.cardRects, 2)];
+    state.geometryDirty = false;
     return true;
   }
   function setCardGlow(card, rect, pointerX, pointerY, opacity) {
+    if (opacity <= .02) {
+      setStyleProperty(card, '--lf-grid-glow-opacity', '0');
+      setActiveFlag(card, false);
+      return;
+    }
     var x = clamp(pointerX - rect.left, 0, rect.width);
     var y = clamp(pointerY - rect.top, 0, rect.height);
-    var angle = Math.atan2(pointerY - (rect.top + rect.height / 2), pointerX - (rect.left + rect.width / 2)) * 180 / Math.PI;
-    card.style.setProperty('--lf-grid-glow-x', x.toFixed(2) + 'px');
-    card.style.setProperty('--lf-grid-glow-y', y.toFixed(2) + 'px');
-    card.style.setProperty('--lf-grid-glow-angle', angle.toFixed(2) + 'deg');
-    card.style.setProperty('--lf-grid-glow-opacity', opacity.toFixed(3));
-    setActiveFlag(card, opacity > .02);
+    setStyleProperty(card, '--lf-grid-glow-x', x.toFixed(2) + 'px');
+    setStyleProperty(card, '--lf-grid-glow-y', y.toFixed(2) + 'px');
+    setStyleProperty(card, '--lf-grid-glow-opacity', opacity.toFixed(3));
+    setActiveFlag(card, true);
   }
   function cardDistance(rect, pointerX, pointerY) {
     var dx = pointerX < rect.left ? rect.left - pointerX : pointerX > rect.right ? pointerX - rect.right : 0;
@@ -100,16 +124,17 @@
     state.activeCards = 0;
     state.activeJunctions = 0;
     state.cards.forEach(function (card) {
-      card.style.setProperty('--lf-grid-glow-opacity', '0');
+      setStyleProperty(card, '--lf-grid-glow-opacity', '0');
       setActiveFlag(card, false);
     });
     state.junctions.forEach(function (node) {
-      node.style.setProperty('--lf-grid-junction-opacity', '0');
+      setStyleProperty(node, '--lf-grid-junction-opacity', '0');
       setActiveFlag(node, false);
     });
   }
   function updateFromSharedPointer(payload) {
     state.refreshes += 1;
+    if (payload && payload.reason !== 'pointer') state.geometryDirty = true;
     if (payload && payload.reason === 'pointer') state.sharedPointerFrames += 1;
     if (!ensureNodes() || !payload || !payload.hasPointer || payload.hidden || payload.reducedMotion || payload.eco || !homeIsActive()) {
       clearGlow();
@@ -121,8 +146,12 @@
       clearGlow();
       return;
     }
-    var rects = state.cards.map(function (card) { return card.getBoundingClientRect(); });
-    var gridRect = state.grid.getBoundingClientRect();
+    if ((state.geometryDirty || state.cardRects.length !== state.cards.length) && !refreshGeometry()) {
+      clearGlow();
+      return;
+    }
+    var rects = state.cardRects;
+    var gridRect = state.gridRect;
     state.activeCards = 0;
     state.cards.forEach(function (card, index) {
       var rect = rects[index];
@@ -130,21 +159,23 @@
       setCardGlow(card, rect, pointerX, pointerY, opacity);
       if (opacity > .02) state.activeCards += 1;
     });
-    var points = [junctionPoint(rects, 0), junctionPoint(rects, 2)];
+    var points = state.junctionPoints;
     state.activeJunctions = 0;
     state.junctions.forEach(function (node, index) {
       var point = points[index];
       if (!point) {
-        node.style.setProperty('--lf-grid-junction-opacity', '0');
+        setStyleProperty(node, '--lf-grid-junction-opacity', '0');
         setActiveFlag(node, false);
         return;
       }
       var dx = pointerX - point.x;
       var dy = pointerY - point.y;
       var opacity = clamp(1 - Math.sqrt(dx * dx + dy * dy) / JUNCTION_PROXIMITY, 0, 1);
-      node.style.left = (point.x - gridRect.left).toFixed(2) + 'px';
-      node.style.top = (point.y - gridRect.top).toFixed(2) + 'px';
-      node.style.setProperty('--lf-grid-junction-opacity', opacity.toFixed(3));
+      var left = (point.x - gridRect.left).toFixed(2) + 'px';
+      var top = (point.y - gridRect.top).toFixed(2) + 'px';
+      if (node.style.left !== left) node.style.left = left;
+      if (node.style.top !== top) node.style.top = top;
+      setStyleProperty(node, '--lf-grid-junction-opacity', opacity > .02 ? opacity.toFixed(3) : '0');
       setActiveFlag(node, opacity > .02);
       if (opacity > .02) state.activeJunctions += 1;
     });
@@ -162,9 +193,13 @@
       state.registered = true;
       if (global.ResizeObserver) {
         state.resizeObserver = new ResizeObserver(function () {
-          if (!state.disposed) api.refresh('grid-glow-resize', true);
+          if (!state.disposed) {
+            state.geometryDirty = true;
+            api.refresh('grid-glow-resize', true);
+          }
         });
         state.resizeObserver.observe(state.grid);
+        state.cards.forEach(function (card) { state.resizeObserver.observe(card); });
       }
       global.addEventListener('pagehide', dispose, { once:true });
     }

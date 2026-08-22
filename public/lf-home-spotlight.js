@@ -12,7 +12,10 @@
     activeCount:0,
     visibleCount:0,
     sharedFrames:0,
-    refreshes:0
+    refreshes:0,
+    geometryDirty:true,
+    geometry:[],
+    resizeObserver:null
   };
   var PROXIMITY = 92;
 
@@ -35,6 +38,8 @@
     return layer;
   }
   function ensureCards() {
+    if (state.row && state.row.isConnected && state.cards.length === 5 &&
+        state.cards.every(function (card) { return card && card.isConnected; })) return true;
     var row = document.getElementById('home-tile-row');
     if (!row) return false;
     var cards = Array.prototype.slice.call(row.querySelectorAll(':scope > .home-tile'));
@@ -42,6 +47,12 @@
     cards.forEach(ensureLayer);
     state.row = row;
     state.cards = cards;
+    state.geometryDirty = true;
+    if (state.resizeObserver) {
+      state.resizeObserver.disconnect();
+      state.resizeObserver.observe(state.row);
+      state.cards.forEach(function (card) { state.resizeObserver.observe(card); });
+    }
     return true;
   }
   function visibleCard(card, rect) {
@@ -54,8 +65,18 @@
     var dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
     return Math.sqrt(dx * dx + dy * dy);
   }
+  function setStyle(card, name, value) {
+    if (card.style.getPropertyValue(name) !== value) card.style.setProperty(name, value);
+  }
+  function refreshGeometry() {
+    state.geometry = state.cards.map(function (card) {
+      var rect = card.getBoundingClientRect();
+      return { rect:rect, visible:visibleCard(card, rect) };
+    });
+    state.geometryDirty = false;
+  }
   function clearCard(card) {
-    card.style.setProperty('--lf-home-spotlight-opacity', '0');
+    setStyle(card, '--lf-home-spotlight-opacity', '0');
     if (card.getAttribute('data-lf-home-spotlight-active') !== 'false') card.setAttribute('data-lf-home-spotlight-active', 'false');
   }
   function clearAll() {
@@ -68,16 +89,19 @@
     var localY = clamp(pointerY - rect.top, 0, rect.height);
     var opacity = clamp(1 - distanceToRect(rect, pointerX, pointerY) / PROXIMITY, 0, 1);
     var hue = 285 - clamp(pointerX / Math.max(1, global.innerWidth), 0, 1) * 175;
-    card.style.setProperty('--lf-home-spotlight-x', localX.toFixed(2) + 'px');
-    card.style.setProperty('--lf-home-spotlight-y', localY.toFixed(2) + 'px');
-    card.style.setProperty('--lf-home-spotlight-hue', hue.toFixed(2));
-    card.style.setProperty('--lf-home-spotlight-opacity', opacity.toFixed(3));
+    if (opacity > .02) {
+      setStyle(card, '--lf-home-spotlight-x', localX.toFixed(2) + 'px');
+      setStyle(card, '--lf-home-spotlight-y', localY.toFixed(2) + 'px');
+      setStyle(card, '--lf-home-spotlight-hue', hue.toFixed(2));
+    }
+    setStyle(card, '--lf-home-spotlight-opacity', opacity > .02 ? opacity.toFixed(3) : '0');
     var active = opacity > .02;
     if (card.getAttribute('data-lf-home-spotlight-active') !== String(active)) card.setAttribute('data-lf-home-spotlight-active', String(active));
     if (active) state.activeCount += 1;
   }
   function updateFromSharedPointer(payload) {
     state.refreshes += 1;
+    if (payload && payload.reason !== 'pointer') state.geometryDirty = true;
     if (payload && payload.reason === 'pointer') state.sharedFrames += 1;
     if (!ensureCards() || !payload || !payload.hasPointer || payload.hidden || payload.reducedMotion || payload.eco || !homeIsActive()) {
       clearAll();
@@ -89,12 +113,13 @@
       clearAll();
       return;
     }
-    var rects = state.cards.map(function (card) { return card.getBoundingClientRect(); });
+    if (state.geometryDirty || state.geometry.length !== state.cards.length) refreshGeometry();
     state.activeCount = 0;
     state.visibleCount = 0;
     state.cards.forEach(function (card, index) {
-      var rect = rects[index];
-      if (!visibleCard(card, rect)) { clearCard(card); return; }
+      var geometry = state.geometry[index];
+      var rect = geometry.rect;
+      if (!geometry.visible) { clearCard(card); return; }
       state.visibleCount += 1;
       updateCard(card, rect, pointerX, pointerY);
     });
@@ -110,6 +135,11 @@
     if (!state.registered) {
       state.unsubscribe = api.addPointerConsumer(updateFromSharedPointer);
       state.registered = true;
+      if (global.ResizeObserver) {
+        state.resizeObserver = new ResizeObserver(function () { state.geometryDirty = true; });
+        state.resizeObserver.observe(state.row);
+        state.cards.forEach(function (card) { state.resizeObserver.observe(card); });
+      }
     }
     api.refresh('home-spotlight-refresh', true);
     return true;
@@ -117,6 +147,8 @@
   function dispose() {
     if (typeof state.unsubscribe === 'function') state.unsubscribe();
     state.unsubscribe = null;
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = null;
     state.registered = false;
     state.disposed = true;
     clearAll();

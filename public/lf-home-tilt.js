@@ -10,7 +10,10 @@
     disposed:false,
     activeIndex:-1,
     sharedFrames:0,
-    refreshes:0
+    refreshes:0,
+    geometryDirty:true,
+    geometry:[],
+    resizeObserver:null
   };
   var MAX_TILT = 7.5;
   var HOVER_SCALE = 1.012;
@@ -20,7 +23,11 @@
     return !!(document.body && document.body.classList.contains('empty-home-active')) &&
       !document.body.classList.contains('immersive-mode') && document.visibilityState !== 'hidden';
   }
+  function setStyle(card, name, value) {
+    if (card.style.getPropertyValue(name) !== value) card.style.setProperty(name, value);
+  }
   function ensureCards() {
+    if (state.cards.length === 6 && state.cards.every(function (card) { return card && card.isConnected; })) return true;
     var cards = Array.prototype.slice.call(document.querySelectorAll('#empty-home .home-grid > .home-card'));
     if (cards.length !== 6) return false;
     cards.forEach(function (card, index) {
@@ -28,17 +35,30 @@
       card.dataset.lfHomeTiltIndex = String(index);
     });
     state.cards = cards;
+    state.geometryDirty = true;
+    if (state.resizeObserver) {
+      state.resizeObserver.disconnect();
+      state.cards.forEach(function (card) { state.resizeObserver.observe(card); });
+    }
     return true;
   }
   function visible(card, rect) {
-    if (!rect || card.offsetWidth <= 0 || card.offsetHeight <= 0 || rect.right <= 0 || rect.bottom <= 0 || rect.left >= global.innerWidth || rect.top >= global.innerHeight) return false;
+    if (!rect || rect.width <= 0 || rect.height <= 0 || rect.right <= 0 || rect.bottom <= 0 || rect.left >= global.innerWidth || rect.top >= global.innerHeight) return false;
     var style = global.getComputedStyle(card);
     return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
   }
+  function refreshGeometry() {
+    state.geometry = state.cards.map(function (card) {
+      var rect = card.getBoundingClientRect();
+      return { rect:rect, centerX:rect.left + rect.width / 2, centerY:rect.top + rect.height / 2,
+        width:Math.max(1, rect.width), height:Math.max(1, rect.height), visible:visible(card, rect) };
+    });
+    state.geometryDirty = false;
+  }
   function resetCard(card) {
-    card.style.setProperty('--lf-home-tilt-x', '0deg');
-    card.style.setProperty('--lf-home-tilt-y', '0deg');
-    card.style.setProperty('--lf-home-tilt-scale', '1');
+    setStyle(card, '--lf-home-tilt-x', '0deg');
+    setStyle(card, '--lf-home-tilt-y', '0deg');
+    setStyle(card, '--lf-home-tilt-scale', '1');
     if (card.getAttribute('data-lf-home-tilt-active') !== 'false') card.setAttribute('data-lf-home-tilt-active', 'false');
   }
   function resetAll() {
@@ -47,6 +67,7 @@
   }
   function updateFromSharedPointer(payload) {
     state.refreshes += 1;
+    if (payload && payload.reason !== 'pointer') state.geometryDirty = true;
     if (payload && payload.reason === 'pointer') state.sharedFrames += 1;
     if (!ensureCards() || !payload || !payload.hasPointer || payload.hidden || payload.reducedMotion || payload.eco || !homeIsActive()) {
       resetAll();
@@ -55,33 +76,28 @@
     var pointerX = Number(payload.clientX);
     var pointerY = Number(payload.clientY);
     if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) { resetAll(); return; }
+    if (state.geometryDirty || state.geometry.length !== state.cards.length) refreshGeometry();
     var active = -1;
-    var measurements = state.cards.map(function (card) {
-      var rect = card.getBoundingClientRect();
-      return {
-        rect:rect,
-        centerX:rect.left + rect.width / 2,
-        centerY:rect.top + rect.height / 2,
-        width:Math.max(1, card.offsetWidth),
-        height:Math.max(1, card.offsetHeight)
-      };
-    });
-    state.cards.forEach(function (card, index) {
-      var box = measurements[index];
-      var inside = visible(card, box.rect) &&
+    for (var index = 0; index < state.cards.length; index += 1) {
+      var box = state.geometry[index];
+      var inside = box.visible &&
         Math.abs(pointerX - box.centerX) <= box.width / 2 &&
         Math.abs(pointerY - box.centerY) <= box.height / 2;
-      if (!inside || active >= 0) { resetCard(card); return; }
+      if (inside) { active = index; break; }
+    }
+    if (state.activeIndex >= 0 && state.activeIndex !== active) resetCard(state.cards[state.activeIndex]);
+    if (active >= 0) {
+      var card = state.cards[active];
+      var box = state.geometry[active];
       var localX = clamp((pointerX - box.centerX) / box.width + 0.5, 0, 1);
       var localY = clamp((pointerY - box.centerY) / box.height + 0.5, 0, 1);
       var rotateX = (localY - 0.5) * MAX_TILT * 2;
       var rotateY = (localX - 0.5) * -MAX_TILT * 2;
-      card.style.setProperty('--lf-home-tilt-x', rotateX.toFixed(3) + 'deg');
-      card.style.setProperty('--lf-home-tilt-y', rotateY.toFixed(3) + 'deg');
-      card.style.setProperty('--lf-home-tilt-scale', String(HOVER_SCALE));
-      card.setAttribute('data-lf-home-tilt-active', 'true');
-      active = index;
-    });
+      setStyle(card, '--lf-home-tilt-x', rotateX.toFixed(3) + 'deg');
+      setStyle(card, '--lf-home-tilt-y', rotateY.toFixed(3) + 'deg');
+      setStyle(card, '--lf-home-tilt-scale', String(HOVER_SCALE));
+      if (card.getAttribute('data-lf-home-tilt-active') !== 'true') card.setAttribute('data-lf-home-tilt-active', 'true');
+    }
     state.activeIndex = active;
   }
   function sharedApi() {
@@ -95,6 +111,10 @@
     if (!state.registered) {
       state.unsubscribe = api.addPointerConsumer(updateFromSharedPointer);
       state.registered = true;
+      if (global.ResizeObserver) {
+        state.resizeObserver = new ResizeObserver(function () { state.geometryDirty = true; });
+        state.cards.forEach(function (card) { state.resizeObserver.observe(card); });
+      }
     }
     api.refresh('home-tilt-refresh', true);
     return true;
@@ -102,6 +122,8 @@
   function dispose() {
     if (typeof state.unsubscribe === 'function') state.unsubscribe();
     state.unsubscribe = null;
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = null;
     state.registered = false;
     state.disposed = true;
     resetAll();

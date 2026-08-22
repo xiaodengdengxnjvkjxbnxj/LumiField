@@ -31,7 +31,11 @@
     yp:0,
     hue:GLOW_BASE,
     sharedFrames:0,
-    updates:0
+    updates:0,
+    rect:null,
+    visible:false,
+    geometryDirty:true,
+    resizeObserver:null
   };
 
   function finite(value, fallback) {
@@ -60,6 +64,8 @@
   }
 
   function ensureNodes() {
+    if (state.root && state.root.isConnected && state.tiltLayer && state.tiltLayer.isConnected &&
+        state.glowLayer && state.glowLayer.isConnected && state.outerLayer && state.outerLayer.isConnected) return true;
     var root = document.querySelector('#empty-home .lf-weather-shell');
     if (!root) return false;
     var tiltLayer = ensureSingleLayer(root, 'lf-weather-tilt-spotlight-layer');
@@ -84,7 +90,11 @@
     state.tiltLayer = tiltLayer;
     state.glowLayer = glowLayer;
     state.outerLayer = outerLayer;
+    state.geometryDirty = true;
     return true;
+  }
+  function setStyle(name, value) {
+    if (state.root && state.root.style.getPropertyValue(name) !== value) state.root.style.setProperty(name, value);
   }
 
   function setActive(active) {
@@ -101,20 +111,20 @@
     state.py = 0.5;
     setActive(false);
     if (!state.root) return;
-    state.root.style.setProperty('--lf-weather-rotate-x', '0deg');
-    state.root.style.setProperty('--lf-weather-rotate-y', '0deg');
-    state.root.style.setProperty('--lf-weather-tilt-scale', '1');
+    setStyle('--lf-weather-rotate-x', '0deg');
+    setStyle('--lf-weather-rotate-y', '0deg');
+    setStyle('--lf-weather-tilt-scale', '1');
   }
 
   function clearAll() {
     resetTilt();
     if (!state.root) return;
-    state.root.setAttribute('data-lf-weather-spotlight-enabled', 'false');
-    state.root.style.setProperty('--lf-weather-spotlight-x', '-10000px');
-    state.root.style.setProperty('--lf-weather-spotlight-y', '-10000px');
-    state.root.style.setProperty('--lf-weather-spotlight-local-x', '-10000px');
-    state.root.style.setProperty('--lf-weather-spotlight-local-y', '-10000px');
-    state.root.style.setProperty('--lf-weather-spotlight-hue', String(GLOW_BASE));
+    if (state.root.getAttribute('data-lf-weather-spotlight-enabled') !== 'false') state.root.setAttribute('data-lf-weather-spotlight-enabled', 'false');
+    setStyle('--lf-weather-spotlight-x', '-10000px');
+    setStyle('--lf-weather-spotlight-y', '-10000px');
+    setStyle('--lf-weather-spotlight-local-x', '-10000px');
+    setStyle('--lf-weather-spotlight-local-y', '-10000px');
+    setStyle('--lf-weather-spotlight-hue', String(GLOW_BASE));
   }
 
   function visible(root, rect) {
@@ -122,9 +132,15 @@
     var style = global.getComputedStyle(root);
     return style.display !== 'none' && style.visibility !== 'hidden' && finite(style.opacity, 1) > 0;
   }
+  function refreshGeometry() {
+    state.rect = state.root.getBoundingClientRect();
+    state.visible = visible(state.root, state.rect);
+    state.geometryDirty = false;
+  }
 
   function updateFromSharedPointer(payload) {
     state.updates += 1;
+    if (payload && payload.reason !== 'pointer') state.geometryDirty = true;
     if (payload && payload.reason === 'pointer') state.sharedFrames += 1;
     if (!ensureNodes() || !payload || !payload.hasPointer || payload.hidden || payload.reducedMotion || payload.eco || !homeIsActive()) {
       clearAll();
@@ -136,8 +152,9 @@
       clearAll();
       return;
     }
-    var rect = state.root.getBoundingClientRect();
-    if (!visible(state.root, rect)) {
+    if (state.geometryDirty || !state.rect) refreshGeometry();
+    var rect = state.rect;
+    if (!state.visible) {
       clearAll();
       return;
     }
@@ -151,14 +168,14 @@
     state.xp = xp;
     state.yp = yp;
     state.hue = GLOW_BASE + xp * GLOW_SPREAD;
-    state.root.setAttribute('data-lf-weather-spotlight-enabled', 'true');
-    state.root.style.setProperty('--lf-weather-spotlight-x', clientX.toFixed(2) + 'px');
-    state.root.style.setProperty('--lf-weather-spotlight-y', clientY.toFixed(2) + 'px');
-    state.root.style.setProperty('--lf-weather-spotlight-local-x', localX.toFixed(2) + 'px');
-    state.root.style.setProperty('--lf-weather-spotlight-local-y', localY.toFixed(2) + 'px');
-    state.root.style.setProperty('--lf-weather-spotlight-xp', xp.toFixed(4));
-    state.root.style.setProperty('--lf-weather-spotlight-yp', yp.toFixed(4));
-    state.root.style.setProperty('--lf-weather-spotlight-hue', state.hue.toFixed(3));
+    if (state.root.getAttribute('data-lf-weather-spotlight-enabled') !== 'true') state.root.setAttribute('data-lf-weather-spotlight-enabled', 'true');
+    setStyle('--lf-weather-spotlight-x', clientX.toFixed(2) + 'px');
+    setStyle('--lf-weather-spotlight-y', clientY.toFixed(2) + 'px');
+    setStyle('--lf-weather-spotlight-local-x', localX.toFixed(2) + 'px');
+    setStyle('--lf-weather-spotlight-local-y', localY.toFixed(2) + 'px');
+    setStyle('--lf-weather-spotlight-xp', xp.toFixed(4));
+    setStyle('--lf-weather-spotlight-yp', yp.toFixed(4));
+    setStyle('--lf-weather-spotlight-hue', state.hue.toFixed(3));
 
     var inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
     if (!inside) {
@@ -176,11 +193,11 @@
     state.px = px;
     state.py = py;
     setActive(true);
-    state.root.style.setProperty('--lf-weather-rotate-x', rotateX.toFixed(3) + 'deg');
-    state.root.style.setProperty('--lf-weather-rotate-y', rotateY.toFixed(3) + 'deg');
-    state.root.style.setProperty('--lf-weather-tilt-scale', String(HOVER_SCALE));
-    state.root.style.setProperty('--lf-weather-tilt-spot-x', (px * 100).toFixed(3) + '%');
-    state.root.style.setProperty('--lf-weather-tilt-spot-y', (py * 100).toFixed(3) + '%');
+    setStyle('--lf-weather-rotate-x', rotateX.toFixed(3) + 'deg');
+    setStyle('--lf-weather-rotate-y', rotateY.toFixed(3) + 'deg');
+    setStyle('--lf-weather-tilt-scale', String(HOVER_SCALE));
+    setStyle('--lf-weather-tilt-spot-x', (px * 100).toFixed(3) + '%');
+    setStyle('--lf-weather-tilt-spot-y', (py * 100).toFixed(3) + '%');
   }
 
   function sharedApi() {
@@ -195,6 +212,10 @@
     if (!state.registered) {
       state.unsubscribe = api.addPointerConsumer(updateFromSharedPointer);
       state.registered = true;
+      if (global.ResizeObserver) {
+        state.resizeObserver = new ResizeObserver(function () { state.geometryDirty = true; });
+        state.resizeObserver.observe(state.root);
+      }
       global.addEventListener('pagehide', dispose, { once:true });
     }
     api.refresh('weather-tilt-spotlight-refresh', true);
@@ -206,6 +227,8 @@
     state.disposed = true;
     if (typeof state.unsubscribe === 'function') state.unsubscribe();
     state.unsubscribe = null;
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = null;
     state.registered = false;
     clearAll();
     if (state.root) {

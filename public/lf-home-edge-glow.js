@@ -14,7 +14,10 @@
     spread:0,
     pointerFrames:0,
     lastAngle:null,
-    lastPointerAt:0
+    lastPointerAt:0,
+    rect:null,
+    geometryDirty:true,
+    resizeObserver:null
   };
 
   function clamp(value, min, max) {
@@ -27,6 +30,7 @@
   }
 
   function ensureLayer() {
+    if (state.button && state.button.isConnected && state.layer && state.layer.isConnected) return true;
     var button = document.getElementById('home-btn');
     if (!button) return false;
     var layers = button.querySelectorAll(':scope > .lf-home-edge-glow');
@@ -41,7 +45,11 @@
     if (button.getAttribute('data-lf-home-edge-glow') !== 'true') button.setAttribute('data-lf-home-edge-glow', 'true');
     state.button = button;
     state.layer = layer;
+    state.geometryDirty = true;
     return true;
+  }
+  function setStyle(name, value) {
+    if (state.layer && state.layer.style.getPropertyValue(name) !== value) state.layer.style.setProperty(name, value);
   }
 
   function circularDistance(left, right) {
@@ -52,12 +60,13 @@
   function setInactive() {
     if (!state.button || !state.layer) return;
     state.active = false;
-    state.button.setAttribute('data-lf-home-edge-active', 'false');
-    state.layer.style.setProperty('--lf-home-highlight-opacity', '0');
-    state.layer.style.setProperty('--lf-home-highlight-blur', '.35px');
+    if (state.button.getAttribute('data-lf-home-edge-active') !== 'false') state.button.setAttribute('data-lf-home-edge-active', 'false');
+    setStyle('--lf-home-highlight-opacity', '0');
+    setStyle('--lf-home-highlight-blur', '.35px');
   }
 
   function updateFromSharedPointer(payload) {
+    if (payload && payload.reason !== 'pointer') state.geometryDirty = true;
     if (state.disposed || !ensureLayer()) return;
     if (payload && payload.reason === 'pointer') state.pointerFrames += 1;
     if (!payload || !payload.hasPointer || payload.hidden) {
@@ -66,7 +75,11 @@
     }
     var x = Number(payload.clientX);
     var y = Number(payload.clientY);
-    var rect = state.button.getBoundingClientRect();
+    if (state.geometryDirty || !state.rect) {
+      state.rect = state.button.getBoundingClientRect();
+      state.geometryDirty = false;
+    }
+    var rect = state.rect;
     if (!Number.isFinite(x) || !Number.isFinite(y) || rect.width <= 0 || rect.height <= 0 ||
         x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
       setInactive();
@@ -87,10 +100,10 @@
     state.spread = Number(spread.toFixed(2));
     state.lastAngle = angle;
     state.lastPointerAt = now;
-    state.button.setAttribute('data-lf-home-edge-active', 'true');
-    state.layer.style.setProperty('--lf-home-highlight-start', start.toFixed(2) + 'deg');
-    state.layer.style.setProperty('--lf-home-highlight-opacity', opacity.toFixed(3));
-    state.layer.style.setProperty('--lf-home-highlight-blur', blur.toFixed(2) + 'px');
+    if (state.button.getAttribute('data-lf-home-edge-active') !== 'true') state.button.setAttribute('data-lf-home-edge-active', 'true');
+    setStyle('--lf-home-highlight-start', start.toFixed(2) + 'deg');
+    setStyle('--lf-home-highlight-opacity', opacity.toFixed(3));
+    setStyle('--lf-home-highlight-blur', blur.toFixed(2) + 'px');
   }
 
   function refresh() {
@@ -100,6 +113,10 @@
     if (!state.registered) {
       state.unsubscribe = api.addPointerConsumer(updateFromSharedPointer);
       state.registered = true;
+      if (global.ResizeObserver) {
+        state.resizeObserver = new ResizeObserver(function () { state.geometryDirty = true; });
+        state.resizeObserver.observe(state.button);
+      }
       global.addEventListener('pagehide', dispose, { once:true });
     }
     api.refresh('home-edge-glow-refresh', true);
@@ -111,6 +128,8 @@
     state.disposed = true;
     if (typeof state.unsubscribe === 'function') state.unsubscribe();
     state.unsubscribe = null;
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = null;
     state.registered = false;
     setInactive();
     state.lastAngle = null;
@@ -127,7 +146,7 @@
   function getDebug() {
     var shared = sharedApi();
     var sharedDebug = shared ? shared.getDebug() : null;
-    var rect = state.button ? state.button.getBoundingClientRect() : null;
+    var rect = state.button ? (state.rect || state.button.getBoundingClientRect()) : null;
     return {
       version:'1.0.0',
       initialized:!!state.button,
