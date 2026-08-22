@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-22T14:12:53.279Z",
+  "generatedAt": "2026-08-22T15:39:31.804Z",
   "generator": "scripts/lf-v4-license-audit.mjs",
   "scope": {
     "definition": "Every non-root package-lock.json packages entry whose dev flag is not true.",
@@ -9,8 +9,8 @@
   "inputs": {
     "packageJson": {
       "path": "package.json",
-      "bytes": 7900,
-      "sha256": "12833945C6A460F2D7003266A8516F33A18A8CCE86EFD2BA79040850D0ECFD91"
+      "bytes": 7960,
+      "sha256": "BBCCC2D2C8BB9BEF6C809D56B41E5974FBD1537300E3B08527A3E7EEEF953CDD"
     },
     "packageLock": {
       "path": "package-lock.json",

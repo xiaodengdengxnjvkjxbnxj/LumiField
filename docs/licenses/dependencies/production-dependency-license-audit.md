@@ -1,6 +1,6 @@
 # LumiField V4 production dependency license audit
 
-- Generated: 2026-08-22T14:12:53.279Z
+- Generated: 2026-08-22T15:39:31.804Z
 - Package lock: `768DF9A269CFDE26C8671404D06264DDDF29E88143D6801F5A212FA75A79687C`
 - Production lock entries: **212**
 - Installed here: **198**
