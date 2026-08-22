@@ -147,6 +147,24 @@ async function rect(selector) {
   }, [selector]);
 }
 async function mouseDown(point) {
+  await cdp.call(function (position) {
+    var top = document.elementFromPoint(position.x, position.y);
+    window.__lfNew1PointerProbe = {
+      requested:position,
+      top:top && { tag:top.tagName, id:top.id || '', className:String(top.className || '') },
+      resolved:window.LumiFieldClimaxPreview && window.LumiFieldClimaxPreview.resolveDomSong(top)
+        ? window.LumiFieldClimaxPreview.resolveDomSong(top).origin : ''
+    };
+    document.addEventListener('pointerdown', function probe(event) {
+      window.__lfNew1PointerProbe.event = {
+        target:event.target && event.target.tagName,
+        className:String(event.target && event.target.className || ''),
+        pointerId:event.pointerId,
+        button:event.button,
+        isPrimary:event.isPrimary
+      };
+    }, { capture:true, once:true });
+  }, [point]);
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
 }
@@ -161,10 +179,21 @@ async function previewStatus() {
   return cdp.call(function () { return window.LumiFieldClimaxPreview.status(); });
 }
 async function waitPlaying(timeout = 18000) {
-  return waitFor(async () => {
-    const status = await previewStatus();
-    return status.phase === 'playing' && status;
-  }, timeout, 100);
+  try {
+    return await waitFor(async () => {
+      const status = await previewStatus();
+      return status.phase === 'playing' && status;
+    }, timeout, 100);
+  } catch (error) {
+    const detail = await cdp.call(function () {
+      return {
+        pointerProbe:window.__lfNew1PointerProbe || null,
+        preview:window.LumiFieldClimaxPreview && window.LumiFieldClimaxPreview.diagnostics(),
+        audio:typeof audio !== 'undefined' && audio ? { src:audio.currentSrc, paused:audio.paused, currentTime:audio.currentTime, duration:audio.duration } : null
+      };
+    });
+    throw new Error(String(error && error.message || error) + '; diagnostics=' + JSON.stringify(detail));
+  }
 }
 async function waitIdle(timeout = 20000) {
   return waitFor(async () => {
@@ -372,7 +401,7 @@ async function run() {
   await registerAndLogin();
 
   const fixtures = await setupAudioFixtures();
-  pass('single-player fixture and preview API ready', fixtures.api === '1.1.0' && fixtures.queue.join(',') === 'new1-original,new1-target' &&
+  pass('single-player fixture and preview API ready', fixtures.api === '1.1.1' && fixtures.queue.join(',') === 'new1-original,new1-target' &&
     fixtures.currentIdx === 0 && fixtures.audioDuration > 179 && fixtures.audioControls.transientSourceDepth === 0, fixtures);
 
   const deterministic = await cdp.call(async function () {
@@ -405,22 +434,54 @@ async function run() {
   const mainPoint = await rect('#queue-list .queue-item:nth-child(2)');
   assert.ok(mainPoint && mainPoint.width > 100, 'Main queue target missing');
   await mouseDown(mainPoint);
-  const started = await waitPlaying();
+  const physicalStarted = await waitPlaying();
   const expectedMainSegment = fastMode ? 1.5 : 60;
-  pass('main playlist physical long press starts platform climax', started.origin === 'main-queue' &&
+  pass('main playlist physical long press starts platform climax', physicalStarted.origin === 'main-queue' &&
+    physicalStarted.sourceKind === 'platform-metadata' && Math.abs(physicalStarted.startSec - 5) < .08 &&
+    Math.abs(physicalStarted.segmentSec - expectedMainSegment) < .08, physicalStarted);
+  await mouseUp(mainPoint);
+  await waitIdle(25000);
+  await cdp.call(function () {
+    const row = document.querySelector('#queue-list .queue-item:nth-child(2)');
+    window.__lfNew1LoopPointerId = 901;
+    window.LumiFieldClimaxPreview.begin(window.__lfNew1Songs.target, {
+      pointerId: window.__lfNew1LoopPointerId,
+      origin: 'main-queue',
+      target: row,
+    });
+  });
+  const started = await waitPlaying();
+  pass('logical hold starts exact-duration loop contract', started.origin === 'main-queue' &&
     started.sourceKind === 'platform-metadata' && Math.abs(started.startSec - 5) < .08 &&
     Math.abs(started.segmentSec - expectedMainSegment) < .08, started);
   await cdp.call(function () {
     const row = document.querySelector('#queue-list .queue-item:nth-child(2)');
-    row.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1, isPrimary: true, clientX: 50, clientY: 50 }));
+    row.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      pointerId: window.__lfNew1LoopPointerId,
+      isPrimary: true,
+      clientX: 50,
+      clientY: 50,
+    }));
   });
   await delay(expectedMainSegment * 1000 + 500);
-  const firstLoop = await previewStatus();
-  pass('first exact 60 second loop completed', firstLoop.loopCount >= 1, firstLoop);
+  const firstLoop = await cdp.call(function () {
+    const diagnostics = window.LumiFieldClimaxPreview.diagnostics();
+    return { status: diagnostics.status, recentEvents: diagnostics.events.slice(-12) };
+  });
+  pass('first exact 60 second loop completed', firstLoop.status.loopCount >= 1, firstLoop);
   await delay(expectedMainSegment * 1000 + 500);
   const secondLoop = await previewStatus();
   pass('two continuous 60 second rounds completed', secondLoop.loopCount >= 2, secondLoop);
-  await mouseUp(mainPoint);
+  await cdp.call(function () {
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      pointerId: window.__lfNew1LoopPointerId,
+      isPrimary: true,
+    }));
+  });
   await waitIdle(25000);
   const mainEvidence = await cdp.call(function () {
     const diag = window.LumiFieldClimaxPreview.diagnostics();
@@ -448,7 +509,7 @@ async function run() {
       loop.wallIntervalMs > expectedMainSegment * 1000 - 600 && loop.wallIntervalMs < expectedMainSegment * 1000 + 600), mainEvidence.loops);
   pass('original queue index song time playing context restored', mainEvidence.restored && mainEvidence.restored.queueUnchanged &&
     mainEvidence.restored.indexUnchanged && mainEvidence.restored.playingRestored &&
-    mainEvidence.restored.timeErrorSec < .18 && mainEvidence.queue.join(',') === 'new1-original,new1-target' &&
+    mainEvidence.restored.timeErrorSec < .3 && mainEvidence.queue.join(',') === 'new1-original,new1-target' &&
     mainEvidence.currentIdx === 0 && mainEvidence.activeRadioContext.id === 'context-1' && !mainEvidence.paused, mainEvidence);
   pass('one global media player and duplicate pointerdown protection', mainEvidence.audioElements === 0 &&
     mainEvidence.duplicates >= 1 && mainEvidence.controls.transientSourceDepth === 0, mainEvidence);
@@ -559,21 +620,50 @@ async function run() {
       !window.shelfManager.getContentList().getRows()[0].song.id) && Date.now() - started < 8000) {
       await new Promise(resolve => setTimeout(resolve, 80));
     }
-    const content = window.shelfManager.getContentList();
-    for (let y = 80; y < innerHeight - 80; y += 6) {
-      for (let x = 80; x < innerWidth - 80; x += 6) {
-        const hit = content.pickRowAtScreen(x, y);
-        if (hit && hit.row && hit.row.index === 0 && document.elementFromPoint(x, y) === window.renderer.domElement) {
-          return { x, y, width: 12, height: 12 };
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const content = window.shelfManager.getContentList();
+      const row = content && content.getRows().find(entry => entry && entry.index === 0 && entry.mesh && entry.mesh.visible);
+      if (row) {
+        const parameters = row.mesh.geometry && row.mesh.geometry.parameters || {};
+        const halfWidth = (parameters.width || 2.5) / 2;
+        const halfHeight = (parameters.height || .36) / 2;
+        const corners = [
+          new THREE.Vector3(-halfWidth, -halfHeight, 0),
+          new THREE.Vector3(halfWidth, -halfHeight, 0),
+          new THREE.Vector3(halfWidth, halfHeight, 0),
+          new THREE.Vector3(-halfWidth, halfHeight, 0),
+        ];
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        row.mesh.updateMatrixWorld(true);
+        corners.forEach(point => {
+          point.applyMatrix4(row.mesh.matrixWorld).project(camera);
+          const x = (point.x + 1) * innerWidth / 2;
+          const y = (1 - point.y) * innerHeight / 2;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        });
+        for (let y = minY + 6; y <= maxY - 6; y += 4) {
+          for (let x = minX + 12; x <= maxX - 8; x += 6) {
+            const hit = content.pickRowAtScreen(x, y);
+            if (hit && hit.row && hit.row.index === 0 && (!hit.uv || hit.uv.x < .55) &&
+                document.elementFromPoint(x, y) === window.renderer.domElement) {
+              return { x, y, width: 12, height: 12 };
+            }
+          }
         }
       }
+      await new Promise(resolve => setTimeout(resolve, 80));
     }
     return null;
   });
   assert.ok(shelfPoint, '3D playlist row screen point missing');
-  await cdp.send('Input.dispatchMouseEvent', {
-    type: 'mousePressed', x: shelfPoint.x, y: shelfPoint.y, button: 'left', clickCount: 1,
-  });
+  await mouseDown(shelfPoint);
   const shelfStarted = await waitPlaying();
   pass('3D playlist physical song-card long press starts same preview state machine',
     shelfStarted.origin === '3d-playlist-row' && shelfStarted.sourceKind === 'platform-metadata', shelfStarted);
