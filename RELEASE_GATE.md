@@ -11,9 +11,9 @@
 - Tag, installer, source archive and public Release assets are frozen and must
   not be amended, moved, rebuilt or replaced.
 
-## v1.1.44 release gate (publication pending)
+## v1.1.44 release gate (published)
 
-`PENDING_GITHUB_RELEASE_AND_ONLINE_VERIFICATION`
+`PASS_FULL_GPL_RELEASE_READY`
 
 Completed source gates:
 
@@ -39,12 +39,18 @@ Completed source gates:
 - installed main `app.asar` SHA-256:
   `a49ba90a7df46c3c1c9946f4ae9dcbe3df5ca229d68ba588009e493c41360965`.
 
-Remaining publication gates:
+Completed publication gates:
 
-1. create the source archive, Release Manifest and `SHA256SUMS` from the final
-   immutable Tag commit;
-2. publish the v1.1.44 Tag/Release/assets and update GitHub Pages;
-3. verify the remote Release assets, checksums and live website download link.
-
-Only after all three items pass may this section be changed to
-`PASS_FULL_GPL_RELEASE_READY`.
+1. immutable Tag `v1.1.44` and the public Release resolve to commit
+   `72143cbc4f4b67fc003c188c05ed243558d4c14c`;
+2. all 9 public Release assets match the frozen local assets byte-for-byte and
+   by SHA-256; all 7 `SHA256SUMS` entries pass and the installer release
+   signature verifies;
+3. the corresponding source archive contains the exact 432 tracked files, no
+   forbidden build output, and has SHA-256
+   `73897655ae78be60aedfcd99105b6882c172a118f6763f41192203c7757fb327`;
+4. the public Release is available at
+   <https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/tag/v1.1.44>;
+5. GitHub Pages commit `b7eaeac62a5226ff9ac01ffa892ea511dafcdae2`
+   serves HTTP 200 with the exact v1.1.44 installer link, commit and SHA-256 at
+   <https://xiaodengdengxnjvkjxbnxj.github.io/LumiField/>.
