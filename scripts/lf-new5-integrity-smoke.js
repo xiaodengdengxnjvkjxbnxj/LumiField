@@ -27,6 +27,7 @@ const appOutDir = path.join(fixtureRoot, 'LumiField');
 const resourcesPath = path.join(appOutDir, 'resources');
 const appAsarPath = path.join(resourcesPath, 'app.asar');
 const executablePath = path.join(appOutDir, 'LumiField.exe');
+const ffmpegPath = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
 const nativeModulePath = path.join(resourcesPath, 'app.asar.unpacked', 'native', 'addon.node');
 const manifestPath = path.join(resourcesPath, 'lf-integrity-manifest.json');
 const publicKeyPath = path.join(fixtureRoot, 'lf-update-public.pem');
@@ -60,8 +61,8 @@ function staticAudit() {
     !/(?:Get-Process|tasklist|wmic|processList|homedir\(\)|USERPROFILE|Documents|Desktop)/i.test(runtime) &&
       runtime.includes('listInstallModules(installPath)'),
     true);
-  pass('runtime allowlist is restricted to app.asar and executable',
-    /ALLOWED_FILE_IDS\s*=\s*Object\.freeze\(\[['"]app\.asar['"],\s*['"]executable['"]\]\)/.test(runtime),
+  pass('runtime allowlist is restricted to app.asar, executable and pinned FFmpeg',
+    /ALLOWED_FILE_IDS\s*=\s*Object\.freeze\(\[['"]app\.asar['"],\s*['"]executable['"],\s*['"]ffmpeg['"]\]\)/.test(runtime),
     true);
   pass('runtime performs stable two-pass hashing',
     (runtime.match(/await hashFile\(filePath\)/g) || []).length === 2 &&
@@ -85,6 +86,8 @@ async function createFixture() {
   fs.writeFileSync(publicKeyPath, publicKey, 'utf8');
   fs.writeFileSync(appAsarPath, crypto.randomBytes(131077));
   fs.writeFileSync(executablePath, crypto.randomBytes(262151));
+  fs.mkdirSync(path.dirname(ffmpegPath), { recursive: true });
+  fs.writeFileSync(ffmpegPath, crypto.randomBytes(65539));
   fs.mkdirSync(path.dirname(nativeModulePath), { recursive: true });
   const nativeModuleBytes = crypto.randomBytes(32771);
   fs.writeFileSync(nativeModulePath, nativeModuleBytes);
@@ -116,12 +119,16 @@ async function run() {
   const fixture = await createFixture();
   const directAsarHash = await hashFile(appAsarPath);
   const directExeHash = await hashFile(executablePath);
+  const directFfmpegHash = await hashFile(ffmpegPath);
   const generatedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   pass('build manifest contains true final fixture hashes',
     generatedManifest.files[0].sha256 === directAsarHash &&
       generatedManifest.files[0].size === fs.statSync(appAsarPath).size &&
       generatedManifest.files[1].sha256 === directExeHash &&
       generatedManifest.files[1].size === fs.statSync(executablePath).size &&
+      generatedManifest.files[2].id === 'ffmpeg' &&
+      generatedManifest.files[2].sha256 === directFfmpegHash &&
+      generatedManifest.files[2].size === fs.statSync(ffmpegPath).size &&
       generatedManifest.modules.length === 1 &&
       generatedManifest.modules[0].path === 'resources/app.asar.unpacked/native/addon.node' &&
       generatedManifest.modules[0].sha256 === await hashFile(nativeModulePath),
@@ -132,16 +139,16 @@ async function run() {
     ...verifyOptions(fixture.publicKey),
     onStatus(status) { phases.push(status.reason); },
   });
-  pass('valid signed installation verifies both files twice',
+  pass('valid signed installation verifies all pinned files twice',
     valid.ok &&
       valid.enforced &&
       valid.reason === 'VERIFIED' &&
       valid.appVersion === '9.8.7' &&
       /^[a-f0-9]{64}$/.test(valid.manifestId) &&
-      valid.files.length === 2 &&
+      valid.files.length === 3 &&
       valid.modules.length === 1 &&
       valid.files.every((file) => file.passes === 2) &&
-      phases.filter((item) => item === 'HASHING').length === 2,
+      phases.filter((item) => item === 'HASHING').length === 3,
     { valid, phases });
 
   fs.appendFileSync(nativeModulePath, Buffer.from('module-tamper'));

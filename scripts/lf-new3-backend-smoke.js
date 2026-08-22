@@ -8,15 +8,11 @@ const path = require('path');
 
 const repo = path.resolve(__dirname, '..');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lumifield-new3-'));
-const cookieFile = path.join(tempRoot, '.cookie');
-const qqCookieFile = path.join(tempRoot, '.qq-cookie');
-fs.writeFileSync(cookieFile, 'MUSIC_U=lf-new3-fixture', 'utf8');
-fs.writeFileSync(qqCookieFile, 'uin=o70; qm_keyst=lf-qq-fixture', 'utf8');
+const musicSessionSecret = 'lf-new3-session-secret-0123456789abcdef';
 
 process.env.PORT = '0';
 process.env.HOST = '127.0.0.1';
-process.env.COOKIE_FILE = cookieFile;
-process.env.QQ_COOKIE_FILE = qqCookieFile;
+process.env.LUMIFIELD_MUSIC_SESSION_SECRET = musicSessionSecret;
 
 const neteaseApi = require('NeteaseCloudMusicApi');
 const originalApi = {};
@@ -75,7 +71,12 @@ https.request = function fixtureHttpsRequest(target, options, callback) {
     return originalHttpsRequest.call(this, target, options, callback);
   }
   let payload = { code: 1000 };
-  if (/fcg_user_created_diss/.test(parsed.pathname)) {
+  if (/musicu\.fcg/.test(parsed.pathname)) {
+    const cookie = String(options && options.headers && (options.headers.Cookie || options.headers.cookie) || '');
+    const match = cookie.match(/(?:^|;\s*)uin=o?(\d+)/i);
+    const uin = match ? match[1] : '70';
+    payload = { code: 0, req_0: { code: 0, data: { user_info: { uin, nick: 'Fixture QQ' } } } };
+  } else if (/fcg_user_created_diss/.test(parsed.pathname)) {
     payload = { code: 0, data: { disslist: [{ dissid: 'qq-owned', diss_name: 'QQ Owned', uin: '70' }] } };
   } else if (/fcg_get_profile_order_asset/.test(parsed.pathname)) {
     payload = { code: 0, data: { cdlist: [{ dissid: 'qq-collected', diss_name: 'QQ Collected', uin: '700' }] } };
@@ -179,6 +180,24 @@ function mutationContext(currentAccount, owner, ownership, operation) {
   server = require('../server');
   await waitForListening(server);
   const origin = `http://127.0.0.1:${server.address().port}`;
+  const sessionHeaders = {
+    'content-type': 'application/json',
+    'x-lumifield-session-secret': musicSessionSecret,
+  };
+  const neteaseSession = await request(origin, '/api/login/cookie', {
+    method: 'POST',
+    headers: sessionHeaders,
+    body: JSON.stringify({ cookie: 'MUSIC_U=lf-new3-fixture' }),
+  });
+  assert.equal(neteaseSession.status, 200, JSON.stringify(neteaseSession.body));
+  assert.equal(neteaseSession.body.sessionValid, true);
+  const qqSession = await request(origin, '/api/qq/login/cookie', {
+    method: 'POST',
+    headers: sessionHeaders,
+    body: JSON.stringify({ cookie: 'uin=o70; qm_keyst=lf-qq-fixture' }),
+  });
+  assert.equal(qqSession.status, 200, JSON.stringify(qqSession.body));
+  assert.equal(qqSession.body.sessionValid, true);
 
   const wrongMethod = await request(origin, '/api/playlist/mutate');
   assert.equal(wrongMethod.status, 405);
@@ -242,7 +261,7 @@ function mutationContext(currentAccount, owner, ownership, operation) {
   assert(qqListRequestCount >= listRequestsBeforeSwitch + 2);
   const qqRelogin = await request(origin, '/api/qq/login/cookie', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: sessionHeaders,
     body: JSON.stringify({ cookie: 'uin=o170; qm_keyst=lf-qq-switched' }),
   });
   assert.equal(qqRelogin.status, 200);
@@ -253,7 +272,7 @@ function mutationContext(currentAccount, owner, ownership, operation) {
   qqListDelayMs = 0;
   const qqRestore = await request(origin, '/api/qq/login/cookie', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: sessionHeaders,
     body: JSON.stringify({ cookie: 'uin=o70; qm_keyst=lf-qq-fixture' }),
   });
   assert.equal(qqRestore.status, 200);

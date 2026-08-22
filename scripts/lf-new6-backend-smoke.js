@@ -52,7 +52,7 @@ function validPreset(name = 'Aurora Field') {
     name,
     visual: { preset: 3, intensity: 1.12, visualTintMode: 'custom', visualTintColor: '#3366ff' },
     particles: { point: 1.1, speed: 0.9, bloom: true },
-    lyrics: { mode: 'animation', translate: true, lyricFont: 'Microsoft YaHei' },
+    lyrics: { translate: true, lyricFont: 'Microsoft YaHei' },
     spectrum: { enabled: true, mode: 3, bandCount: 96 },
   };
 }
@@ -76,6 +76,9 @@ function hash(value) {
     assert.equal(backend.createPresetShare(sessionA.token, { canonical: validPreset(), unknown: true }).error, 'PRESET_SHARE_FIELD_REJECTED');
     assert.equal(backend.createPresetShare(sessionA.token, {
       canonical: { ...validPreset(), mystery: { enabled: true } },
+    }).error, 'PRESET_SCHEMA_INVALID');
+    assert.equal(backend.createPresetShare(sessionA.token, {
+      canonical: { ...validPreset(), lyrics: { ...validPreset().lyrics, mode: 'animation' } },
     }).error, 'PRESET_SCHEMA_INVALID');
     assert.equal(backend.createPresetShare(sessionA.token, {
       canonical: { ...validPreset(), version: 99 },
@@ -108,7 +111,7 @@ function hash(value) {
       canonical: validPreset(),
       requestIp: '198.51.100.10',
     });
-    assert(created.ok);
+    assert(created.ok, JSON.stringify(created));
     assert(/^LF-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(created.code));
     assert(created.share && created.share.status === 'active' && !Object.hasOwn(created.share, 'ownerUserId'));
     const stored = backend.db.prepare('SELECT * FROM preset_shares WHERE id=?').get(created.share.id);
