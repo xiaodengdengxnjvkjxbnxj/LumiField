@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "product": "LumiField",
+  "version": "1.1.43",
+  "releaseTag": "v1.1.43",
+  "releaseCommit": "f20b09f2ab27dab7cfebe4aa2ffa3e17b8736fab",
+  "sourceTree": "a837a18f173c0fde340460be4874acffaeecb564",
+  "repository": "https://github.com/xiaodengdengxnjvkjxbnxj/LumiField",
+  "license": "GPL-3.0-only",
+  "releaseGate": "PASS_FULL_GPL_RELEASE_READY",
+  "platform": "Windows 10/11 x64",
+  "build": {
+    "node": "22.15.1",
+    "electron": "42.9.0",
+    "electronRebuild": "4.2.0",
+    "electronBuilder": "26.15.3",
+    "sourceFingerprintSha256": "04ff3e9962c0ea912803c08551ef4e04fe2ec79e45be5c488f2bb8efeeeddfd1"
+  },
+  "installer": {
+    "file": "LumiField-1.1.43-Setup.exe",
+    "size": 263690338,
+    "sha256": "695e54f6473f7ccbae811be9be4deaeacf0e7a9ca7461ffdb38261d6614375cb",
+    "productName": "LumiField",
+    "productVersion": "1.1.43",
+    "authenticode": "NOT_SIGNED",
+    "distributionSignatureFile": "LumiField-1.1.43-Setup.exe.release.json"
+  },
+  "sourceArchive": {
+    "file": "LumiField-1.1.43-Source.zip",
+    "size": 133717647,
+    "sha256": "ece7e61a6a0090669e1f2f782a530fd462fc2fe86b96ff3f968deb97ec9e67f0"
+  },
+  "installed": {
+    "executable": "LumiField.exe",
+    "executableSize": 222269952,
+    "executableSha256": "21403918e62db4eedd455770ef2abc341088a30ca8d2bcbe712a4fd4ca7514bc",
+    "appAsarSize": 121817147,
+    "appAsarSha256": "d169e5631892e08fcb2aefab0a9ddfd70d1f01f3253af2b7c78cad42d777dd3c"
+  },
+  "verification": {
+    "npmCi": "PASS",
+    "npmAuditProduction": "0 vulnerabilities",
+    "npmAuditFull": "0 vulnerabilities",
+    "licenseEntries": 212,
+    "licenseUnknown": 0,
+    "licenseBlockers": 0,
+    "backendSmoke": "PASS",
+    "coreSmoke": "PASS",
+    "electronUiSmoke": "PASS",
+    "packagedIntegritySmoke": "PASS",
+    "silentInstall": "PASS",
+    "silentUninstall": "PASS",
+    "silentReinstall": "PASS"
+  }
+}
