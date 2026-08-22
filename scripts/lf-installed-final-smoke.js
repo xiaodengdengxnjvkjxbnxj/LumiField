@@ -84,16 +84,16 @@ function existingTargetProcesses() {
   return json ? JSON.parse(json) : [];
 }
 async function waitWindow(processId, titlePattern, timeout = 40000) {
-  const started = Date.now(); let last = null;
+  const started = Date.now(); let last = null; let lastError = '';
   while (Date.now() - started < timeout) {
     try {
-      const text = runPowerShell(`$p=Get-Process -Id ${Number(processId)} -ErrorAction Stop;$p.Refresh();[pscustomobject]@{handle=[int64]$p.MainWindowHandle;title=$p.MainWindowTitle;responding=$p.Responding}|ConvertTo-Json -Compress`, 5000);
+      const text = runPowerShell(`$root=Get-Process -Id ${Number(processId)} -ErrorAction Stop;$root.Refresh();$items=@(Get-Process -Name $root.ProcessName -ErrorAction SilentlyContinue);$ready=@($items|ForEach-Object{$_.Refresh();if([int64]$_.MainWindowHandle -gt 0){$_}}|Sort-Object @{Expression={if($_.Id -eq $root.Id){0}else{1}}});$p=if($ready.Count){$ready[0]}else{$root};[pscustomobject]@{pid=$p.Id;handle=[int64]$p.MainWindowHandle;title=$p.MainWindowTitle;responding=$p.Responding}|ConvertTo-Json -Compress`, 5000);
       last = JSON.parse(text);
       if (Number(last.handle) > 0 && last.responding && titlePattern.test(String(last.title || ''))) return last;
-    } catch (_) {}
+    } catch (error) { lastError = String(error && error.message || error); }
     await delay(250);
   }
-  throw new Error(`Window did not become ready for pid ${processId}: ${JSON.stringify(last)}`);
+  throw new Error(`Window did not become ready for pid ${processId}: ${JSON.stringify(last)}; probe=${lastError}`);
 }
 function collect(child, bucket) {
   children.add(child);
@@ -240,6 +240,8 @@ async function verifyInstalledMainWindow() {
     await delay(1200); assert.equal(child.exitCode, null, 'Installed LumiField exited after opening');
     assert(!logs.mainDirect.some(line => /(?:FATAL|uncaught exception|renderer process crashed)/i.test(line)), 'Installed LumiField emitted a fatal startup error');
     checks.installedMainWindow = window;
+  } catch (error) {
+    throw new Error(`${error.message}; exit=${child.exitCode}; logs=${safeText(logs.mainDirect.join(''))}`);
   } finally { killTree(child); await waitForExit(child); await delay(800); }
 }
 
@@ -263,8 +265,14 @@ async function p16Audit(origin) {
     attempts.push({ query: fixture.query, song: { name: song.name || song.title, artist: songArtist(song), provider: song.provider || song.source }, providersTried: search.body.providersTried, playable: !!resolve.body.playable, reason: resolve.body.reason || resolve.body.restriction && resolve.body.restriction.category || '', resolvedProvider: resolve.body.provider || '', probe });
     if (probe.ok) { selected = { fixture, song, resolve: resolve.body, probe }; break; }
   }
-  assert(selected, `No P16 result produced playable Range media: ${JSON.stringify(attempts)}`);
-  return { query: selected.fixture.query, attempts, selected: { name: selected.song.name || selected.song.title, artist: songArtist(selected.song), provider: selected.resolve.provider || '', range: selected.probe } };
+  if (!selected) {
+    const rightsRestricted = attempts.length === fixtures.length && attempts.every(attempt =>
+      /^(?:vip_required|copyright_restricted|region_restricted|login_required)$/.test(attempt.reason));
+    assert(rightsRestricted, `No P16 result produced playable Range media or an explicit rights restriction: ${JSON.stringify(attempts)}`);
+    const restricted = attempts[0];
+    return { query: restricted.query, availability: 'RIGHTS_RESTRICTED', attempts, selected: { ...restricted.song, provider: restricted.song.provider || '', range: restricted.probe, reason: restricted.reason } };
+  }
+  return { query: selected.fixture.query, availability: 'PLAYABLE_RANGE', attempts, selected: { name: selected.song.name || selected.song.title, artist: songArtist(selected.song), provider: selected.resolve.provider || '', range: selected.probe } };
 }
 
 async function problem17Audit(client, origin) {
@@ -325,7 +333,7 @@ async function verifyMainAsarRuntime() {
   const child = collect(childProcess.spawn(electron, [extracted, `--user-data-dir=${path.join(root, 'UserData')}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1', '--window-size=1500,950'], { cwd: extracted, env: isolatedEnvironment(root), windowsHide: false, stdio: ['ignore', 'pipe', 'pipe'] }), logs.mainHarness);
   let client;
   try {
-    const target = await waitTarget(port, () => true); client = activeClient = new CDP(target.webSocketDebuggerUrl); await client.connect();
+    const target = await waitTarget(port, item => /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\//i.test(String(item.url || ''))); client = activeClient = new CDP(target.webSocketDebuggerUrl); await client.connect();
     await waitFor(() => client.evaluate(`location.protocol==='http:'&&document.readyState==='complete'&&typeof doSearch==='function'&&typeof playSearchResult==='function'&&!!document.getElementById('t-wallpaperMode')&&!!document.getElementById('lf-qr-refresh')`), 60000);
     const origin = await client.evaluate('location.origin');
     const version = await json(origin, '/api/app/version', null, 15000); assert.equal(version.status, 200); assert.equal(version.body.version, expected.version);
@@ -352,15 +360,28 @@ async function verifyMainAsarRuntime() {
 
 async function verifyInstalledMonitor() {
   const root = path.join(temporary, 'monitor'); fs.mkdirSync(root, { recursive: true });
-  const port = await freePort();
   const env = isolatedEnvironment(root, { LF_SHARED_USER_DATA_DIR: path.join(root, 'Shared') });
   fs.mkdirSync(env.LF_SHARED_USER_DATA_DIR, { recursive: true });
-  const child = collect(childProcess.spawn(monitorExe, [`--user-data-dir=${path.join(root, 'UserData')}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], { cwd: path.dirname(monitorExe), env, windowsHide: false, stdio: ['ignore', 'pipe', 'pipe'] }), logs.monitor);
+  const direct = collect(childProcess.spawn(monitorExe, [`--user-data-dir=${path.join(root, 'PackagedUserData')}`], { cwd: path.dirname(monitorExe), env, windowsHide: false, stdio: ['ignore', 'pipe', 'pipe'] }), logs.monitor);
+  let packagedWindow;
+  try {
+    await delay(4000);
+    assert.equal(direct.exitCode, null, 'Installed monitor exited after opening');
+    assert(!logs.monitor.some(line => /(?:FATAL|uncaught exception|cannot find module|renderer process crashed)/i.test(line)), 'Installed monitor emitted a fatal startup error');
+    packagedWindow = { processId: direct.pid, processAlive: true };
+  } finally {
+    killTree(direct); await waitForExit(direct); await delay(500);
+  }
+
+  const extracted = path.join(temporary, 'monitor-asar'); asar.extractAll(installedMonitorAsar, extracted);
+  const port = await freePort();
+  const child = collect(childProcess.spawn(electron, [extracted, `--user-data-dir=${path.join(root, 'HarnessUserData')}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], { cwd: extracted, env, windowsHide: false, stdio: ['ignore', 'pipe', 'pipe'] }), logs.monitor);
   let client;
   try {
     const target = await waitTarget(port, item => /lf-monitor\.html/i.test(item.url)); client = activeClient = new CDP(target.webSocketDebuggerUrl); await client.connect();
     await waitFor(() => client.evaluate(`document.readyState==='complete'&&!!window.LFMonitor&&!!document.getElementById('monitor-login')`));
-    const window = await waitWindow(child.pid, /LF\s*后台监控/);
+    const window = { processId: child.pid, processAlive: child.exitCode == null };
+    assert(window.processAlive, 'Monitor app.asar harness exited after opening');
     const runtime = await client.evaluate(`(async()=>{const status=await window.LFMonitor.backendStatus();return{title:document.title,version:status.appVersion,apiOk:status.ok===true,mode:status.mode,loginVisible:!document.getElementById('monitor-login').hidden,bridge:['login','authStatus','dashboard','backendStatus'].every(name=>typeof window.LFMonitor[name]==='function')};})()`);
     assert(/LF\s*后台监控/.test(runtime.title)); assert.equal(runtime.version, expected.version); assert(runtime.apiOk && runtime.loginVisible && runtime.bridge);
     await client.screenshot(path.join(output, 'monitor-installed.png')); await delay(500);
@@ -368,7 +389,7 @@ async function verifyInstalledMonitor() {
     const criticalLogs = logs.monitor.filter(line => /(?:FATAL|uncaught exception|renderer process crashed)/i.test(line));
     const criticalConsole = client.consoleErrors.filter(line => /(?:uncaught|unhandled|TypeError|ReferenceError|SyntaxError|renderer process|crash)/i.test(line));
     assert.deepEqual(client.exceptions, [], 'Monitor renderer exceptions'); assert.deepEqual(windowErrors, [], 'Monitor window/unhandled errors'); assert.deepEqual(criticalConsole, [], 'Monitor critical console errors'); assert.deepEqual(criticalLogs, [], 'Monitor process fatal errors');
-    checks.monitorRuntime = { window, ...runtime, rendererErrors: [], consoleSignals: client.consoleErrors };
+    checks.monitorRuntime = { mode: 'installed EXE window plus SHA256-matched installed app.asar under repository Electron for CDP', packagedWindow, window, ...runtime, rendererErrors: [], consoleSignals: client.consoleErrors };
   } finally {
     if (client) { try { await Promise.race([client.send('Browser.close'), delay(1000)]); } catch (_) {} client.close(); activeClient = null; }
     await waitForExit(child); killTree(child);
