@@ -114,6 +114,18 @@ function assessLicense(normalizedLicense) {
       ],
     };
   }
+  if (normalizedLicense === "AGPL-3.0-only") {
+    return {
+      compatibility: "AGPLV3_GPLV3_COMBINATION_COMPATIBLE",
+      decision: "ALLOW_WITH_AGPL_SOURCE_NOTICE_MODIFICATION_OBLIGATIONS",
+      obligations: [
+        "Preserve AGPL copyright, license and warranty notices.",
+        "Provide the complete corresponding source, build material and dated modification record.",
+        "Apply GNU AGPL v3 section 13 to the AGPL/GPLv3 combination and preserve each covered part's license.",
+        "Offer corresponding source to network users if a modified AGPL-covered version is offered over a network.",
+      ],
+    };
+  }
   if (permissiveSpdx.has(normalizedLicense)) {
     return {
       compatibility: "GPLV3_COMPATIBLE",
@@ -241,6 +253,14 @@ const requiredDistributionFiles = [
   "resources/licenses/21st-Marketplace-Components-MIT.txt",
   "resources/licenses/Paper-Shaders-Apache-2.0.txt",
   "resources/licenses/React-Framer-Motion-MIT.txt",
+  "resources/licenses/Bible-Strong-Avatar-Lab-AGPL-3.0-only.txt",
+  "resources/licenses/Bible-Strong-Avatar-Web-COPYRIGHT.txt",
+  "third_party/bible-strong-avatar-lab/LICENSE",
+  "third_party/bible-strong-avatar-lab/UPSTREAM_SNAPSHOT.json",
+  "docs/licenses/bible-strong-avatar-lab/SOURCE_AND_LICENSE.md",
+  "docs/licenses/bible-strong-avatar-lab/MODIFICATIONS.md",
+  "docs/licenses/bible-strong-avatar-lab/SOURCE_SHA256SUMS.txt",
+  "docs/licenses/bible-strong-avatar-lab/RELEASE_GATE.md",
 ];
 const distributionBundle = {
   requiredFiles: requiredDistributionFiles,
@@ -249,6 +269,93 @@ const distributionBundle = {
   ),
 };
 distributionBundle.complete = distributionBundle.missingFiles.length === 0;
+
+const avatarCommit = "175691ab32cefe5faec7828af62f3d50210a8eb2";
+const avatarPaths = {
+  snapshot: "third_party/bible-strong-avatar-lab/UPSTREAM_SNAPSHOT.json",
+  sourceLicense: "third_party/bible-strong-avatar-lab/LICENSE",
+  packagedLicense: "resources/licenses/Bible-Strong-Avatar-Lab-AGPL-3.0-only.txt",
+  copyright: "resources/licenses/Bible-Strong-Avatar-Web-COPYRIGHT.txt",
+  modifications: "docs/licenses/bible-strong-avatar-lab/MODIFICATIONS.md",
+  sourceRecord: "docs/licenses/bible-strong-avatar-lab/SOURCE_AND_LICENSE.md",
+  sourceHashes: "docs/licenses/bible-strong-avatar-lab/SOURCE_SHA256SUMS.txt",
+  buildMeta: "docs/licenses/bible-strong-avatar-lab/ESBUILD_META.json",
+  wrapper: "public/lf-electronic-pet2-source.js",
+  bundle: "public/lf-electronic-pet2.bundle.js",
+};
+const avatarRead = (relative) => {
+  const file = path.join(root, ...relative.split("/"));
+  return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+};
+const avatarSnapshot = (() => {
+  try { return JSON.parse(avatarRead(avatarPaths.snapshot)); } catch { return null; }
+})();
+const avatarMeta = (() => {
+  try { return JSON.parse(avatarRead(avatarPaths.buildMeta)); } catch { return null; }
+})();
+const avatarMetaInputs = Object.keys(avatarMeta?.inputs || {}).map((entry) => entry.replaceAll("\\", "/"));
+const hashRows = avatarRead(avatarPaths.sourceHashes)
+  .split(/\r?\n/)
+  .filter(Boolean)
+  .map((line) => {
+    const match = line.match(/^([A-F0-9]{64})  (.+)$/);
+    return match ? { expected: match[1], relative: match[2] } : { expected: "", relative: line };
+  });
+const hashMismatches = hashRows.filter((row) => {
+  const file = path.join(root, ...row.relative.split("/"));
+  return !row.expected || !fs.existsSync(file) || sha256(readBytes(file)) !== row.expected;
+});
+const avatarChecks = {
+  fixedCommit: avatarSnapshot?.commit === avatarCommit,
+  sourceSnapshotPresent:
+    fs.existsSync(path.join(root, "third_party", "bible-strong-avatar-lab", "packages", "avatar-core", "src", "index.ts")) &&
+    fs.existsSync(path.join(root, "third_party", "bible-strong-avatar-lab", "packages", "avatar-web", "src", "index.ts")),
+  schemaAllowsOfficialRoundness:
+    avatarRead("third_party/bible-strong-avatar-lab/packages/avatar-core/src/avatarDefinition.schema.json").includes('"maximum": 2'),
+  completeAgpl:
+    avatarRead(avatarPaths.sourceLicense).includes("GNU AFFERO GENERAL PUBLIC LICENSE") &&
+    avatarRead(avatarPaths.packagedLicense).includes("GNU AFFERO GENERAL PUBLIC LICENSE"),
+  copyrightRetained:
+    avatarRead(avatarPaths.copyright).includes("Copyright (C) 2026 Stéphane Montlouis-Calixte") &&
+    avatarRead("NOTICE.md").includes("Stéphane Montlouis-Calixte") &&
+    avatarRead("THIRD_PARTY_NOTICES.md").includes("Stéphane Montlouis-Calixte"),
+  modificationsDated:
+    avatarRead(avatarPaths.modifications).includes("Modification date: 2026-08-22") &&
+    avatarRead(avatarPaths.modifications).includes(avatarCommit),
+  sourceOfferPresent:
+    avatarRead("SOURCE_CODE_AVAILABILITY.md").includes("third_party/bible-strong-avatar-lab/") &&
+    avatarRead(avatarPaths.sourceRecord).includes(avatarCommit),
+  wrapperUsesVendoredRuntime:
+    avatarRead(avatarPaths.wrapper).includes("../third_party/bible-strong-avatar-lab/packages/avatar-web/src/index.ts") &&
+    !avatarRead(avatarPaths.wrapper).includes("esm.sh"),
+  bundleCarriesLegalBanner:
+    avatarRead(avatarPaths.bundle).includes("AGPL-3.0-only") &&
+    avatarRead(avatarPaths.bundle).includes(avatarCommit),
+  buildUsesVendoredRuntime:
+    avatarMetaInputs.some((entry) => entry.includes("third_party/bible-strong-avatar-lab/packages/avatar-core/src/index.ts")) &&
+    avatarMetaInputs.some((entry) => entry.includes("third_party/bible-strong-avatar-lab/packages/avatar-web/src/index.ts")) &&
+    !avatarMetaInputs.some((entry) => entry.includes("node_modules/@bible-strong/avatar-")),
+  sourceHashesComplete: hashRows.length >= 40 && hashMismatches.length === 0,
+  runtimeIsLocal:
+    !avatarRead(avatarPaths.bundle).includes("<iframe") &&
+    !avatarRead(avatarPaths.wrapper).includes("https://esm.sh") &&
+    !avatarRead(avatarPaths.wrapper).includes("fetch("),
+};
+const avatarFailedChecks = Object.entries(avatarChecks)
+  .filter(([, passed]) => !passed)
+  .map(([name]) => name);
+const avatarSourceGate = {
+  component: "Bible Strong Avatar Lab Electronic Pet 2",
+  license: "AGPL-3.0-only",
+  sourceCommit: avatarCommit,
+  decision: "ALLOW_WITH_AGPL_SOURCE_NOTICE_MODIFICATION_OBLIGATIONS",
+  status: avatarFailedChecks.length
+    ? "BLOCK_RELEASE_INCOMPLETE_AGPL_SOURCE_OR_NOTICE"
+    : "AGPL_SOURCE_AND_NOTICE_IMPLEMENTATION_PASS_INSTALLER_AUDIT_PENDING",
+  checks: avatarChecks,
+  failedChecks: avatarFailedChecks,
+  hashMismatches,
+};
 
 const report = {
   schemaVersion: 1,
@@ -282,15 +389,22 @@ const report = {
       reason:
         `Missing required release files: ${distributionBundle.missingFiles.join(", ")}`,
     }] : []),
+    ...(avatarFailedChecks.length ? [{
+      id: "BIBLE_STRONG_AVATAR_AGPL_SOURCE_GATE",
+      status: avatarSourceGate.status,
+      reason: `Failed AGPL evidence checks: ${avatarFailedChecks.join(", ")}`,
+    }] : []),
   ],
   distributionBundle,
   focusChecks: {
     busboy: rows.find((row) => row.name === "busboy"),
     streamsearch: rows.find((row) => row.name === "streamsearch"),
     gsapAbsent: !rows.some((row) => row.name === "gsap"),
+    bibleStrongAvatarLab: avatarSourceGate,
   },
   packages: rows,
 };
+summary.releaseBlockingEntries = report.blockers.length;
 
 const md = [];
 md.push("# LumiField V4 production dependency license audit", "");
@@ -301,6 +415,7 @@ md.push(`- Installed here: **${summary.installedEntries}**`);
 md.push(
   `- Optional platform entries not installed on this Windows host: **${summary.missingInstalledEntries}**`,
 );
+md.push(`- Electronic Pet 2 AGPL source/notice gate: **${avatarSourceGate.status}**`);
 md.push(`- Unknown license: **${summary.unknownLicenses}**`);
 md.push(`- Release-blocking entries: **${summary.releaseBlockingEntries}**`);
 md.push(`- Required distribution license bundle: **${distributionBundle.complete ? "complete" : "incomplete"}**`);
@@ -322,6 +437,7 @@ md.push(
   "- `gsap` is absent from the production lock graph. LumiField uses its independently authored `public/lf-motion.js` compatibility runtime.",
   "- `parse-cache-control@1.0.1`: its exact installed BSD-3-Clause license is identified by SHA-256 `111F42B37DAECC6C387D037EF25955BD269E7F9A46A736D5257A23560534763F`.",
   "- `ffmpeg-static@5.3.0`: GPL-3.0-or-later is compatible with the LumiField GPLv3 release, subject to corresponding-source and notice obligations.",
+  `- Bible Strong Avatar Lab Electronic Pet 2: \`${avatarSourceGate.status}\`; fixed source \`${avatarCommit}\`, complete AGPL/copyright/modification evidence and vendored-runtime build provenance are checked separately from the npm lock graph.`,
   `- ${summary.entriesWithoutRootLicenseFile} installed packages have no root license/NOTICE file; their manifest declaration is recorded in JSON, but the release license bundle must source and preserve the applicable authoritative text.`,
   "",
 );

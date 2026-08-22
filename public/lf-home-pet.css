@@ -10,6 +10,29 @@
 }
 
 #lf-home-pet[hidden] { display:none !important; }
+#lf-home-pet .lf-home-pet-runtime-host {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  contain:layout style paint;
+  pointer-events:none;
+}
+#lf-home-pet .lf-home-pet-runtime-host[data-pet-engine="electronic-pet-2"] .lf-electronic-pet2-avatar {
+  position:absolute;
+  left:0;
+  top:var(--lf-home-pet-safe-top,8px);
+  width:var(--lf-home-pet-visual-width,60px) !important;
+  height:var(--lf-home-pet-visual-height,60px) !important;
+  display:block !important;
+  overflow:visible;
+}
+#lf-home-pet .lf-electronic-pet2-avatar > svg {
+  display:block;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
 #lf-home-pet .lf-home-pet-source-motion {
   position:absolute;
   left:0;
@@ -62,4 +85,141 @@
 
 @media (prefers-reduced-motion: reduce) {
   #lf-home-pet .lf-home-pet-source-blink { animation:none !important; }
+}
+
+.lf-electronic-pet-settings {
+  margin:0;
+  padding:12px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:15px;
+  background:rgba(255,255,255,.025);
+  color:#eef8ff;
+}
+.lf-pet-settings-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.lf-pet-settings-head > div:first-child {
+  display:grid;
+  gap:2px;
+}
+.lf-pet-settings-head b { font-size:12px; }
+.lf-pet-settings-head span,
+.lf-pet-license,
+.lf-pet-settings-status {
+  color:rgba(224,238,250,.62);
+  font-size:10px;
+  line-height:1.45;
+}
+.lf-pet-engine-switch {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  min-width:224px;
+  padding:3px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:11px;
+  background:rgba(2,7,14,.34);
+}
+.lf-pet-engine-switch button {
+  min-height:30px;
+  padding:0 11px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:rgba(235,246,255,.66);
+  font:650 11px/1 "Segoe UI","Microsoft YaHei",sans-serif;
+  cursor:pointer;
+}
+.lf-pet-engine-switch button.active {
+  background:linear-gradient(135deg,rgba(93,214,255,.23),rgba(137,91,255,.19));
+  box-shadow:inset 0 0 0 1px rgba(119,219,255,.32);
+  color:#fff;
+}
+.lf-pet-engine-switch button:focus-visible,
+.lf-pet2-controls select:focus-visible,
+.lf-pet2-controls input:focus-visible,
+.lf-pet-reset:focus-visible {
+  outline:2px solid rgba(112,220,255,.86);
+  outline-offset:2px;
+}
+.lf-pet2-controls {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px 10px;
+  margin-top:11px;
+}
+.lf-pet2-controls[hidden],
+.lf-pet2-controls label[hidden] { display:none !important; }
+.lf-pet2-controls > label:not(.lf-pet-check) {
+  display:grid;
+  gap:5px;
+  min-width:0;
+  color:rgba(231,243,252,.78);
+  font-size:10px;
+}
+.lf-pet2-controls select {
+  box-sizing:border-box;
+  width:100%;
+  height:32px;
+  min-width:0;
+  padding:0 9px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:9px;
+  background:#101827;
+  color:#f5fbff;
+  font:11px/1 "Segoe UI","Microsoft YaHei",sans-serif;
+}
+.lf-pet-color {
+  grid-template-columns:1fr 38px !important;
+  align-items:center;
+}
+.lf-pet-color input[type="color"] {
+  box-sizing:border-box;
+  width:38px;
+  height:28px;
+  padding:2px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;
+  background:rgba(0,0,0,.18);
+  cursor:pointer;
+}
+.lf-pet-check {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:30px;
+  color:rgba(237,247,255,.82);
+  font-size:11px;
+  cursor:pointer;
+}
+.lf-pet-check input { accent-color:#6edcff; }
+.lf-pet-reset {
+  grid-column:1 / -1;
+  min-height:31px;
+  border:1px solid rgba(106,217,255,.20);
+  border-radius:9px;
+  background:rgba(76,183,232,.08);
+  color:#eaf9ff;
+  font:650 10px/1 "Segoe UI","Microsoft YaHei",sans-serif;
+  cursor:pointer;
+}
+.lf-pet-license {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:9px;
+}
+.lf-pet-license a { color:#8ee7ff; text-decoration:none; }
+.lf-pet-license a:hover { text-decoration:underline; }
+.lf-pet-settings-status { min-height:15px; margin-top:4px; }
+.lf-pet-settings-status.error { color:#ff9da9; }
+
+@media (max-width: 680px) {
+  .lf-pet-settings-head { align-items:stretch; flex-direction:column; }
+  .lf-pet-engine-switch { min-width:0; width:100%; }
+  .lf-pet2-controls { grid-template-columns:1fr; }
+  .lf-pet-reset { grid-column:auto; }
 }

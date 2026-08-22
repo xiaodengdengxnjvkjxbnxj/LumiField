@@ -1,0 +1,71 @@
+{
+  "name": "@bible-strong/avatar-core",
+  "version": "0.1.0",
+  "description": "Framework-independent runtime for Bible Strong procedural avatars.",
+  "keywords": [
+    "avatar",
+    "svg",
+    "animation",
+    "renderer",
+    "typescript"
+  ],
+  "author": "Stéphane Montlouis-Calixte",
+  "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/smontlouis/bible-strong-avatar-lab#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smontlouis/bible-strong-avatar-lab.git",
+    "directory": "packages/avatar-core"
+  },
+  "bugs": {
+    "url": "https://github.com/smontlouis/bible-strong-avatar-lab/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./geometry": {
+      "types": "./dist/geometry.d.ts",
+      "import": "./dist/geometry.js"
+    },
+    "./body": {
+      "types": "./dist/body.d.ts",
+      "import": "./dist/body.js"
+    },
+    "./surfaces": {
+      "types": "./dist/surfaces.d.ts",
+      "import": "./dist/surfaces.js"
+    },
+    "./ambient-motion": {
+      "types": "./dist/ambientMotion.d.ts",
+      "import": "./dist/ambientMotion.js"
+    },
+    "./schema": "./dist/avatarDefinition.schema.json"
+  },
+  "scripts": {
+    "build": "vite build --config vite.config.ts && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vite": "^8.0.13"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

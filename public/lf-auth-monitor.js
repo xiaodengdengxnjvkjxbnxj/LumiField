@@ -547,12 +547,14 @@
     renderProfile();
     var modal = $('lf-profile-modal');
     modal.classList.add('show');
+    if (window.LumiFieldHomePet) window.LumiFieldHomePet.sync('profile-open');
     if (window.LumiFieldProfileNeuralVortex) window.LumiFieldProfileNeuralVortex.activate(modal);
   }
   function closeProfile() {
     setProfileMenuActive('');
     if (window.LumiFieldProfileNeuralVortex) window.LumiFieldProfileNeuralVortex.deactivate();
     if ($('lf-profile-modal')) $('lf-profile-modal').classList.remove('show');
+    if (window.LumiFieldHomePet) window.LumiFieldHomePet.sync('profile-close');
   }
 
   function createAccountManagerUI() {

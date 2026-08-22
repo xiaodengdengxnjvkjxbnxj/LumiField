@@ -11,10 +11,10 @@ react/cjs/react.production.js:
    * LICENSE file in the root directory of this source tree.
    */
 
-scheduler/cjs/scheduler.production.js:
+react-dom/cjs/react-dom.production.js:
   /**
    * @license React
-   * scheduler.production.js
+   * react-dom.production.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *
@@ -22,10 +22,10 @@ scheduler/cjs/scheduler.production.js:
    * LICENSE file in the root directory of this source tree.
    */
 
-react-dom/cjs/react-dom.production.js:
+scheduler/cjs/scheduler.production.js:
   /**
    * @license React
-   * react-dom.production.js
+   * scheduler.production.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *

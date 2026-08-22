@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://avatars.bible-strong.app/schemas/avatar-definition-v1.json",
+  "title": "Bible Strong Avatar Definition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "body",
+    "colors",
+    "expressions",
+    "expressionOrder",
+    "animations",
+    "animationOrder"
+  ],
+  "properties": {
+    "schema": { "const": "bible-strong/avatar-definition" },
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "maxLength": 120 },
+    "body": { "$ref": "#/$defs/body" },
+    "colors": { "$ref": "#/$defs/colors" },
+    "expressions": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 128,
+      "required": ["neutral"],
+      "propertyNames": { "$ref": "#/$defs/semanticKey" },
+      "properties": { "neutral": { "$ref": "#/$defs/expression" } },
+      "additionalProperties": { "$ref": "#/$defs/expression" }
+    },
+    "expressionOrder": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/semanticKey" }
+    },
+    "animations": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "$ref": "#/$defs/semanticKey" },
+      "additionalProperties": { "$ref": "#/$defs/animation" }
+    },
+    "animationOrder": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/semanticKey" }
+    },
+    "standardAnimationSet": { "const": 1, "deprecated": true }
+  },
+  "$defs": {
+    "semanticKey": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "hexColor": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+    "boundedNumber": { "type": "number", "minimum": -10000, "maximum": 10000 },
+    "dimension": { "type": "number", "minimum": 0.001, "maximum": 10000 },
+    "roundness": { "type": "number", "minimum": 0, "maximum": 2 },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "width", "height", "depth", "roundness"],
+      "properties": {
+        "type": {
+          "enum": ["sphere", "mickey", "cursor", "cube", "capsule", "cylinder", "cone", "diamond"]
+        },
+        "width": { "$ref": "#/$defs/dimension" },
+        "height": { "$ref": "#/$defs/dimension" },
+        "depth": { "$ref": "#/$defs/dimension" },
+        "roundness": { "$ref": "#/$defs/roundness" },
+        "morphRoundness": { "$ref": "#/$defs/roundness" },
+        "tipRoundness": { "$ref": "#/$defs/roundness" },
+        "baseRoundness": { "$ref": "#/$defs/roundness" }
+      }
+    },
+    "nodeSurface": {
+      "allOf": [
+        { "$ref": "#/$defs/surface" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "enum": ["sphere", "cube", "capsule", "cylinder", "cone", "diamond"] }
+          }
+        }
+      ]
+    },
+    "position": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        { "$ref": "#/$defs/boundedNumber" },
+        { "$ref": "#/$defs/boundedNumber" },
+        { "$ref": "#/$defs/boundedNumber" }
+      ]
+    },
+    "rotation": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        { "type": "number", "minimum": -360, "maximum": 360 },
+        { "type": "number", "minimum": -360, "maximum": 360 },
+        { "type": "number", "minimum": -360, "maximum": 360 }
+      ]
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "nodes"],
+      "properties": {
+        "primary": { "$ref": "#/$defs/surface" },
+        "nodes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["surface", "position", "rotation"],
+            "properties": {
+              "surface": { "$ref": "#/$defs/nodeSurface" },
+              "position": { "$ref": "#/$defs/position" },
+              "rotation": { "$ref": "#/$defs/rotation" }
+            }
+          }
+        }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "eyes"],
+      "properties": {
+        "body": { "$ref": "#/$defs/hexColor" },
+        "eyes": { "$ref": "#/$defs/hexColor" }
+      }
+    },
+    "eye": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "x", "y", "angle"],
+      "properties": {
+        "width": { "$ref": "#/$defs/boundedNumber" },
+        "height": { "$ref": "#/$defs/boundedNumber" },
+        "x": { "$ref": "#/$defs/boundedNumber" },
+        "y": { "$ref": "#/$defs/boundedNumber" },
+        "angle": { "$ref": "#/$defs/boundedNumber" }
+      }
+    },
+    "expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "eyes", "perspective", "motion"],
+      "properties": {
+        "head": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": { "$ref": "#/$defs/boundedNumber" },
+            "y": { "$ref": "#/$defs/boundedNumber" },
+            "z": { "$ref": "#/$defs/boundedNumber" }
+          }
+        },
+        "eyes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["left", "right", "spacing"],
+          "properties": {
+            "left": { "$ref": "#/$defs/eye" },
+            "right": { "$ref": "#/$defs/eye" },
+            "spacing": { "$ref": "#/$defs/boundedNumber" }
+          }
+        },
+        "perspective": { "type": "number", "minimum": 0.1, "maximum": 10 },
+        "motion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eyes", "body"],
+          "properties": {
+            "eyes": { "enum": ["none", "microSaccades", "shake"] },
+            "body": { "enum": ["none", "slowDrift", "shake"] }
+          }
+        },
+        "colors": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "body": { "$ref": "#/$defs/hexColor" },
+            "eyes": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      }
+    },
+    "blink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "initialDelayMs", "minIntervalMs", "maxIntervalMs", "durationMs"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "initialDelayMs": { "type": "number", "minimum": 0, "maximum": 60000 },
+        "minIntervalMs": { "type": "number", "minimum": 250, "maximum": 120000 },
+        "maxIntervalMs": { "type": "number", "minimum": 250, "maximum": 120000 },
+        "durationMs": { "type": "number", "minimum": 50, "maximum": 2000 }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playbackMode", "steps", "blink"],
+      "properties": {
+        "playbackMode": { "enum": ["loop", "once", "pingPong"] },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expression", "holdMs", "transitionMs", "transition"],
+            "properties": {
+              "expression": { "$ref": "#/$defs/semanticKey" },
+              "holdMs": { "type": "number", "minimum": 100, "maximum": 60000 },
+              "transitionMs": { "type": "number", "minimum": 0, "maximum": 5000 },
+              "transition": { "enum": ["spring", "smooth", "snappy"] }
+            }
+          }
+        },
+        "blink": { "$ref": "#/$defs/blink" },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "label": { "type": "string", "maxLength": 120 },
+            "description": { "type": "string", "maxLength": 512 },
+            "group": { "type": "string", "maxLength": 64 }
+          }
+        }
+      }
+    }
+  }
+}

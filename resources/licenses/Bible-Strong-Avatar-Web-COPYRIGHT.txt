@@ -1,0 +1,14 @@
+Bible Strong Avatar Lab / @bible-strong/avatar-core / @bible-strong/avatar-web
+
+Copyright (C) 2026 Stéphane Montlouis-Calixte
+
+SPDX-License-Identifier: AGPL-3.0-only
+
+Official project: https://github.com/smontlouis/bible-strong-avatar-lab
+Integrated source commit: 175691ab32cefe5faec7828af62f3d50210a8eb2
+Project website: https://avatars.bible-strong.app/
+
+The complete GNU Affero General Public License version 3 text is distributed
+beside this notice as Bible-Strong-Avatar-Lab-AGPL-3.0-only.txt. LumiField's
+modifications and corresponding-source location are recorded in
+docs/licenses/bible-strong-avatar-lab/ within the source distribution.

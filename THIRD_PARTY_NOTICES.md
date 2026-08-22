@@ -8,6 +8,7 @@ This file is the public release summary. The canonical detailed notice is [NOTIC
 | Audio Echo Shape 1 | `public/lf-audio-echo-shape1.js` LF-native adapter | `hgbhh258-spec/Sonic-Topography-Wallpaper@51afbac3d5978c112311fca38f7334578ca2b0e6` | MIT; Copyright 2026 eeegg | `MIT_PERMISSIVE_PASS` |
 | Audio Echo Shape 2 | `public/lf-audio-echo-shape2.js` | `CmzYa/sonic-topography@cd6d9d2faee167f2dcafd2d0cbd2b4861e7e5fbc` | GPL-3.0 for CmzYa additions; inherited historical `yin-yizhen` lineage covered by Issue #25 and the retained GPLv3 downstream confirmation | `GPL_NATIVE_PASS` + confirmed authorization |
 | Shader SVG | `public/lf-home-pet-source.jsx` and bundle | `reuno-ui/shader-svg`, component 4265, revision 92 | 21st Marketplace MIT; Paper Shaders Apache-2.0; React/Framer Motion MIT | `MIT_OR_PERMISSIVE_PASS` |
+| Electronic Pet 2 | `public/lf-electronic-pet2-source.js` and bundle; exact source snapshot in `third_party/bible-strong-avatar-lab/` | `smontlouis/bible-strong-avatar-lab@175691ab32cefe5faec7828af62f3d50210a8eb2` | AGPL-3.0-only; Copyright (C) 2026 Stéphane Montlouis-Calixte | `ALLOW_WITH_AGPL_SOURCE_NOTICE_MODIFICATION_OBLIGATIONS` |
 | Neural vortex | `public/lf-profile-vortex.js` | `minhxthanh/interactive-neural-vortex-background` | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Splash ATC | `public/lf-splash.js` | `xordev/atc-shader` | 21st Marketplace MIT | `MIT_OR_PERMISSIVE_PASS` |
 | Splash kinetic grid | `public/lf-splash.js` | `satoriui/kinetic-grid` | MIT (item and Marketplace) | `MIT_OR_PERMISSIVE_PASS` |

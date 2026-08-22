@@ -14,3 +14,14 @@
 ## Remaining publication gates
 
 The license gate is complete. The public Release remains contingent on the exact Tag build, clean-clone rebuild, installer/install/runtime checks, final hashes, GitHub asset upload and website download verification described in [RELEASE.md](./RELEASE.md).
+
+## v1.1.44 development gate
+
+The v1.1.43 conclusion above is frozen historical release evidence and remains
+unchanged. Electronic Pet 2 is new v1.1.44 work and is governed by the strict
+component gate at
+`docs/licenses/bible-strong-avatar-lab/RELEASE_GATE.md`. Its current status is
+`AGPL_SOURCE_NOTICE_AND_PACKAGE_CONTENT_PASS_FINAL_INSTALLER_SOURCE_ARCHIVE_PENDING`;
+the current unpacked-package content audit passed, while final installer/source
+archive identity remains a release-stage gate. This does not override any
+unrelated v1.1.44 blocker or authorize changes to v1.1.43.

@@ -1,0 +1,75 @@
+{
+  "name": "bible-strong-avatar-lab",
+  "version": "0.1.0",
+  "description": "A browser-based studio for designing procedural 2D avatars, expressions and reusable animations.",
+  "author": "Stéphane Montlouis-Calixte",
+  "homepage": "https://avatars.bible-strong.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smontlouis/bible-strong-avatar-lab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/smontlouis/bible-strong-avatar-lab/issues"
+  },
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm engine && vite",
+    "build": "pnpm engine && vite build",
+    "preview": "vite preview",
+    "engine": "node scripts/generate-standalone-engine.mjs",
+    "engine:check": "node scripts/generate-standalone-engine.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "packages:build": "pnpm --filter './packages/*' build",
+    "packages:smoke": "node scripts/smoke-packages.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm packages:build && changeset publish",
+    "check": "pnpm engine:check && pnpm format:check && pnpm packages:build && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.7.0",
+    "@bible-strong/avatar-core": "workspace:*",
+    "@bible-strong/avatar-react": "workspace:*",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "ajv": "^8.20.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.31.0",
+    "motion": "^13.0.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-resizable-panels": "^4.12.2",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/parser": "^7.28.6",
+    "@changesets/cli": "^3.0.0",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.8.1",
+    "rolldown": "^1.0.0-rc.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.10"
+  }
+}

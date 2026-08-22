@@ -1,0 +1,10 @@
+/*!
+ * LumiField Electronic Pet 2 integration.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ *
+ * Uses the official Bible Strong Avatar Lab Web Runtime by
+ * Stéphane Montlouis-Calixte, fixed at commit
+ * 175691ab32cefe5faec7828af62f3d50210a8eb2.
+ * LumiField modifications are recorded in
+ * docs/licenses/bible-strong-avatar-lab/MODIFICATIONS.md.
+ */

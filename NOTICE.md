@@ -78,6 +78,17 @@ LumiField 是基于 Mineradio 修改的发行版本，并使用了以下第三�
   `resources/licenses/`; exact material hashes and release conditions are under
   `docs/licenses/21st/shader-svg/`. Reference TXT/video are not packaged.
 
+- Bible Strong Avatar Lab `@bible-strong/avatar-core` and
+  `@bible-strong/avatar-web` source version `0.1.0`, fixed at commit
+  `175691ab32cefe5faec7828af62f3d50210a8eb2`, provide Electronic Pet 2.
+  Copyright (C) 2026 Stéphane Montlouis-Calixte; AGPL-3.0-only. LumiField
+  bundles the official local Web Runtime and exact source snapshot without an
+  iframe, CDN or Avatar Lab dependency. The full AGPL text, corresponding
+  source, hashes and modification record are retained under
+  `resources/licenses/`, `third_party/bible-strong-avatar-lab/` and
+  `docs/licenses/bible-strong-avatar-lab/`. Component gate:
+  `ALLOW_WITH_AGPL_SOURCE_NOTICE_MODIFICATION_OBLIGATIONS`.
+
 - `21st.dev/@tom_ui/components/tilt-card/gravitate`, catalog id `12244`, is
   directly adapted for the Problem 20 weather surface from the user-supplied
   complete source. Its Spell UI upstream is MIT (Copyright (c) 2025 Spell UI);

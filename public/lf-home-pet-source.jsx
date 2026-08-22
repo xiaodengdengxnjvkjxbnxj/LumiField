@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MeshGradient } from '@paper-design/shaders-react';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -46,7 +47,7 @@ function MeshGradientSVG({ paused = false }) {
   const reducedMotion = useReducedMotion();
   const motionPaused = paused || reducedMotion;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     runtime.mounts += 1;
     runtime.listenerCount += 2;
     const handleMouseMove = (event) => {
@@ -110,7 +111,7 @@ function MeshGradientSVG({ paused = false }) {
     setGreeting(nextGreeting);
   }, [mousePosition]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     runtime.paused = motionPaused;
   }, [motionPaused]);
 
@@ -175,7 +176,7 @@ export function mount(host, options = {}) {
   if (!host || roots.has(host)) return false;
   const root = createRoot(host);
   roots.set(host, { root, paused: options.paused === true });
-  root.render(<MeshGradientSVG paused={options.paused === true} />);
+  flushSync(() => root.render(<MeshGradientSVG paused={options.paused === true} />));
   return true;
 }
 
