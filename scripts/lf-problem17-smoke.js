@@ -75,7 +75,8 @@ async function main() {
     /weatherRequest && weatherRequest\.key === key/.test(rendererSource) &&
     /serial !== weatherRequestSerial/.test(rendererSource));
   pass('city persistence happens only after successful weather response',
-    rendererSource.indexOf('var result = await requestJson') < rendererSource.indexOf('if (city) save(STORE.city, city)'));
+    rendererSource.indexOf('var result = await requestJson') >= 0 &&
+    rendererSource.indexOf('var result = await requestJson') < rendererSource.indexOf('save(STORE.city, resolvedCity)'));
 
   const port = await freePort();
   child = spawn(process.execPath, ['server.js'], {
