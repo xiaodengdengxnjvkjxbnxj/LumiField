@@ -2998,6 +2998,13 @@
     syncPresetShareStates();
   }
   function transactionalFromSchemaResult(result) {
+    var invalidFields = result && Array.isArray(result.invalidFields) ? result.invalidFields : [];
+    if (!result || !result.canonical || invalidFields.length) {
+      var invalidError = new Error('预设字段验证失败' + (invalidFields.length ? '：' + invalidFields.map(function (field) { return field.sourcePath || '$'; }).join('、') : ''));
+      invalidError.code = 'PRESET_SCHEMA_INVALID';
+      invalidError.report = result || null;
+      throw invalidError;
+    }
     return {
       schema:result.canonical.version,
       migratedFrom:result.source && result.source.version || 1,
