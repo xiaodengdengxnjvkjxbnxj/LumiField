@@ -21,7 +21,7 @@ LumiField 是面向 Windows 的沉浸式开源音乐播放器，把本地播放�
 
 只使用正式 Release 中的 `LumiField-1.1.44-Setup.exe`。安装包会创建 LumiField 桌面和开始菜单快捷方式。v1.1.43 已冻结保留；`v1.0.10` 及更早历史安装包不再建议安装或传播。
 
-发布资产的文件大小、SHA-256、源码提交和内部版本见 [RELEASE_MANIFEST.json](./RELEASE_MANIFEST.json) 与 [SHA256SUMS](./SHA256SUMS)。
+发布资产的文件大小、SHA-256、源码提交和内部版本见 [RELEASE_MANIFEST.json](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/download/v1.1.44/RELEASE_MANIFEST.json) 与 [SHA256SUMS](https://github.com/xiaodengdengxnjvkjxbnxj/LumiField/releases/download/v1.1.44/SHA256SUMS)。
 
 ## 从源码运行与构建
 
